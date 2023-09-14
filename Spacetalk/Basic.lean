@@ -57,12 +57,18 @@ namespace VirtFlow
     | nat
     | bool
 
+  @[reducible] def Ty.denote : Ty → Type
+    | bool => Bool
+    | nat => Nat
+
   inductive NodeOps : List Ty → List Ty → Type
+    | inc : NodeOps [.nat] [.nat]
     | add : NodeOps [.nat, .nat] [.nat]
     | sub : NodeOps [.nat, .nat] [.nat]
     | mul : NodeOps [.nat, .nat] [.nat]
     | dup : NodeOps [.nat] [.nat, .nat]
-    | cons : NodeOps α β → NodeOps β γ → NodeOps α γ
+    | tail : NodeOps α α.tail
+    | comp : NodeOps α β → NodeOps β γ → NodeOps α γ
 
   -- Buffer sizes will be modeled later
   structure FIFO (num_nodes : Nat) where
@@ -79,9 +85,14 @@ namespace VirtFlow
     filtered.map (·.ty)
 
   structure Node (fifos : Vector (FIFO num_nodes) num_fifos) (id : Fin num_nodes) where
-    ops : NodeOps (find_inputs fifos id) (find_outputs fifos id)
+    state : Ty
+    initial_state : state.denote
+    state_transform : NodeOps [state] [state]
+    ops : NodeOps (state :: (find_inputs fifos id)) (find_outputs fifos id)
 
-  def NodeList {num_nodes num_fifos : Nat} (fifos : Vector (FIFO num_nodes) num_fifos) := (id : Fin num_nodes) → Node fifos id
+  -- First node is the initial node and last node is the terminal node
+  def NodeList {num_nodes num_fifos : Nat} (fifos : Vector (FIFO num_nodes) num_fifos) :=
+    (id : Fin num_nodes) → Node fifos id
 
   structure VirtFlowConfig where
     num_nodes : Nat
@@ -91,20 +102,25 @@ namespace VirtFlow
 
   -- Semantics
 
-  @[reducible] def Ty.denote : Ty → Type
-    | bool => Bool
-    | nat => Nat
-  
+  -- We choose to denote a List Ty with a tuple instead of a heterogenous list 
   @[reducible] def ty_list_denote : List Ty → Type
     | [] => Unit
     | ty :: [] => ty.denote
     | ty :: tail => ty.denote × (ty_list_denote tail)
+
+  @[simp] def node_ops_tail_denote (l : ty_list_denote α) : ty_list_denote α.tail :=
+    match α with
+      | [] => ()
+      | _ :: [] => ()
+      | _ :: _ :: _ => l.snd
   
   @[simp] def NodeOps.denote : NodeOps α β → (ty_list_denote α → ty_list_denote β)
+    | inc => (· + 1)
     | add => λ (a, b) => a + b
     | sub => λ (a, b) => a - b
     | mul => λ (a, b) => a * b
     | dup => λ x => (x, x)
-    | cons f g => g.denote ∘ f.denote
-  
+    | tail => node_ops_tail_denote
+    | comp f g => g.denote ∘ f.denote
+
 end VirtFlow
