@@ -1,5 +1,4 @@
 import Mathlib.Data.Vector
-import Mathlib.Data.List.Range
 
 -- Source Lang
 namespace Spatium
@@ -56,6 +55,7 @@ namespace VirtFlow
 
   inductive Ty
     | nat
+    | bool
 
   inductive NodeOps : List Ty → List Ty → Type
     | add : NodeOps [.nat, .nat] [.nat]
@@ -92,6 +92,19 @@ namespace VirtFlow
   -- Semantics
 
   @[reducible] def Ty.denote : Ty → Type
+    | bool => Bool
     | nat => Nat
-
+  
+  @[reducible] def ty_list_denote : List Ty → Type
+    | [] => Unit
+    | ty :: [] => ty.denote
+    | ty :: tail => ty.denote × (ty_list_denote tail)
+  
+  @[simp] def NodeOps.denote : NodeOps α β → (ty_list_denote α → ty_list_denote β)
+    | add => λ (a, b) => a + b
+    | sub => λ (a, b) => a - b
+    | mul => λ (a, b) => a * b
+    | dup => λ x => (x, x)
+    | cons f g => g.denote ∘ f.denote
+  
 end VirtFlow
