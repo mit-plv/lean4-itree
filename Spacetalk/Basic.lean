@@ -1,3 +1,5 @@
+import Mathlib.Data.Vector
+import Mathlib.Data.List.Range
 
 -- Source Lang
 namespace Spatium
@@ -62,20 +64,30 @@ namespace VirtFlow
     | dup : NodeOps [.nat] [.nat, .nat]
     | cons : NodeOps α β → NodeOps β γ → NodeOps α γ
 
-  structure Node where
-    α : List Ty
-    β : List Ty
-    ops : NodeOps α β
-
   -- Buffer sizes will be modeled later
   structure FIFO (num_nodes : Nat) where
     ty : Ty
     producer : Fin num_nodes
     consumer : Fin num_nodes
+  
+  def find_inputs (fifos : Vector (FIFO num_nodes) num_fifos) (id : Fin num_nodes) : List Ty :=
+    let filtered := fifos.toList.filter (·.producer == id)
+    filtered.map (·.ty)
+
+  def find_outputs (fifos : Vector (FIFO num_nodes) num_fifos) (id : Fin num_nodes) : List Ty :=
+    let filtered := fifos.toList.filter (·.consumer == id)
+    filtered.map (·.ty)
+
+  structure Node (fifos : Vector (FIFO num_nodes) num_fifos) (id : Fin num_nodes) where
+    ops : NodeOps (find_inputs fifos id) (find_outputs fifos id)
+
+  def NodeList {num_nodes num_fifos : Nat} (fifos : Vector (FIFO num_nodes) num_fifos) := (id : Fin num_nodes) → Node fifos id
 
   structure VirtFlowConfig where
-    nodes : Array Node
-    fifos : List (FIFO nodes.size)
+    num_nodes : Nat
+    num_fifos : Nat
+    fifos : Vector (FIFO num_nodes) num_fifos
+    nodes : NodeList fifos
 
   -- Semantics
 
