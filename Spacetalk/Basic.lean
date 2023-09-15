@@ -77,6 +77,7 @@ namespace VirtFlow
   inductive NodeOps : List Ty → List Ty → Type
     | nop : NodeOps α α -- for stateless nodes
     | inc : NodeOps [.nat] [.nat]
+    | eq_const : Nat → NodeOps [.nat] [.bool]
     | add : NodeOps [.nat, .nat] [.nat]
     | sub : NodeOps [.nat, .nat] [.nat]
     | mul : NodeOps [.nat, .nat] [.nat]
@@ -94,7 +95,6 @@ namespace VirtFlow
   structure OutputFIFO
 
   -- Buffer sizes will be modeled later
-  -- Special output fifo?
   -- Maybe explicitly separate outputs
   -- Given that one node might not be able to emit N streams
   -- Find ways to tie back to original program
@@ -112,22 +112,37 @@ namespace VirtFlow
     let filtered := fifos.toList.filter (match ·.consumer with | .inl node_id => node_id == id | .inr _ => false)
     filtered.map (·.ty)
 
-  -- State should need done signals
-  -- Maybe separate state transforms
-  structure Node (fifos : Vector (FIFO num_nodes) num_fifos) (id : Fin num_nodes) where
+  def FIFOList (num_nodes num_fifos : Nat) := Vector (FIFO num_nodes) num_fifos
+
+  structure StatelessNode (fifos : FIFOList num_nodes num_fifos) (id : Fin num_nodes) where
+    pipeline : NodeOps (find_inputs fifos id) (find_outputs fifos id)
+
+  structure InitialNode (fifos : FIFOList num_nodes num_fifos) (id : Fin num_nodes) where
+    state : List Ty
+    initial_state : ty_list_denote state
+    state_transform : NodeOps state state
+    done : NodeOps state [.bool]
+    pipeline : NodeOps (state ++ (find_inputs fifos id)) (find_outputs fifos id)
+
+  structure StatefulNode (fifos : FIFOList num_nodes num_fifos) (id : Fin num_nodes) where
     state : List Ty
     initial_state : ty_list_denote state
     state_transform : NodeOps state state
     pipeline : NodeOps (state ++ (find_inputs fifos id)) (find_outputs fifos id)
 
+  inductive Node (fifos : FIFOList num_nodes num_fifos) (id : Fin num_nodes)
+    | stateless : StatelessNode fifos id → Node fifos id
+    | initial : InitialNode fifos id → Node fifos id
+    | stateful : StatefulNode fifos id → Node fifos id
+
   -- First node is the initial node and last node is the terminal node
-  def NodeList {num_nodes num_fifos : Nat} (fifos : Vector (FIFO num_nodes) num_fifos) :=
+  def NodeList {num_nodes num_fifos : Nat} (fifos : FIFOList num_nodes num_fifos) :=
     (id : Fin num_nodes) → Node fifos id
 
   structure VirtFlowConfig where
     num_nodes : Nat
     num_fifos : Nat
-    fifos : Vector (FIFO num_nodes) num_fifos
+    fifos : FIFOList num_nodes num_fifos 
     nodes : NodeList fifos
 
   -- Semantics
@@ -141,6 +156,7 @@ namespace VirtFlow
   @[simp] def NodeOps.denote : NodeOps α β → (ty_list_denote α → ty_list_denote β)
     | nop => id
     | inc => (· + 1)
+    | eq_const k => (· == k)
     | add => λ (a, b) => a + b
     | sub => λ (a, b) => a - b
     | mul => λ (a, b) => a * b
