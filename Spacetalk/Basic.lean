@@ -90,23 +90,26 @@ namespace VirtFlow
     | ty :: [] => ty.denote
     | ty :: tail => ty.denote × (ty_list_denote tail)
 
+  -- Marker type for collecting results
+  structure OutputFIFO
+
   -- Buffer sizes will be modeled later
   -- Special output fifo?
   -- Maybe explicitly separate outputs
   -- Given that one node might not be able to emit N streams
   -- Find ways to tie back to original program
-  -- conditionally dequeable and enqueable, for reductions
+  -- FUTURE: Conditional read and write (for reductions)
   structure FIFO (num_nodes : Nat) where
     ty : Ty
     producer : Fin num_nodes
-    consumer : Fin num_nodes
+    consumer : Fin num_nodes ⊕ OutputFIFO
   
   def find_inputs (fifos : Vector (FIFO num_nodes) num_fifos) (id : Fin num_nodes) : List Ty :=
     let filtered := fifos.toList.filter (·.producer == id)
     filtered.map (·.ty)
 
   def find_outputs (fifos : Vector (FIFO num_nodes) num_fifos) (id : Fin num_nodes) : List Ty :=
-    let filtered := fifos.toList.filter (·.consumer == id)
+    let filtered := fifos.toList.filter (match ·.consumer with | .inl node_id => node_id == id | .inr _ => false)
     filtered.map (·.ty)
 
   -- State should need done signals
