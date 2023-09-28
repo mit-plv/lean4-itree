@@ -1,3 +1,4 @@
+import Mathlib.Data.Stream.Defs
 import Mathlib.Data.Vector
 
 -- Source Lang
@@ -13,15 +14,23 @@ namespace Spatium
   infixr:55 " × " => Ty.prod
   infixr:25 " → " => Ty.fn
 
-  inductive Op : Ty → Ty → Type
-    | plus : Op (.nat × .nat) .nat
+  inductive BinOp : Ty → Ty → Type
+    | plus : BinOp (.nat × .nat) .nat
 
-  inductive Term : Ty → Type
-    | const : Nat → Term .nat
-    | op : Op α β → Term (α → β)
-    | range : Term .nat → Term (.stream .nat)
-    | zip : Term (.stream α) → Term (.stream β) → Term (.stream (α × β))
-    | map : Term (α → β) → Term (.stream α) → Term (.stream β)
+  -- Exprs operate on not streams
+  -- Progs operate on streams and are always stream(s) → stream(s)
+  -- This is so that a final program is always a function from stream(s) to stream(s)
+
+  inductive Expr : Ty → Type
+    | const : Nat → Expr .nat
+    | binop : BinOp α β → Expr (α → β)
+
+  -- Cannot encode filter on infinite streams
+  -- Filters must be done "locally"
+  inductive Prog : Ty → Type
+    | zip : Prog ((.stream α × .stream β) → .stream (α × β))
+    | map : Expr (α → β) → Prog (.stream α → .stream β)
+    | comp : Prog (α → β) → Prog (β → γ) → Prog (α → γ)
 
   -- Semantics
 
@@ -29,37 +38,49 @@ namespace Spatium
     | nat => Nat
     | prod α β => α.denote × β.denote
     | fn α β => α.denote → β.denote
-    | stream ty => List ty.denote
+    | stream ty => Stream' ty.denote
 
-  @[simp] def Op.denote : Op α β → (α.denote → β.denote)
+  @[simp] def BinOp.denote : BinOp α β → (α.denote → β.denote)
     | plus => λ (a, b) => a + b
 
-  @[simp] def Term.denote : Term ty → ty.denote
-    | const x => x
-    | op x => x.denote
-    | range n => List.range n.denote
-    | zip a b => List.zip a.denote b.denote
-    | map f l => List.map f.denote l.denote
+  @[simp] def Expr.denote : Expr ty → ty.denote
+    | const n => n
+    | binop op => op.denote
+
+  @[simp] def Prog.denote : Prog ty → ty.denote
+    | zip => λ (sa, sb) => Stream'.zip (·, ·) sa sb
+    | map f => λ s => Stream'.map f.denote s
+    | comp f g => g.denote ∘ f.denote
 
   namespace Example
     -- A rudimentary a + b example
-    -- where a and b are two streams that range over [0-9]
-    -- and a node c sums the two streams
-    def a : Term (.stream .nat) := .range (.const 10)
-    def b : Term (.stream .nat) := .range (.const 10)
-    def zipper : Term (.stream (.nat × .nat)) := .zip a b
-    def c : Term (.stream .nat) := .map (.op .plus) zipper
+    def adder : Prog ((.stream .nat × .stream .nat) → .stream .nat) :=
+      .comp  .zip (.map (.binop .plus))
 
-    def a_plus_b := (List.zip (List.range 10) (List.range 10)).map (λ (a, b) => a + b)
+    def adder' (tup : Stream' Nat × Stream' Nat) : Stream' Nat :=
+      λ n => (tup.fst.nth n) + (tup.snd.nth n)
 
-    example : c.denote = a_plus_b := by
-      simp
+    def sa : Stream' Nat := id
+    def sb : Stream' Nat := id
+
+    def add := adder.denote (sa, sb)
+    def add' := adder' (sa, sb)
+    #eval add.nth 5
+    #eval add'.nth 5
+
+    theorem adder_equiv : adder.denote = adder' := by
+      repeat {
+        apply funext
+        intros
+        simp [adder', Stream'.map, Stream'.zip, Stream'.nth]
+      }
   end Example
 
 end Spatium
 
 -- (Virtual) RDA Spec
--- What optimizations should we do at this level?
+-- Q: What optimizations should we do at this level?
+-- A: A form of CSE: What Ben briefly worked on (function circuits).
 namespace VirtFlow
 
   -- Syntax
@@ -67,20 +88,16 @@ namespace VirtFlow
   inductive Ty
     | unit
     | nat
-    | bool
 
   @[reducible] def Ty.denote : Ty → Type
     | unit => Unit
-    | bool => Bool
     | nat => Nat
 
+  -- More expressive adds that choose inputs with Fins
+  -- monotonic to preserver old inputs
   inductive NodeOps : List Ty → List Ty → Type
     | nop : NodeOps α α -- for stateless nodes
-    | inc : NodeOps [.nat] [.nat]
-    | eq_const : Nat → NodeOps [.nat] [.bool]
     | add : NodeOps [.nat, .nat] [.nat]
-    | sub : NodeOps [.nat, .nat] [.nat]
-    | mul : NodeOps [.nat, .nat] [.nat]
     | dup : NodeOps [.nat] [.nat, .nat]
     | tail : NodeOps α α.tail
     | comp : NodeOps α β → NodeOps β γ → NodeOps α γ
@@ -91,52 +108,39 @@ namespace VirtFlow
     | ty :: [] => ty.denote
     | ty :: tail => ty.denote × (ty_list_denote tail)
 
-  -- Marker type for collecting results
-  structure OutputFIFO
+  -- Marker type for external input/outputs
+  structure External where
 
   -- Buffer sizes will be modeled later
   -- Maybe explicitly separate outputs
   -- Given that one node might not be able to emit N streams
   -- Find ways to tie back to original program
   -- FUTURE: Conditional read and write (for reductions)
+  -- Use special node types for external producer/consumer
   structure FIFO (num_nodes : Nat) where
     ty : Ty
-    producer : Fin num_nodes
-    consumer : Fin num_nodes ⊕ OutputFIFO
-  
-  def find_inputs (fifos : Vector (FIFO num_nodes) num_fifos) (id : Fin num_nodes) : List Ty :=
-    let filtered := fifos.toList.filter (·.producer == id)
+    producer : Fin num_nodes ⊕ External
+    consumer : Fin num_nodes ⊕ External
+
+  def find_node_inputs (fifos : Vector (FIFO num_nodes) num_fifos) (id : Fin num_nodes) : List Ty :=
+    let filtered := fifos.toList.filter (match ·.consumer with | .inl node_id => node_id == id | .inr _ => false)
     filtered.map (·.ty)
 
-  def find_outputs (fifos : Vector (FIFO num_nodes) num_fifos) (id : Fin num_nodes) : List Ty :=
-    let filtered := fifos.toList.filter (match ·.consumer with | .inl node_id => node_id == id | .inr _ => false)
+  def find_node_outputs (fifos : Vector (FIFO num_nodes) num_fifos) (id : Fin num_nodes) : List Ty :=
+    let filtered := fifos.toList.filter (match ·.producer with | .inl node_id => node_id == id | .inr _ => false)
     filtered.map (·.ty)
 
   def FIFOList (num_nodes num_fifos : Nat) := Vector (FIFO num_nodes) num_fifos
 
-  structure StatelessNode (fifos : FIFOList num_nodes num_fifos) (id : Fin num_nodes) where
-    pipeline : NodeOps (find_inputs fifos id) (find_outputs fifos id)
-
-  structure InitialNode (fifos : FIFOList num_nodes num_fifos) (id : Fin num_nodes) where
+  -- The circuit is a steam → stream
+  structure Node (fifos : FIFOList num_nodes num_fifos) (id : Fin num_nodes) where
     state : List Ty
     initial_state : ty_list_denote state
-    state_transform : NodeOps state state
-    done : NodeOps state [.bool]
-    pipeline : NodeOps (state ++ (find_inputs fifos id)) (find_outputs fifos id)
-
-  structure StatefulNode (fifos : FIFOList num_nodes num_fifos) (id : Fin num_nodes) where
-    state : List Ty
-    initial_state : ty_list_denote state
-    state_transform : NodeOps state state
-    pipeline : NodeOps (state ++ (find_inputs fifos id)) (find_outputs fifos id)
-
-  inductive Node (fifos : FIFOList num_nodes num_fifos) (id : Fin num_nodes)
-    | stateless : StatelessNode fifos id → Node fifos id
-    | initial : InitialNode fifos id → Node fifos id
-    | stateful : StatefulNode fifos id → Node fifos id
+    state_transform : NodeOps (state ++ (find_node_inputs fifos id)) state
+    pipeline : NodeOps (state ++ (find_node_inputs fifos id)) (find_node_outputs fifos id)
 
   -- First node is the initial node and last node is the terminal node
-  def NodeList {num_nodes num_fifos : Nat} (fifos : FIFOList num_nodes num_fifos) :=
+  def NodeList (fifos : FIFOList num_nodes num_fifos) :=
     (id : Fin num_nodes) → Node fifos id
 
   structure VirtFlowConfig where
@@ -155,13 +159,29 @@ namespace VirtFlow
   
   @[simp] def NodeOps.denote : NodeOps α β → (ty_list_denote α → ty_list_denote β)
     | nop => id
-    | inc => (· + 1)
-    | eq_const k => (· == k)
     | add => λ (a, b) => a + b
-    | sub => λ (a, b) => a - b
-    | mul => λ (a, b) => a * b
     | dup => λ x => (x, x)
     | tail => node_ops_tail_denote
     | comp f g => g.denote ∘ f.denote
+  
+  def find_graph_inputs (vfc : VirtFlowConfig) : List Ty :=
+    let filtered := vfc.fifos.toList.filter (match ·.producer with | .inr _ => true | .inl _ => false)
+    filtered.map (·.ty)
+  
+  def find_graph_outputs (vfc : VirtFlowConfig) : List Ty :=
+    let filtered := vfc.fifos.toList.filter (match ·.consumer with | .inr _ => true | .inl _ => false)
+    filtered.map (·.ty)
+  
+  @[reducible] def ty_list_to_streams : List Ty → Type
+    | [] => Unit
+    | ty :: [] => Stream' ty.denote
+    | ty :: tail => Stream' ty.denote × (ty_list_to_streams tail)
+
+  @[reducible] def VirtFlowConfig.type_denote (vfc : VirtFlowConfig) : Type :=
+    (ty_list_to_streams (find_graph_inputs vfc)) → (ty_list_to_streams (find_graph_outputs vfc))
+
+  @[simp] def VirtFlowConfig.denote (vfc : VirtFlowConfig) : vfc.type_denote :=
+    λ inps =>
+    sorry
 
 end VirtFlow
