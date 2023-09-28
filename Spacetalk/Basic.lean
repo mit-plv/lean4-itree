@@ -179,13 +179,8 @@ namespace VirtFlow
       let filtered := vfc.fifos.toList.filter (match ·.consumer with | .inr _ => true | .inl _ => false)
       filtered.map (·.ty)
 
-    @[reducible] def input_types (vfc : VirtFlowConfig) : Type :=
-      ty_list_to_streams vfc.find_graph_inputs
-
-    @[reducible] def output_types (vfc : VirtFlowConfig) : Type :=
-      ty_list_to_streams vfc.find_graph_outputs
-
-    @[simp] def denote (vfc : VirtFlowConfig) : vfc.input_types → vfc.output_types :=
+    @[simp] def denote (vfc : VirtFlowConfig) :
+      ty_list_to_streams vfc.find_graph_inputs → ty_list_to_streams vfc.find_graph_outputs :=
       λ inps => match vfc.find_graph_outputs with
         | [] => ()
 
