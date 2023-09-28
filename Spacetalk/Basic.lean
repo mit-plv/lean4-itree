@@ -93,6 +93,12 @@ namespace VirtFlow
     | unit => Unit
     | nat => Nat
 
+  -- We choose to denote a List Ty with a tuple instead of a heterogenous list 
+  @[reducible] def ty_list_denote : List Ty → Type
+    | [] => Unit
+    | ty :: [] => ty.denote
+    | ty :: tail => ty.denote × (ty_list_denote tail)
+
   -- More expressive adds that choose inputs with Fins
   -- monotonic to preserver old inputs
   inductive NodeOps : List Ty → List Ty → Type
@@ -101,12 +107,6 @@ namespace VirtFlow
     | dup : NodeOps [.nat] [.nat, .nat]
     | tail : NodeOps α α.tail
     | comp : NodeOps α β → NodeOps β γ → NodeOps α γ
-
-  -- We choose to denote a List Ty with a tuple instead of a heterogenous list 
-  @[reducible] def ty_list_denote : List Ty → Type
-    | [] => Unit
-    | ty :: [] => ty.denote
-    | ty :: tail => ty.denote × (ty_list_denote tail)
 
   -- Marker type for external input/outputs
   structure External where
@@ -164,24 +164,31 @@ namespace VirtFlow
     | tail => node_ops_tail_denote
     | comp f g => g.denote ∘ f.denote
   
-  def find_graph_inputs (vfc : VirtFlowConfig) : List Ty :=
-    let filtered := vfc.fifos.toList.filter (match ·.producer with | .inr _ => true | .inl _ => false)
-    filtered.map (·.ty)
-  
-  def find_graph_outputs (vfc : VirtFlowConfig) : List Ty :=
-    let filtered := vfc.fifos.toList.filter (match ·.consumer with | .inr _ => true | .inl _ => false)
-    filtered.map (·.ty)
-  
   @[reducible] def ty_list_to_streams : List Ty → Type
     | [] => Unit
     | ty :: [] => Stream' ty.denote
     | ty :: tail => Stream' ty.denote × (ty_list_to_streams tail)
 
-  @[reducible] def VirtFlowConfig.type_denote (vfc : VirtFlowConfig) : Type :=
-    (ty_list_to_streams (find_graph_inputs vfc)) → (ty_list_to_streams (find_graph_outputs vfc))
+  namespace VirtFlowConfig
 
-  @[simp] def VirtFlowConfig.denote (vfc : VirtFlowConfig) : vfc.type_denote :=
-    λ inps =>
-    sorry
+    @[reducible] def find_graph_inputs (vfc : VirtFlowConfig) : List Ty :=
+      let filtered := vfc.fifos.toList.filter (match ·.producer with | .inr _ => true | .inl _ => false)
+      filtered.map (·.ty)
+    
+    @[reducible] def find_graph_outputs (vfc : VirtFlowConfig) : List Ty :=
+      let filtered := vfc.fifos.toList.filter (match ·.consumer with | .inr _ => true | .inl _ => false)
+      filtered.map (·.ty)
+
+    @[reducible] def input_types (vfc : VirtFlowConfig) : Type :=
+      ty_list_to_streams vfc.find_graph_inputs
+
+    @[reducible] def output_types (vfc : VirtFlowConfig) : Type :=
+      ty_list_to_streams vfc.find_graph_outputs
+
+    @[simp] def denote (vfc : VirtFlowConfig) : vfc.input_types → vfc.output_types :=
+      λ inps => match vfc.find_graph_outputs with
+        | [] => ()
+
+  end VirtFlowConfig
 
 end VirtFlow
