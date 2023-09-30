@@ -1,6 +1,27 @@
 import Mathlib.Data.Stream.Defs
 import Mathlib.Data.Vector
 
+inductive HList {α : Type v} (β : α → Type u) : List α → Type (max u v)
+  | nil : HList β []
+  | cons : β i → HList β is → HList β (i::is)
+
+infix:67 " :: " => HList.cons
+notation "[" "]" => HList.nil
+
+inductive Member : α → List α → Type
+  | head : Member a (a::as)
+  | tail : Member a bs → Member a (b::bs)
+
+def HList.get : HList β is → Member i is → β i
+  | a::as, .head => a
+  | _::as, .tail h => as.get h
+
+def HList.append : HList β is1 → HList β is2 → HList β (is1 ++ is2)
+  | [], l => l
+  | (h :: s), t => h :: s.append t
+
+infix:67 " ++ " => HList.append
+
 -- Source Lang
 namespace Spatium
 
@@ -93,19 +114,16 @@ namespace VirtFlow
     | unit => Unit
     | nat => Nat
 
-  -- We choose to denote a List Ty with a tuple instead of a heterogenous list 
-  @[reducible] def ty_list_denote : List Ty → Type
-    | [] => Unit
-    | ty :: [] => ty.denote
-    | ty :: tail => ty.denote × (ty_list_denote tail)
+  abbrev TysHL (tys : List Ty) := HList Ty.denote tys
+
+  abbrev TysHLS (tys : List Ty) := Stream' (TysHL tys)
 
   -- More expressive adds that choose inputs with Fins
   -- monotonic to preserver old inputs
   inductive NodeOps : List Ty → List Ty → Type
     | nop : NodeOps α α -- for stateless nodes
     | add : NodeOps [.nat, .nat] [.nat]
-    | dup : NodeOps [.nat] [.nat, .nat]
-    | tail : NodeOps α α.tail
+    | dup : NodeOps [α] [α, α]
     | comp : NodeOps α β → NodeOps β γ → NodeOps α γ
 
   -- Marker type for external input/outputs
@@ -133,11 +151,11 @@ namespace VirtFlow
   def FIFOList (num_nodes num_fifos : Nat) := Vector (FIFO num_nodes) num_fifos
 
   -- The circuit is a steam → stream
-  structure Node (fifos : FIFOList num_nodes num_fifos) (id : Fin num_nodes) where
+  structure Node (fifos : FIFOList num_nodes num_fifos) (nid : Fin num_nodes) where
     state : List Ty
-    initial_state : ty_list_denote state
-    state_transform : NodeOps (state ++ (find_node_inputs fifos id)) state
-    pipeline : NodeOps (state ++ (find_node_inputs fifos id)) (find_node_outputs fifos id)
+    initial_state : TysHL state
+    state_transform : NodeOps (state ++ (find_node_inputs fifos nid)) state
+    pipeline : NodeOps (state ++ (find_node_inputs fifos nid)) (find_node_outputs fifos nid)
 
   -- First node is the initial node and last node is the terminal node
   def NodeList (fifos : FIFOList num_nodes num_fifos) :=
@@ -151,23 +169,32 @@ namespace VirtFlow
 
   -- Semantics
 
-  @[simp] def node_ops_tail_denote (l : ty_list_denote α) : ty_list_denote α.tail :=
-    match α with
-      | [] => ()
-      | _ :: [] => ()
-      | _ :: _ :: _ => l.snd
-  
-  @[simp] def NodeOps.denote : NodeOps α β → (ty_list_denote α → ty_list_denote β)
+  @[simp] def NodeOps.denote : NodeOps α β → (TysHL α → TysHL β)
     | nop => id
-    | add => λ (a, b) => a + b
-    | dup => λ x => (x, x)
-    | tail => node_ops_tail_denote
+    | add => λ (.cons a (.cons b .nil)) => (a + b) :: []
+    | dup => λ (a :: []) => (.cons a (.cons a .nil))
     | comp f g => g.denote ∘ f.denote
   
-  @[reducible] def ty_list_to_streams : List Ty → Type
-    | [] => Unit
-    | ty :: [] => Stream' ty.denote
-    | ty :: tail => Stream' ty.denote × (ty_list_to_streams tail)
+  namespace Node
+
+    def state_stream (node : Node fifos nid) (inputs : TysHLS (find_node_inputs fifos nid)) : TysHLS node.state
+      | 0 => node.initial_state
+      | n + 1 =>
+        let prev_state := node.state_stream inputs n
+        let curr_input := prev_state.append (inputs n)
+        node.state_transform.denote curr_input
+
+    @[simp] def denote (node : Node fifos nid) :
+      TysHLS (find_node_inputs fifos nid) → TysHLS (find_node_outputs fifos nid) :=
+      λ inputs =>
+        let state_stream := node.state_stream inputs
+        λ n =>
+          let curr_state := state_stream n
+          let curr_inputs := inputs n
+          let combined_inputs := curr_state ++ curr_inputs
+          node.pipeline.denote combined_inputs
+
+  end Node
 
   namespace VirtFlowConfig
 
@@ -180,9 +207,8 @@ namespace VirtFlow
       filtered.map (·.ty)
 
     @[simp] def denote (vfc : VirtFlowConfig) :
-      ty_list_to_streams vfc.find_graph_inputs → ty_list_to_streams vfc.find_graph_outputs :=
-      λ inps => match vfc.find_graph_outputs with
-        | [] => ()
+      TysHLS vfc.find_graph_inputs → TysHLS vfc.find_graph_outputs :=
+      sorry
 
   end VirtFlowConfig
 
