@@ -22,6 +22,14 @@ def HList.append : HList β is1 → HList β is2 → HList β (is1 ++ is2)
 
 infix:67 " ++ " => HList.append
 
+-- Given a List α, a function f : α → β,
+-- return a HList with indices of type β and values of β-indexed type γ
+-- using the mapping function g : (a : α) → γ (f a).
+def HList.from_list {α : Type v1} {β : Type v2} {γ : β → Type u} (f : α → β) (g : (a : α) → γ (f a)) : (l : List α) → HList γ (l.map f)
+  | [] => []
+  | h :: t => g h :: HList.from_list f g t
+
+
 -- Source Lang
 namespace Spatium
 
@@ -198,17 +206,21 @@ namespace VirtFlow
 
   namespace VirtFlowConfig
 
-    @[reducible] def find_graph_inputs (vfc : VirtFlowConfig) : List Ty :=
+    def find_graph_inputs (vfc : VirtFlowConfig) : List Ty :=
       let filtered := vfc.fifos.toList.filter (match ·.producer with | .inr _ => true | .inl _ => false)
       filtered.map (·.ty)
-    
-    @[reducible] def find_graph_outputs (vfc : VirtFlowConfig) : List Ty :=
-      let filtered := vfc.fifos.toList.filter (match ·.consumer with | .inr _ => true | .inl _ => false)
-      filtered.map (·.ty)
+
+    def find_output_fifos (vfc : VirtFlowConfig) : List (FIFO vfc.num_nodes) :=
+      vfc.fifos.toList.filter (match ·.consumer with | .inr _ => true | .inl _ => false)
+  
+    def nth_output (vfc : VirtFlowConfig) (input_stream : TysHLS vfc.find_graph_inputs) (n : Nat) :
+      (fifo : FIFO vfc.num_nodes) → fifo.ty.denote :=
+      sorry
 
     @[simp] def denote (vfc : VirtFlowConfig) :
-      TysHLS vfc.find_graph_inputs → TysHLS vfc.find_graph_outputs :=
-      sorry
+      TysHLS vfc.find_graph_inputs → TysHLS (vfc.find_output_fifos.map (·.ty)) :=
+      λ input_stream => λ n =>
+        HList.from_list (·.ty) (vfc.nth_output input_stream n) vfc.find_output_fifos
 
   end VirtFlowConfig
 
