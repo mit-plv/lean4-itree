@@ -12,9 +12,17 @@ inductive Member : α → List α → Type
 
 namespace HList
 
+  def length : HList β is → Nat
+    | [] => 0
+    | _ :: t => 1 + t.length
+
   def get : HList β is → Member i is → β i
     | a :: as, .head => a
     | _ :: as, .tail h => as.get h
+  
+  def get_nth : (l : HList β is) → (n : Fin is.length) → β (is.get n)
+    | h :: _, ⟨0, _⟩ => h
+    | _ :: t, ⟨n + 1, _⟩ => t.get_nth ⟨n, _⟩
 
   def append : HList β is1 → HList β is2 → HList β (is1 ++ is2)
     | [], l => l
