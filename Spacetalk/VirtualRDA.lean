@@ -32,6 +32,16 @@ namespace VirtualRDA
   -- Marker type for external input/outputs
   structure External where
 
+  -- What if nodes record other nodes
+  -- Can the translation prevent deadlock
+  -- what are the ways in which deadlock can be introduced
+  -- is there a finite set of ways to introduce deadlock
+  -- reason about which fifos are safe to merge and which are not
+  -- Why are we failing, is it because of the program being bad,
+  -- or the proof infrastructure introducing issues
+  -- Differentiate hardware resource limit (lack of resource without introducing deadlock), 
+  -- or program error
+
   -- Buffer sizes will be modeled later
   -- Maybe explicitly separate outputs
   -- Given that one node might not be able to emit N streams
@@ -64,7 +74,9 @@ namespace VirtualRDA
   
   -- inductive Node : List Ty → List Ty → Type
   --   | compute : Compute inputs outputs → Node inputs outputs
-  --   | memory : Memory ty → Node [.nat, ty] [ty]
+  
+
+  -- zeroed out vs non initialized memory
 
   -- The circuit is a steam → stream
   -- Special delay nodes to break cycles
@@ -119,27 +131,18 @@ namespace VirtualRDA
   namespace VirtualRDA
 
     def fifo_type (vrda : VirtualRDA) :=
-      FIFO vrda.num_inputs vrda.num_outputs vrda.num_nodes
+      FIFO vrda.inputs vrda.outputs vrda.num_nodes
 
-    def find_graph_inputs (vrda : VirtualRDA) : List Ty :=
-      let filtered := vrda.fifos.toList.filter (match ·.producer with | .inr _ => true | .inl _ => false)
-      filtered.map (·.ty)
-
-    def find_output_fifos (vrda : VirtualRDA) : List vrda.fifo_type :=
-      vrda.fifos.toList.filter (match ·.consumer with | .inr _ => true | .inl _ => false)
-  
-    def nth_output (vrda : VirtualRDA) (input_stream : TysHLS vrda.find_graph_inputs) (n : Nat)
-      (fifo : vrda.fifo_type) : fifo.ty.denote :=
-      match fifo.producer with
-        | .inl n => sorry
-        | .inr n =>
-          let curr_inputs := input_stream n
-          curr_inputs.get_nth ⟨n, _⟩
+    def nth_output (vrda : VirtualRDA)
+      (input_stream : TysHLS vrda.inputs) (n : Nat) (fifo : vrda.fifo_type) : fifo.ty.denote :=
+      sorry
 
     @[simp] def denote (vrda : VirtualRDA) :
-      TysHLS vrda.find_graph_inputs → TysHLS (vrda.find_output_fifos.map (·.ty)) :=
+      TysHLS vrda.inputs → TysHLS vrda.outputs :=
       λ input_stream => λ n =>
-        HList.from_list (·.ty) (vrda.nth_output input_stream n) vrda.find_output_fifos
+        let output_fifos := vrda.fifos.toList.filter (match ·.consumer with | .inl _ => false | .inr _ => true)
+        let output_func := vrda.nth_output input_stream n
+        HList.from_list (·.ty) output_func output_fifos
 
   end VirtualRDA
 
