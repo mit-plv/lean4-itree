@@ -1,6 +1,7 @@
 import Spacetalk.HList
 import Mathlib.Data.Stream.Defs
 import Mathlib.Data.Vector
+import Mathlib.Data.List.Range
 
 -- (Virtual) RDA Spec
 -- Q: What optimizations should we do at this level?
@@ -17,10 +18,35 @@ namespace VirtualRDA
     | unit => Unit
     | nat => Nat
 
-  abbrev TysHL (tys : List Ty) := HList Ty.denote tys
+  abbrev TyStream (ty : Ty) := Stream' (ty.denote)
 
-  abbrev TysHLS (tys : List Ty) := Stream' (TysHL tys)
+  abbrev TyStreamsHList (tys : List Ty) := HList TyStream tys
 
+  abbrev TysHList (tys : List Ty) := HList Ty.denote tys
+
+  abbrev TysHListStream (tys : List Ty) := Stream' (TysHList tys)
+
+  def pack_hlist_stream (shl : TyStreamsHList tys) : TysHListStream tys :=
+    match tys with
+      | [] => λ _ => []
+      | h::t =>
+        λ n =>
+          let h_elem : h.denote := (shl.get .head) n
+          let tail_streams : TyStreamsHList t :=
+            match shl with
+              | _ :: rest => rest
+          h_elem :: (pack_hlist_stream tail_streams) n
+  
+  def unpack_hlist_stream (s : TysHListStream tys) : TyStreamsHList tys :=
+    match tys with
+      | [] => []
+      | h::t =>
+        let h_stream : Stream' h.denote := λ n => (s n).get .head
+        let t_stream : TysHListStream t := λ n =>
+          match s n with
+            | _ :: rest => rest
+        h_stream :: unpack_hlist_stream t_stream
+  
   -- More expressive adds that choose inputs with Fins
   -- monotonic to preserver old inputs
   inductive NodeOps : List Ty → List Ty → Type
@@ -49,59 +75,69 @@ namespace VirtualRDA
   -- FUTURE: Conditional read and write (for reductions)
   -- Use special node types for external producer/consumer
   -- Use membership constructor for external io
-  structure FIFO (inputs outputs : List Ty) (num_nodes : Nat) where
+
+  -- initial values/ optional/list
+  -- optional prod/consumer: compute ios
+  structure FIFO (num_nodes : Nat) where
     ty : Ty
-    producer : Fin num_nodes ⊕ Member ty inputs
-    consumer : Fin num_nodes ⊕ Member ty outputs
+    producer : Option (Fin num_nodes)
+    consumer : Option (Fin num_nodes)
 
-  def FIFOList (inputs outputs : List Ty) (num_nodes num_fifos : Nat) :=
-    Vector (FIFO inputs outputs num_nodes) num_fifos
+  def FIFOList (num_nodes num_fifos : Nat) :=
+    Vector (FIFO num_nodes) num_fifos
 
-  def find_node_inputs (fifos : FIFOList ni no nn nf) (nid : Fin nn) : List Ty :=
-    let filtered := fifos.toList.filter (match ·.consumer with | .inl node_id => node_id == nid | .inr _ => false)
+  def find_node_inputs (fifos : FIFOList nn nf) (nid : Fin nn) : List Ty :=
+    let filtered := fifos.toList.filter (match ·.consumer with | some node_id => node_id == nid | none => false)
     filtered.map (·.ty)
 
-  def find_node_outputs (fifos : FIFOList ni no nn nf) (nid : Fin nn) : List Ty :=
-    let filtered := fifos.toList.filter (match ·.producer with | .inl node_id => node_id == nid | .inr _ => false)
+  def find_node_outputs (fifos : FIFOList nn nf) (nid : Fin nn) : List Ty :=
+    let filtered := fifos.toList.filter (match ·.producer with | some node_id => node_id == nid | none => false)
     filtered.map (·.ty)
 
-  -- structure Compute (inputs outputs : List Ty) where
-  --   pipeline : NodeOps inputs outputs
+  structure Node (fifos : FIFOList num_nodes num_fifos) (nid : Fin num_nodes) where
+    state : List Ty
+    initial_state : TysHList state
+    state_transform : NodeOps (state ++ (find_node_inputs fifos nid)) state
+    pipeline : NodeOps (state ++ (find_node_inputs fifos nid)) (find_node_outputs fifos nid)
   
-  -- structure Memory (ty : Ty) where
-  --   size : Nat
-  --   initial_value : Vector ty.denote size
-  
-  -- inductive Node : List Ty → List Ty → Type
-  --   | compute : Compute inputs outputs → Node inputs outputs
-  
+  def Node.inputs (_ : Node fifos nid) : List Ty := find_node_inputs fifos nid
+
+  def Node.outputs (_ : Node fifos nid) : List Ty := find_node_outputs fifos nid
 
   -- zeroed out vs non initialized memory
 
   -- The circuit is a steam → stream
   -- Special delay nodes to break cycles
   -- simple memory nodes
-  structure Node (fifos : FIFOList ni no nn nf) (nid : Fin nn) where
-    state : List Ty
-    initial_state : TysHL state
-    state_transform : NodeOps (state ++ (find_node_inputs fifos nid)) state
-    pipeline : NodeOps (state ++ (find_node_inputs fifos nid)) (find_node_outputs fifos nid)
 
   -- First node is the initial node and last node is the terminal node
-  def NodeList (fifos : FIFOList ni no nn nf) :=
-    (nid : Fin nn) → Node fifos nid
+  def NodeList (fifos : FIFOList num_nodes num_fifos) :=
+    (nid : Fin num_nodes) → Node fifos nid
 
   structure VirtualRDA where
-    inputs: List Ty
-    outputs : List Ty
     num_nodes : Nat
     num_fifos : Nat
-    fifos : FIFOList inputs outputs num_nodes num_fifos
+    fifos : FIFOList num_nodes num_fifos
     nodes : NodeList fifos
+
+  def VirtualRDA.fifo_type (vrda : VirtualRDA) :=
+    FIFO vrda.num_nodes
+
+  def VirtualRDA.input_fifos (vrda : VirtualRDA) : List vrda.fifo_type :=
+    vrda.fifos.toList.filter (match ·.producer with | some _ => false | none => true)
+
+  def VirtualRDA.inputs (vrda : VirtualRDA) : List Ty :=
+    vrda.input_fifos.map (·.ty)
+
+  def VirtualRDA.output_fifos (vrda : VirtualRDA) : List vrda.fifo_type :=
+    vrda.fifos.toList.filter (match ·.consumer with | some _ => false | none => true)
+  
+  def VirtualRDA.outputs (vrda : VirtualRDA) : List Ty :=
+    vrda.output_fifos.map (·.ty)
 
   -- Semantics
 
-  @[simp] def NodeOps.denote : NodeOps α β → (TysHL α → TysHL β)
+  @[simp] def NodeOps.denote : NodeOps α β → (TysHList α → TysHList β)
     | nop => id
     | add => λ (a :: b :: []) => (a + b) :: []
     | dup => λ (a :: []) => a :: a :: []
@@ -109,40 +145,37 @@ namespace VirtualRDA
   
   namespace Node
 
-    def state_stream (node : Node fifos nid) (inputs : TysHLS (find_node_inputs fifos nid)) : TysHLS node.state
+    def state_stream (node : Node fifos nid)
+                     (input_streams : TysHListStream node.inputs)
+                    : TysHListStream node.state
       | 0 => node.initial_state
       | n + 1 =>
-        let prev_state := node.state_stream inputs n
-        let curr_input := prev_state.append (inputs n)
+        let prev_state := node.state_stream input_streams n
+        let curr_input := prev_state ++ (input_streams n)
         node.state_transform.denote curr_input
 
-    @[simp] def denote (node : Node fifos nid) :
-      TysHLS (find_node_inputs fifos nid) → TysHLS (find_node_outputs fifos nid) :=
+    @[simp] def denote (node : Node fifos num_nodes) :
+      TyStreamsHList node.inputs → TyStreamsHList node.outputs :=
       λ inputs =>
-        let state_stream := node.state_stream inputs
-        λ n =>
-          let curr_state := state_stream n
-          let curr_inputs := inputs n
-          let combined_inputs := curr_state ++ curr_inputs
-          node.pipeline.denote combined_inputs
-
+        let packed_inputs := pack_hlist_stream inputs
+        let unpacked_state_stream := unpack_hlist_stream (node.state_stream packed_inputs)
+        let unpacked_combined_inputs := unpacked_state_stream ++ inputs
+        let packed_combined_inputs := pack_hlist_stream unpacked_combined_inputs
+        let packed_outputs := λ n => node.pipeline.denote (packed_combined_inputs n)
+        unpack_hlist_stream packed_outputs
+        
   end Node
 
   namespace VirtualRDA
-
-    def fifo_type (vrda : VirtualRDA) :=
-      FIFO vrda.inputs vrda.outputs vrda.num_nodes
-
-    def nth_output (vrda : VirtualRDA)
-      (input_stream : TysHLS vrda.inputs) (n : Nat) (fifo : vrda.fifo_type) : fifo.ty.denote :=
+    
+    def get_output_stream (vrda : VirtualRDA) (inputs : TyStreamsHList vrda.inputs)
+                          (fifo : vrda.fifo_type) : TyStream fifo.ty :=
       sorry
-
+    
     @[simp] def denote (vrda : VirtualRDA) :
-      TysHLS vrda.inputs → TysHLS vrda.outputs :=
-      λ input_stream => λ n =>
-        let output_fifos := vrda.fifos.toList.filter (match ·.consumer with | .inl _ => false | .inr _ => true)
-        let output_func := vrda.nth_output input_stream n
-        HList.from_list (·.ty) output_func output_fifos
+      TyStreamsHList vrda.inputs → TyStreamsHList (vrda.output_fifos.map (·.ty)) :=
+      λ inputs =>
+        HList.from_list (·.ty) (vrda.get_output_stream inputs) vrda.output_fifos
 
   end VirtualRDA
 

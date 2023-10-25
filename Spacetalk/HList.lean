@@ -31,8 +31,8 @@ namespace HList
   infixr:67 " ++ " => HList.append
 
   -- Given a List α, a function f : α → β,
-  -- return a HList with indices of type β and values of β-indexed type γ
-  -- using the mapping function g : (a : α) → γ (f a).
+  -- return a HList with indices of type β and values of β-indexed type δ
+  -- using the mapping function g : (a : α) → δ (f a).
   def from_list {α : Type v1} {β : Type v2} {δ : β → Type u}
                 (f : α → β) (g : (a : α) → δ (f a)) : 
                 (l : List α) → HList δ (l.map f)
