@@ -78,23 +78,23 @@ namespace VirtualRDA
 
   -- initial values/ optional/list
   -- optional prod/consumer: compute ios
-  structure FIFO (num_nodes : Nat) where
+  structure FIFO (inputs : List Ty) (num_nodes : Nat) where
     ty : Ty
-    producer : Option (Fin num_nodes)
+    producer : Fin num_nodes ⊕ Member ty inputs
     consumer : Option (Fin num_nodes)
 
-  def FIFOList (num_nodes num_fifos : Nat) :=
-    Vector (FIFO num_nodes) num_fifos
+  def FIFOList (inputs : List Ty) (num_nodes num_fifos : Nat) :=
+    Vector (FIFO inputs num_nodes) num_fifos
 
-  def find_node_inputs (fifos : FIFOList nn nf) (nid : Fin nn) : List Ty :=
+  def find_node_inputs (fifos : FIFOList ins nn nf) (nid : Fin nn) : List Ty :=
     let filtered := fifos.toList.filter (match ·.consumer with | some node_id => node_id == nid | none => false)
     filtered.map (·.ty)
 
-  def find_node_outputs (fifos : FIFOList nn nf) (nid : Fin nn) : List Ty :=
-    let filtered := fifos.toList.filter (match ·.producer with | some node_id => node_id == nid | none => false)
+  def find_node_outputs (fifos : FIFOList ins nn nf) (nid : Fin nn) : List Ty :=
+    let filtered := fifos.toList.filter (match ·.producer with | .inl node_id => node_id == nid | .inr _ => false)
     filtered.map (·.ty)
 
-  structure Node (fifos : FIFOList num_nodes num_fifos) (nid : Fin num_nodes) where
+  structure Node (fifos : FIFOList inputs num_nodes num_fifos) (nid : Fin num_nodes) where
     state : List Ty
     initial_state : TysHList state
     state_transform : NodeOps (state ++ (find_node_inputs fifos nid)) state
@@ -111,30 +111,22 @@ namespace VirtualRDA
   -- simple memory nodes
 
   -- First node is the initial node and last node is the terminal node
-  def NodeList (fifos : FIFOList num_nodes num_fifos) :=
+  def NodeList (fifos : FIFOList inputs num_nodes num_fifos) :=
     (nid : Fin num_nodes) → Node fifos nid
 
   structure VirtualRDA where
+    inputs : List Ty
     num_nodes : Nat
     num_fifos : Nat
-    fifos : FIFOList num_nodes num_fifos
+    fifos : FIFOList inputs num_nodes num_fifos
     nodes : NodeList fifos
 
   def VirtualRDA.fifo_type (vrda : VirtualRDA) :=
-    FIFO vrda.num_nodes
-
-  def VirtualRDA.input_fifos (vrda : VirtualRDA) : List vrda.fifo_type :=
-    vrda.fifos.toList.filter (match ·.producer with | some _ => false | none => true)
-
-  def VirtualRDA.inputs (vrda : VirtualRDA) : List Ty :=
-    vrda.input_fifos.map (·.ty)
+    FIFO vrda.inputs vrda.num_nodes
 
   def VirtualRDA.output_fifos (vrda : VirtualRDA) : List vrda.fifo_type :=
     vrda.fifos.toList.filter (match ·.consumer with | some _ => false | none => true)
   
-  def VirtualRDA.outputs (vrda : VirtualRDA) : List Ty :=
-    vrda.output_fifos.map (·.ty)
-
   -- Semantics
 
   @[simp] def NodeOps.denote : NodeOps α β → (TysHList α → TysHList β)
@@ -170,7 +162,9 @@ namespace VirtualRDA
     
     def get_output_stream (vrda : VirtualRDA) (inputs : TyStreamsHList vrda.inputs)
                           (fifo : vrda.fifo_type) : TyStream fifo.ty :=
-      sorry
+      match fifo.producer with
+        | .inl nid => sorry
+        | .inr mem => inputs.get mem
     
     @[simp] def denote (vrda : VirtualRDA) :
       TyStreamsHList vrda.inputs → TyStreamsHList (vrda.output_fifos.map (·.ty)) :=
