@@ -194,12 +194,9 @@ namespace VirtualRDA
               simp [List.indexOf, Node.outputs]
               exact List.findIdx_lt_length_of_exists mem_h
           ⟩
-          let h_ty : node.outputs.get idx_fin = (vrda.fifos fid).ty :=
-            by
-              simp [Node.outputs]; simp [FIFOList.get_ty]
           let h_eq : Member (node.outputs.get idx_fin) node.outputs = Member (vrda.fifos fid).ty node.outputs :=
             by
-              rw [h_ty]
+              simp [Node.outputs]; simp [FIFOList.get_ty]
           let mem : Member (vrda.fifos fid).ty node.outputs := h_eq ▸ (node.outputs.nth_member idx_fin)
           node_output_streams.get mem
         | .inr mem => inputs.get mem
