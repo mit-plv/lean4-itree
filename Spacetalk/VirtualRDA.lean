@@ -93,9 +93,12 @@ namespace VirtualRDA
     let fin_range := List.finRange nf
     fin_range.filter (λ i => match (fifos i).consumer with | some node_id => node_id == nid | _ => false)
 
+  def FIFOList.node_output_filter (fifos : FIFOList ins nn nf) (nid : Fin nn) (i : Fin nf) : Bool :=
+    match (fifos i).producer with | .inl node_id => node_id == nid | _ => false
+
   def FIFOList.find_node_output_fids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List (Fin nf) :=
     let fin_range := List.finRange nf
-    fin_range.filter (λ i => match (fifos i).producer with | .inl node_id => node_id == nid | _ => false)
+    fin_range.filter (fifos.node_output_filter nid)
 
   structure Node (fifos : FIFOList inputs num_nodes num_fifos) (nid : Fin num_nodes) where
     state : List Ty
@@ -170,19 +173,25 @@ namespace VirtualRDA
 
     def get_output_stream (vrda : VirtualRDA)  (inputs : TyStreamsHList vrda.inputs)
                           (fid : Fin vrda.num_fifos) : TyStream (vrda.fifos fid).ty :=
-      let fifo := vrda.fifos fid
-      match fifo.producer with
+      match h : (vrda.fifos fid).producer with
         | .inl nid =>
           let node := vrda.nodes nid
           let node_input_streams := HList.from_list vrda.fifos.get_ty (vrda.get_output_stream inputs) node.input_fids
           let node_output_streams : TyStreamsHList node.outputs := node.denote node_input_streams
           let idx := node.output_fids.indexOf fid
-          let mem_h : ∃ x, x ∈ node.output_fids ∧ fid == x := sorry
-          let lt_h := List.findIdx_lt_length_of_exists mem_h
+          let fin_mem : fid ∈ (List.finRange vrda.num_fifos) := by apply List.mem_finRange
+          let hp : (vrda.fifos.node_output_filter nid fid) = true :=
+            by
+              simp [FIFOList.node_output_filter, h]
+          let h_mem_filter := List.mem_filter.mpr (And.intro fin_mem hp)
+          let mem_h : ∃ x, x ∈ node.output_fids ∧ fid == x :=
+            by
+              simp [Node.output_fids, FIFOList.find_node_output_fids]
+              exact h_mem_filter
           let idx_fin : Fin node.outputs.length := ⟨idx,
             by
               simp [List.indexOf, Node.outputs]
-              apply lt_h
+              exact List.findIdx_lt_length_of_exists mem_h
           ⟩
           let mem : Member (vrda.fifos fid).ty node.outputs := sorry -- node.outputs.nth_member idx_fin
           node_output_streams.get mem
