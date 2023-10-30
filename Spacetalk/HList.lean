@@ -10,6 +10,10 @@ inductive Member : α → List α → Type
   | head : Member a (a::as)
   | tail : Member a bs → Member a (b::bs)
 
+def List.nth_member : (l : List α) → (n : Fin l.length) → Member (l.get n) l
+  | _::_, ⟨0, _⟩ => .head
+  | _::t, ⟨n'+1, _⟩ => .tail (t.nth_member ⟨n', _⟩)
+
 namespace HList
 
   def length : HList β is → Nat

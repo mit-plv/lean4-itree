@@ -74,8 +74,8 @@ namespace Step
     def dp (n : Nat) := (dot_prod n).denote sa sb
     def dp' (n : Nat) := dot_prod' n sa sb
     def n := 10
-    #eval (dp n).nth 0
-    #eval (dp' n).nth 0
+    #eval (dp n).get 0
+    #eval (dp' n).get 0
 
     theorem dp_equiv : ∀n : Nat, (dot_prod n).denote = dot_prod' n := by
       simp [dot_prod']
