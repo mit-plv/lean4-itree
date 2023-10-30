@@ -2,6 +2,7 @@ import Spacetalk.HList
 import Spacetalk.Stream
 import Mathlib.Data.Vector
 import Mathlib.Data.List.Range
+import Mathlib.Logic.Basic
 import Std.Data.List.Lemmas
 
 -- (Virtual) RDA Spec
@@ -195,9 +196,11 @@ namespace VirtualRDA
           ⟩
           let h_ty : node.outputs.get idx_fin = (vrda.fifos fid).ty :=
             by
-              simp [Node.outputs]
-              simp [FIFOList.get_ty]
-          let mem : Member (vrda.fifos fid).ty node.outputs := node.outputs.nth_member idx_fin
+              simp [Node.outputs]; simp [FIFOList.get_ty]
+          let h_eq : Member (node.outputs.get idx_fin) node.outputs = Member (vrda.fifos fid).ty node.outputs :=
+            by
+              rw [h_ty]
+          let mem : Member (vrda.fifos fid).ty node.outputs := h_eq ▸ (node.outputs.nth_member idx_fin)
           node_output_streams.get mem
         | .inr mem => inputs.get mem
 
