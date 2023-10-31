@@ -177,6 +177,8 @@ namespace VirtualRDA
                               (h : (vrda.fifos fid).producer = .inl nid) :=
       let node := vrda.nodes nid
       let idx := node.output_fids.indexOf fid
+
+      -- Prove that fid actually exists in the node's outputs
       let fin_mem : fid ∈ (List.finRange vrda.num_fifos) := by apply List.mem_finRange
       let hp : (vrda.fifos.node_output_filter nid fid) = true := by simp [FIFOList.node_output_filter, h]
       let h_mem_filter := List.mem_filter.mpr (And.intro fin_mem hp)
@@ -184,15 +186,19 @@ namespace VirtualRDA
         by
           simp [Node.output_fids, FIFOList.find_node_output_fids]
           exact h_mem_filter
-      let idx_fin : Fin node.outputs.length := ⟨idx,
+      let idx_fin : Fin node.outputs.length := ⟨
+        idx,
         by
           simp [List.indexOf, Node.outputs]
           exact List.findIdx_lt_length_of_exists mem_h
       ⟩
+
+      -- Prove that idx gives the desired output type
       let h_eq : Member (node.outputs.get idx_fin) node.outputs = Member (vrda.fifos fid).ty node.outputs :=
         by
           simp [Node.outputs]; simp [FIFOList.get_ty]
       let mem : Member (vrda.fifos fid).ty node.outputs := h_eq ▸ (node.outputs.nth_member idx_fin)
+
       node_output_streams.get mem
 
     def get_output_stream (vrda : VirtualRDA)  (inputs : TyStreamsHList vrda.inputs)
