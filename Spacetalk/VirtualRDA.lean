@@ -152,11 +152,11 @@ namespace VirtualRDA
     let y_to_x_fids := y_output_fids.filter (fifos.node_is_consumer x)
     ∀ fid ∈ y_to_x_fids, (fifos fid).is_initialized = true
 
-  def FIFOList.is_sorted {fifos : FIFOList inputs num_nodes num_fifos} :=
+  def NodeList.is_sorted {fifos : FIFOList inputs num_nodes num_fifos} (_ : NodeList fifos) :=
     ∀ x y : Fin num_nodes, x < y → fifos.no_uninitialized_back_edge x y
 
   def SortedNodeList (fifos : FIFOList inputs num_nodes num_fifos) :=
-    {nodes : NodeList fifos // fifos.is_sorted}
+    {nodes : NodeList fifos // nodes.is_sorted}
 
   structure VirtualRDA where
     inputs : List Ty
