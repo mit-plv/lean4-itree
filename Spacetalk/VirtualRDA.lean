@@ -57,10 +57,6 @@ namespace VirtualRDA
     | dup : NodeOps [α] [α, α]
     | comp : NodeOps α β → NodeOps β γ → NodeOps α γ
 
-  -- Marker type for external input/outputs
-  structure External where
-
-  -- What if nodes record other nodes
   -- Can the translation prevent deadlock
   -- what are the ways in which deadlock can be introduced
   -- is there a finite set of ways to introduce deadlock
@@ -72,14 +68,7 @@ namespace VirtualRDA
 
   -- Buffer sizes will be modeled later
   -- Maybe explicitly separate outputs
-  -- Given that one node might not be able to emit N streams
-  -- Find ways to tie back to original program
-  -- FUTURE: Conditional read and write (for reductions)
-  -- Use special node types for external producer/consumer
-  -- Use membership constructor for external io
-
-  -- initial values/ optional/list
-  -- optional prod/consumer: compute ios
+  -- FUTURE: Conditional dequeues and enqueues (is is really needed?)
 
   structure InputFIFO (inputs : List Ty) where
     ty : Ty
@@ -107,6 +96,10 @@ namespace VirtualRDA
     | output : OutputFIFO num_nodes → FIFO inputs num_nodes
     | advancing : AdvancingFIFO num_nodes → FIFO inputs num_nodes
     | initialized : InitializedFIFO num_nodes → FIFO inputs num_nodes
+
+  def FIFO.is_initialized : FIFO inputs num_nodes → Bool
+    | .initialized _ => true
+    | _ => false
 
   def FIFOList (inputs : List Ty) (num_nodes num_fifos : Nat) :=
     Fin num_fifos → FIFO inputs num_nodes
@@ -145,24 +138,25 @@ namespace VirtualRDA
     state_transform : NodeOps (state ++ (fifos.node_inputs nid)) state
     pipeline : NodeOps (state ++ (fifos.node_inputs nid)) (fifos.node_outputs nid)
 
-  -- zeroed out vs non initialized memory
-
-  -- The circuit is a steam → stream
-  -- Special delay nodes to break cycles
-  -- simple memory nodes
-
-  -- First node is the initial node and last node is the terminal node
+  -- We want nodes to be sorted in reverse post order
   def NodeList (fifos : FIFOList inputs num_nodes num_fifos) :=
     (nid : Fin num_nodes) → Node fifos nid
 
-  def NodeList.in_reverse_post_order (nodes : NodeList fifos) (x y : Fin num_nodes) : Bool :=
-    sorry
+  def FIFOList.node_is_consumer (fifos : FIFOList ins nn nf) (nid : Fin nn) (fid : Fin nf) : Bool :=
+    match fifos fid with
+      | .input fifo | .advancing fifo | .initialized fifo => fifo.consumer == nid
+      | _ => false
 
-  def NodeList.is_sorted {fifos : FIFOList inputs num_nodes num_fifos} (nodes : NodeList fifos) :=
-    ∀ x y : Fin num_nodes, x < y → nodes.in_reverse_post_order x y = true
+  def FIFOList.no_uninitialized_back_edge {fifos : FIFOList ins num_nodes num_fifos} (x y : Fin num_nodes) : Prop :=
+    let y_output_fids := fifos.node_output_fids y
+    let y_to_x_fids := y_output_fids.filter (fifos.node_is_consumer x)
+    ∀ fid ∈ y_to_x_fids, (fifos fid).is_initialized = true
+
+  def FIFOList.is_sorted {fifos : FIFOList inputs num_nodes num_fifos} :=
+    ∀ x y : Fin num_nodes, x < y → fifos.no_uninitialized_back_edge x y
 
   def SortedNodeList (fifos : FIFOList inputs num_nodes num_fifos) :=
-    {nodes : NodeList fifos // nodes.is_sorted}
+    {nodes : NodeList fifos // fifos.is_sorted}
 
   structure VirtualRDA where
     inputs : List Ty
