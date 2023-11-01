@@ -80,19 +80,45 @@ namespace VirtualRDA
 
   -- initial values/ optional/list
   -- optional prod/consumer: compute ios
-  -- is fid useless?
-  structure FIFO (inputs : List Ty) (num_nodes : Nat) where
+
+  structure InputFIFO (inputs : List Ty) where
     ty : Ty
-    producer : Fin num_nodes ⊕ Member ty inputs
-    consumer : Option (Fin num_nodes)
+    producer : Member ty inputs
+    consumer : Fin num_nodes
+
+  structure OutputFIFO (num_nodes : Nat) where
+    ty : Ty
+    producer : Fin num_nodes
+
+  structure AdvancingFIFO (num_nodes : Nat) where
+    ty : Ty
+    producer : Fin num_nodes
+    consumer : Fin num_nodes
+    adv : producer < consumer
+
+  structure InitializedFIFO (num_nodes : Nat) where
+    ty : Ty
+    producer : Fin num_nodes
+    consumer : Fin num_nodes
+    initial_value : ty.denote
+
+  inductive FIFO (inputs : List Ty) (num_nodes : Nat)
+    | input : InputFIFO inputs → FIFO inputs num_nodes
+    | output : OutputFIFO num_nodes → FIFO inputs num_nodes
+    | advancing : AdvancingFIFO num_nodes → FIFO inputs num_nodes
+    | initialized : InitializedFIFO num_nodes → FIFO inputs num_nodes
 
   def FIFOList (inputs : List Ty) (num_nodes num_fifos : Nat) :=
     Fin num_fifos → FIFO inputs num_nodes
 
-  def FIFOList.get_ty (fifos : FIFOList ins nn nf) (i : Fin nf) := (fifos i).ty
+  def FIFOList.get_ty (fifos : FIFOList ins nn nf) (i : Fin nf) :=
+    match fifos i with
+      | .input fifo | .output fifo | .advancing fifo | .initialized fifo => fifo.ty
 
   def FIFOList.is_node_input (fifos : FIFOList ins nn nf) (nid : Fin nn) (i : Fin nf) : Bool :=
-    match (fifos i).consumer with | some node_id => node_id == nid | _ => false
+    match fifos i with
+      | .input fifo | .advancing fifo | .initialized fifo => fifo.consumer == nid
+      | _ => false
 
   def FIFOList.node_input_fids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List (Fin nf) :=
     let fin_range := List.finRange nf
@@ -102,7 +128,9 @@ namespace VirtualRDA
     (fifos.node_input_fids nid).map fifos.get_ty
 
   def FIFOList.is_node_output (fifos : FIFOList ins nn nf) (nid : Fin nn) (i : Fin nf) : Bool :=
-    match (fifos i).producer with | .inl node_id => node_id == nid | _ => false
+    match fifos i with
+      | .output fifo | .advancing fifo | .initialized fifo => fifo.producer == nid
+      | _ => false
 
   def FIFOList.node_output_fids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List (Fin nf) :=
     let fin_range := List.finRange nf
@@ -127,16 +155,25 @@ namespace VirtualRDA
   def NodeList (fifos : FIFOList inputs num_nodes num_fifos) :=
     (nid : Fin num_nodes) → Node fifos nid
 
+  def NodeList.in_reverse_post_order (nodes : NodeList fifos) (x y : Fin num_nodes) : Bool :=
+    sorry
+
+  def NodeList.is_sorted {fifos : FIFOList inputs num_nodes num_fifos} (nodes : NodeList fifos) :=
+    ∀ x y : Fin num_nodes, x < y → nodes.in_reverse_post_order x y = true
+
+  def SortedNodeList (fifos : FIFOList inputs num_nodes num_fifos) :=
+    {nodes : NodeList fifos // nodes.is_sorted}
+
   structure VirtualRDA where
     inputs : List Ty
     num_nodes : Nat
     num_fifos : Nat
     fifos : FIFOList inputs num_nodes num_fifos
-    nodes : NodeList fifos
+    nodes : SortedNodeList fifos
 
   def VirtualRDA.output_fifos (vrda : VirtualRDA) : List (Fin vrda.num_fifos) :=
     let fin_range := List.finRange vrda.num_fifos
-    fin_range.filter (λ i => match (vrda.fifos i).consumer with | some _ => false | none => true)
+    fin_range.filter (λ i => match vrda.fifos i with | .output _ => true | _ => false)
 
   -- Semantics
 
