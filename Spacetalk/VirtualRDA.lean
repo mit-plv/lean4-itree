@@ -81,13 +81,13 @@ namespace VirtualRDA
   -- initial values/ optional/list
   -- optional prod/consumer: compute ios
   -- is fid useless?
-  structure FIFO (inputs : List Ty) (num_nodes : Nat) (fid : Fin num_fifos) where
+  structure FIFO (inputs : List Ty) (num_nodes : Nat) where
     ty : Ty
     producer : Fin num_nodes ⊕ Member ty inputs
     consumer : Option (Fin num_nodes)
 
   def FIFOList (inputs : List Ty) (num_nodes num_fifos : Nat) :=
-    (fid : Fin num_fifos) → FIFO inputs num_nodes fid
+    Fin num_fifos → FIFO inputs num_nodes
 
   def FIFOList.get_ty (fifos : FIFOList ins nn nf) (i : Fin nf) := (fifos i).ty
 
@@ -132,9 +132,6 @@ namespace VirtualRDA
     num_fifos : Nat
     fifos : FIFOList inputs num_nodes num_fifos
     nodes : NodeList fifos
-
-  def VirtualRDA.fifo_type (vrda : VirtualRDA) (fid : Fin vrda.num_fifos) :=
-    FIFO vrda.inputs vrda.num_nodes fid
 
   def VirtualRDA.output_fifos (vrda : VirtualRDA) : List (Fin vrda.num_fifos) :=
     let fin_range := List.finRange vrda.num_fifos
