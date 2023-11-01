@@ -80,6 +80,7 @@ namespace VirtualRDA
 
   -- initial values/ optional/list
   -- optional prod/consumer: compute ios
+  -- is fid useless?
   structure FIFO (inputs : List Ty) (num_nodes : Nat) (fid : Fin num_fifos) where
     ty : Ty
     producer : Fin num_nodes ⊕ Member ty inputs
@@ -170,6 +171,8 @@ namespace VirtualRDA
 
   end Node
 
+  -- forward/backward edges should have different types, backward edges should have initial values
+  -- combination logic should be run in an order that makes termination obvious
   namespace VirtualRDA
 
     def extract_output_stream (vrda : VirtualRDA) (fid : Fin vrda.num_fifos) (nid : Fin vrda.num_nodes)
