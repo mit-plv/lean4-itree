@@ -23,7 +23,7 @@ namespace HList
   def get : HList β is → Member i is → β i
     | a :: as, .head => a
     | _ :: as, .tail h => as.get h
-  
+
   def get_nth : (l : HList β is) → (n : Fin is.length) → β (is.get n)
     | h :: _, ⟨0, _⟩ => h
     | _ :: t, ⟨n + 1, _⟩ => t.get_nth ⟨n, _⟩
@@ -38,9 +38,19 @@ namespace HList
   -- return a HList with indices of type β and values of β-indexed type δ
   -- using the mapping function g : (a : α) → δ (f a).
   def from_list {α : Type v1} {β : Type v2} {δ : β → Type u}
-                (f : α → β) (g : (a : α) → δ (f a)) : 
+                (f : α → β) (g : (a : α) → δ (f a)) :
                 (l : List α) → HList δ (l.map f)
     | [] => []
     | h :: t => g h :: from_list f g t
+
+  -- Given a List α, a function f : α → β,
+  -- return a HList with indices of type β and values of β-indexed type δ
+  -- using the mapping function g : (a : α) → δ (f a).
+  def from_list_with_mem {α : Type v1} {β : Type v2} {δ : β → Type u}
+                        (l : List α) (f : α → β) (g : (a : α) → a ∈ l → δ (f a))
+                        : HList δ (l.map f) :=
+    match l with
+      | [] => []
+      | h :: t => g h (List.Mem.head t) :: from_list_with_mem t f (λ a h_mem => g a (List.Mem.tail h h_mem))
 
 end HList
