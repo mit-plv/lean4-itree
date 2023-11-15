@@ -307,6 +307,10 @@ namespace VirtualRDA
 
       outputs.get mem
 
+      def stupid : false → 0 = 1 := by
+        intro h
+        contradiction
+
       def nth_cycle_state (vrda : VirtualRDA) (inputs : TysHListStream vrda.inputs) (n : Nat)
                           : vrda.state_map :=
         λ nid =>
@@ -319,11 +323,12 @@ namespace VirtualRDA
                   (inputs n).get fifo.producer
                 )
                 (λ fifo h_match h_mem =>
-                  let contra : false := by
+                  let crazy : false := by
                     have h_is_input : vrda.fifos.is_node_input nid fid = true
                     · apply (List.mem_filter.mp h_mem).right
                     simp [FIFOList.is_node_input, h_match] at h_is_input
-                  sorry
+                  -- how does this actually work?
+                  Nat.noConfusion (stupid crazy)
                 )
                 (λ fifo h_match h_mem =>
                   let producer_outputs : TysHList (vrda.fifos.node_outputs fifo.producer) :=
@@ -339,8 +344,8 @@ namespace VirtualRDA
                     (vrda.nth_cycle_state inputs n fifo.producer).fst
                   vrda.get_output_adv fid h_match producer_outputs
                 )
-                (λ fifo h_match h_mem =>
-                  match h_n : n with
+                (λ fifo h_match _ =>
+                  match n with
                     | 0 => fifo.initial_value
                     | n' + 1 =>
                       let last_outputs := (vrda.nth_cycle_state inputs n' fifo.producer).fst
@@ -364,29 +369,29 @@ namespace VirtualRDA
             λ fid h_mem_outer =>
               (vrda.fifos fid).casesOn (motive := λ fifo => vrda.fifos fid = fifo → fid ∈ vrda.output_fifos → fifo.get_ty.denote)
               (λ fifo h_match h_mem =>
-                let contra : false := by
+                let crazy : false := by
                   have h_is_output : (vrda.fifos fid).is_output = true
                   · apply (List.mem_filter.mp h_mem).right
                   simp [FIFO.is_output, h_match] at h_is_output
-                sorry
+                Nat.noConfusion (stupid crazy)
               )
               (λ fifo h_match _ =>
                 let producer_outputs := (curr_state fifo.producer).fst
                 vrda.get_output_output fid h_match producer_outputs
               )
               (λ fifo h_match h_mem =>
-                let contra : false := by
+                let crazy : false := by
                   have h_is_output : (vrda.fifos fid).is_output = true
                   · apply (List.mem_filter.mp h_mem).right
                   simp [FIFO.is_output, h_match] at h_is_output
-                sorry
+                Nat.noConfusion (stupid crazy)
               )
               (λ fifo h_match h_mem =>
-                let contra : false := by
+                let crazy : false := by
                   have h_is_output : (vrda.fifos fid).is_output = true
                   · apply (List.mem_filter.mp h_mem).right
                   simp [FIFO.is_output, h_match] at h_is_output
-                sorry
+                Nat.noConfusion (stupid crazy)
               )
               rfl h_mem_outer
           )
