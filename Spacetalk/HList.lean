@@ -54,3 +54,16 @@ namespace HList
       | h :: t => g h (List.Mem.head t) :: from_list_with_mem t f (λ a h_mem => g a (List.Mem.tail h h_mem))
 
 end HList
+
+
+inductive Test
+  | a : Nat → Test
+  | b
+  | c
+
+def Test.is_a : Test → Bool
+  | .a _ => true
+  | _ => false
+
+def f : (t : Test) → t.is_a = true → Nat
+  | .a n, _ => n
