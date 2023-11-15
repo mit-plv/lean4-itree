@@ -360,39 +360,17 @@ namespace VirtualRDA
                       : TyStreamsHList (vrda.output_fifos.map (vrda.fifos.get_ty (·.val))) :=
       let packed_inputs := pack_hlist_stream inputs
       let state_stream := vrda.nth_cycle_state packed_inputs
-      let packed_output_stream : TysHListStream (vrda.output_fifos.map vrda.fifos.get_ty) :=
+      let packed_output_stream : TysHListStream (vrda.output_fifos.map (vrda.fifos.get_ty (·.val))) :=
         λ n =>
           let curr_state := state_stream n
-          HList.from_list_with_mem vrda.output_fifos (vrda.fifos.get_ty (·.val)) (
-            λ fid h_mem_outer =>
-              (vrda.fifos fid.val).casesOn (motive := λ fifo => vrda.fifos fid.val = fifo → fid ∈ vrda.output_fifos → fifo.get_ty.denote)
-              (λ fifo h_match h_mem =>
-                let crazy : false := by
-                  have h_is_output : (vrda.fifos fid.val).is_output = true
-                  · apply (List.mem_filter.mp h_mem).right
-                  simp [FIFO.is_output, h_match] at h_is_output
-                Nat.noConfusion (stupid crazy)
-              )
-              (λ fifo h_match _ =>
-                let producer_outputs := (curr_state fifo.producer).fst
-                vrda.get_output_output fid h_match producer_outputs
-              )
-              (λ fifo h_match h_mem =>
-                let crazy : false := by
-                  have h_is_output : (vrda.fifos fid).is_output = true
-                  · apply (List.mem_filter.mp h_mem).right
-                  simp [FIFO.is_output, h_match] at h_is_output
-                Nat.noConfusion (stupid crazy)
-              )
-              (λ fifo h_match h_mem =>
-                let crazy : false := by
-                  have h_is_output : (vrda.fifos fid).is_output = true
-                  · apply (List.mem_filter.mp h_mem).right
-                  simp [FIFO.is_output, h_match] at h_is_output
-                Nat.noConfusion (stupid crazy)
-              )
-              rfl h_mem_outer
-          )
+          HList.from_list (vrda.fifos.get_ty (·.val)) (
+            λ fid =>
+              match h_match : vrda.fifos fid.val, fid.property with
+                | .output fifo, _ =>
+                  let producer_outputs := (curr_state fifo.producer).fst
+                  let val := vrda.get_output_output fid.val h_match producer_outputs
+                  convert_output h_match val
+          ) vrda.output_fifos
       unpack_hlist_stream packed_output_stream
 
   end VirtualRDA
