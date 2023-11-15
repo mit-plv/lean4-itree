@@ -274,24 +274,44 @@ namespace VirtualRDA
                   let h_eq : fifo.ty.denote = (vrda.fifos.get_ty fid).denote:=
                     by simp [FIFOList.get_ty, h_match]
                   h_eq ▸ val
-                | _ =>
-                  -- impossible
+                | .output _ =>
+                  -- TODO: deal with this
+                  let contra : false := by
+                    have h_is_input : vrda.fifos.is_node_input nid fid = true
+                    · apply (List.mem_filter.mp h_mem).right
+                    simp [FIFOList.is_node_input, h_match] at h_is_input
                   sorry
             )
-        sorry
+        let node := vrda.nodes nid
+        let outputs := node.denote input_vals node.initial_state
+        let next_state := node.next_state input_vals node.initial_state
+        (outputs, next_state)
         decreasing_by
           simp_wf
-          have h_is_output : vrda.fifos.is_node_input nid fid = true
+          have h_is_input : vrda.fifos.is_node_input nid fid = true
           · apply (List.mem_filter.mp h_mem).right
           have h_consumer_eq : nid = fifo.consumer
-          . simp [FIFOList.is_node_input, h_match] at h_is_output
+          . simp [FIFOList.is_node_input, h_match] at h_is_input
             symm
             assumption
           rw [h_consumer_eq]
           exact fifo.adv
 
-    @[simp] def denote (vrda : VirtualRDA) :
-      TyStreamsHList vrda.inputs → TyStreamsHList (vrda.output_fifos.map vrda.fifos.get_ty) :=
+      def nth_cycle_state (vrda : VirtualRDA) (inputs : TysHListStream vrda.inputs) : Nat → vrda.state_map
+        | 0 => vrda.first_cycle_state inputs
+        | n + 1 =>
+          let last_state := vrda.nth_cycle_state inputs n
+          λ nid =>
+            sorry
+
+    @[simp] def denote (vrda : VirtualRDA) (inputs : TyStreamsHList vrda.inputs)
+                      : TyStreamsHList (vrda.output_fifos.map vrda.fifos.get_ty) :=
+      let packed_inputs := pack_hlist_stream inputs
+      let state_stream := vrda.nth_cycle_state packed_inputs
+      let packed_output_stream : TysHListStream (vrda.output_fifos.map vrda.fifos.get_ty) :=
+        λ n =>
+          let curr_state := state_stream n
+          sorry
       sorry
       -- λ inputs =>
       --   HList.from_list vrda.fifos.get_ty (vrda.get_output_stream inputs) vrda.output_fifos
