@@ -186,46 +186,6 @@ namespace VirtualRDA
   -- combination logic should be run in an order that makes termination obvious
   namespace VirtualRDA
 
-    -- def extract_output_stream (vrda : VirtualRDA) (fid : Fin vrda.num_fifos) (nid : Fin vrda.num_nodes)
-    --                           (node_output_streams : TyStreamsHList (vrda.fifos.node_outputs nid))
-    --                           (h_match_producer : (vrda.fifos fid).producer = .inl nid) :=
-    --   let output_fids := vrda.fifos.node_output_fids nid
-    --   let outputs := vrda.fifos.node_outputs nid
-    --   let idx := output_fids.indexOf fid
-
-    --   -- Prove that fid actually exists in the node's outputs
-    --   let h_fid_fin_mem : fid ∈ (List.finRange vrda.num_fifos) := by apply List.mem_finRange
-    --   let h_is_output : (vrda.fifos.is_node_output nid fid) = true := by simp [FIFOList.is_node_output, h_match_producer]
-    --   let h_fid_filter_mem := List.mem_filter.mpr (And.intro h_fid_fin_mem h_is_output)
-    --   let h_fid_outputs_mem : ∃ x, x ∈ output_fids ∧ fid == x :=
-    --     by
-    --       simp [FIFOList.node_output_fids, FIFOList.node_output_fids]
-    --       exact h_fid_filter_mem
-    --   let idx_fin : Fin outputs.length := ⟨
-    --     idx,
-    --     by
-    --       simp [List.indexOf, FIFOList.node_outputs]
-    --       exact List.findIdx_lt_length_of_exists h_fid_outputs_mem
-    --   ⟩
-
-    --   -- Prove that idx gives the desired output type
-    --   let h_eq : Member (outputs.get idx_fin) outputs = Member (vrda.fifos fid).ty outputs :=
-    --     by
-    --       simp [FIFOList.node_outputs]; simp [FIFOList.get_ty]
-    --   let mem : Member (vrda.fifos fid).ty outputs := h_eq ▸ (outputs.nth_member idx_fin)
-
-    --   node_output_streams.get mem
-
-    -- def get_output_stream (vrda : VirtualRDA)  (inputs : TyStreamsHList vrda.inputs)
-    --                       (fid : Fin vrda.num_fifos) : TyStream (vrda.fifos fid).ty :=
-    --   match h_match : (vrda.fifos fid).producer with
-    --     | .inl nid =>
-    --       let node := vrda.nodes nid
-    --       let node_input_streams := HList.from_list vrda.fifos.get_ty (vrda.get_output_stream inputs) (vrda.fifos.node_input_fids nid)
-    --       let node_output_streams := node.denote node_input_streams
-    --       vrda.extract_output_stream fid nid node_output_streams h_match
-    --     | .inr mem => inputs.get mem
-
     def get_output_adv (vrda : VirtualRDA) (fid : Fin vrda.num_fifos)
       {fifo : AdvancingFIFO vrda.num_nodes} (h : vrda.fifos fid = FIFO.advancing fifo)
       (outputs : TysHList (vrda.fifos.node_outputs fifo.producer)) : fifo.ty.denote :=
@@ -307,9 +267,7 @@ namespace VirtualRDA
 
       outputs.get mem
 
-      def stupid : false → 0 = 1 := by
-        intro h
-        contradiction
+      def stupid : false → 0 = 1 := by intro h; contradiction
 
       def nth_cycle_state (vrda : VirtualRDA) (inputs : TysHListStream vrda.inputs) (n : Nat)
                           : vrda.state_map :=
