@@ -48,10 +48,11 @@ namespace VirtualRDA
 
   -- More expressive adds that choose inputs with Fins
   -- monotonic to preserver old inputs
-  inductive NodeOps : List Ty → List Ty → Type
+  inductive NodeOps : (inputs : List Ty) → List Ty → Type
     | nop : NodeOps α α -- for stateless nodes
-    | add : NodeOps [.nat, .nat] [.nat]
-    | dup : NodeOps [α] [α, α]
+    | add : (a : Member .nat inputs) → (b : Member .nat inputs) → NodeOps inputs (.nat :: inputs)
+    | mul : (a : Member .nat inputs) → (b : Member .nat inputs) → NodeOps inputs (.nat :: inputs)
+    | select : (ty : Ty) → (a : Member ty inputs) → NodeOps inputs [ty]
     | comp : NodeOps α β → NodeOps β γ → NodeOps α γ
 
   structure InputFIFO (inputs : List Ty) where
@@ -165,10 +166,11 @@ namespace VirtualRDA
   -- Semantics
 
   @[simp] def NodeOps.denote : NodeOps α β → (TysHList α → TysHList β)
-    | nop => id
-    | add => λ (a :: b :: []) => (a + b) :: []
-    | dup => λ (a :: []) => a :: a :: []
-    | comp f g => g.denote ∘ f.denote
+    | .nop => id
+    | .add a b => λ inputs => ((inputs.get a) + (inputs.get b)) :: inputs
+    | .mul a b => λ inputs => ((inputs.get a) * (inputs.get b)) :: inputs
+    | .select _ a => λ inputs => inputs.get a :: []
+    | .comp f g => g.denote ∘ f.denote
 
   namespace Node
 

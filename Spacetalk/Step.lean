@@ -58,27 +58,4 @@ namespace Step
     | reduce f dim init => Stream'.reduce f.denote dim init
     | comp f g => Function.comp f.denote g.denote
 
-  namespace Example
-    -- A dot product of length n vectors
-    def dot_prod (n : Nat) : Prog rep (.stream .nat → .stream .nat → .stream .nat) :=
-      let multiply := .zip (.binop .mul)
-      let reduction := .reduce (.binop .add) n 0
-      .lam λ a => .lam λ b => .app reduction (.app (.app multiply (.var a)) (.var b))
-
-    def dot_prod' (n : Nat) (a : Stream' Nat) (b : Stream' Nat) : Stream' Nat :=
-      Stream'.reduce (· + ·) n 0 (Stream'.zip (· * ·) a b)
-
-    def sa : Stream' Nat := id
-    def sb : Stream' Nat := id
-
-    def dp (n : Nat) := (dot_prod n).denote sa sb
-    def dp' (n : Nat) := dot_prod' n sa sb
-    def n := 10
-    #eval (dp n).get 0
-    #eval (dp' n).get 0
-
-    theorem dp_equiv : ∀n : Nat, (dot_prod n).denote = dot_prod' n := by
-      simp [dot_prod']
-  end Example
-
 end Step
