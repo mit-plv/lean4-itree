@@ -81,66 +81,70 @@ namespace VirtualRDA
     | advancing : AdvancingFIFO num_nodes → FIFO inputs num_nodes
     | initialized : InitializedFIFO num_nodes → FIFO inputs num_nodes
 
-  @[simp] def FIFO.get_ty : FIFO inputs nn → Ty
-    | .input fifo | .output fifo | .advancing fifo | .initialized fifo => fifo.ty
+  namespace FIFO
 
-  def FIFO.is_input : FIFO inputs nn → Bool
-    | .input _ | .initialized _ | .advancing _ => true
-    | .output _ => false
+    @[simp] def get_ty : FIFO inputs nn → Ty
+      | .input fifo | .output fifo | .advancing fifo | .initialized fifo => fifo.ty
 
-  def FIFO.is_not_input : FIFO inputs nn → Bool
-    | .input _ => false
-    | _ => true
+    @[simp] def is_input : FIFO inputs nn → Bool
+      | .input _ => true
+      | _ => false
 
-  def FIFO.is_output : FIFO inputs nn → Bool
-    | .input _ | .initialized _ | .advancing _ => false
-    | .output _ => true
+    @[simp] def is_output : FIFO inputs nn → Bool
+      | .output _ => true
+      | _ => false
 
-  def FIFO.producer : (fifo : FIFO inputs nn) → fifo.is_not_input → Fin nn
-    | .initialized fifo', _ | .advancing fifo', _ | .output fifo', _ => fifo'.producer
+    @[simp] def producer : (fifo : FIFO inputs nn) → fifo.is_input = false → Fin nn
+      | .initialized fifo', _ | .advancing fifo', _ | .output fifo', _ => fifo'.producer
+
+  end FIFO
 
   def FIFOList (inputs : List Ty) (num_nodes num_fifos : Nat) :=
     Fin num_fifos → FIFO inputs num_nodes
 
-  @[simp] def FIFOList.get_ty (coe : Idx → Fin nf) (fifos : FIFOList ins nn nf) (i : Idx) :=
-    (fifos (coe i)).get_ty
+  namespace FIFOList
 
-  def FIFOList.is_node_input (fifos : FIFOList ins nn nf) (nid : Fin nn) (i : Fin nf) : Bool :=
-    match fifos i with
-      | .input fifo | .advancing fifo | .initialized fifo => fifo.consumer == nid
-      | _ => false
+    @[simp] def get_ty (coe : Idx → Fin nf) (fifos : FIFOList ins nn nf) (i : Idx) :=
+      (fifos (coe i)).get_ty
 
-  def FIFOList.non_output_fid (fifos : FIFOList ins nn nf) :=
-    {fid : Fin nf // (fifos fid).is_input = true}
+    @[simp] def is_node_input (fifos : FIFOList ins nn nf) (nid : Fin nn) (i : Fin nf) : Bool :=
+      match fifos i with
+        | .input fifo | .advancing fifo | .initialized fifo => fifo.consumer == nid
+        | _ => false
 
-  def FIFOList.non_input_fid (fifos : FIFOList ins nn nf) :=
-    {fid : Fin nf // (fifos fid).is_output = true}
+    @[simp] def is_node_output (fifos : FIFOList ins nn nf) (nid : Fin nn) (i : Fin nf) : Bool :=
+      match fifos i with
+        | .output fifo | .advancing fifo | .initialized fifo => fifo.producer == nid
+        | _ => false
 
-  def FIFOList.node_input_fids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List fifos.non_output_fid :=
-    let fin_range := List.finRange nf
-    let filtered := fin_range.filter (fifos.is_node_input nid)
-    filtered.attach.map (λ ⟨fid, h_mem⟩ => ⟨fid, by
-      have h_is_input : fifos.is_node_input nid fid = true
-      · apply (List.mem_filter.mp h_mem).right
-      simp [FIFOList.is_node_input] at h_is_input
-      simp [FIFO.is_input]
-      cases h : fifos fid <;> simp; simp [h] at h_is_input
-    ⟩)
+    def output_fid (fifos : FIFOList ins nn nf) :=
+      {fid : Fin nf // (fifos fid).is_output = true}
 
-  def FIFOList.node_inputs (fifos : FIFOList ins nn nf) (nid : Fin nn) : List Ty :=
-    (fifos.node_input_fids nid).map (fifos.get_ty (·.val))
+    def non_output_fid (fifos : FIFOList ins nn nf) :=
+      {fid : Fin nf // (fifos fid).is_output = false}
 
-  def FIFOList.is_node_output (fifos : FIFOList ins nn nf) (nid : Fin nn) (i : Fin nf) : Bool :=
-    match fifos i with
-      | .output fifo | .advancing fifo | .initialized fifo => fifo.producer == nid
-      | _ => false
+    theorem filtered_input_is_not_output {fifos : FIFOList ins nn nf} {fid : Fin nf}
+      (h_mem : fid ∈ (List.finRange nf).filter (fifos.is_node_input nid))
+      : (fifos fid).is_output = false := by
+      simp [List.mem_filter] at h_mem
+      cases h_match : fifos fid <;> simp; simp [h_match] at h_mem
 
-  def FIFOList.node_output_fids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List (Fin nf) :=
-    let fin_range := List.finRange nf
-    fin_range.filter (fifos.is_node_output nid)
+    def node_input_fids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List fifos.non_output_fid :=
+      let fin_range := List.finRange nf
+      let filtered := fin_range.filter (fifos.is_node_input nid)
+      filtered.attach.map (λ ⟨fid, h_mem⟩ => ⟨fid, filtered_input_is_not_output h_mem⟩)
 
-  def FIFOList.node_outputs (fifos : FIFOList ins nn nf) (nid : Fin nn) : List Ty :=
-    (fifos.node_output_fids nid).map (fifos.get_ty id)
+    def node_inputs (fifos : FIFOList ins nn nf) (nid : Fin nn) : List Ty :=
+      (fifos.node_input_fids nid).map (fifos.get_ty (·.val))
+
+    def node_output_fids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List (Fin nf) :=
+      let fin_range := List.finRange nf
+      fin_range.filter (fifos.is_node_output nid)
+
+    def node_outputs (fifos : FIFOList ins nn nf) (nid : Fin nn) : List Ty :=
+      (fifos.node_output_fids nid).map (fifos.get_ty id)
+
+  end FIFOList
 
   structure Node (fifos : FIFOList inputs num_nodes num_fifos) (nid : Fin num_nodes) where
     state : List Ty
@@ -148,7 +152,6 @@ namespace VirtualRDA
     state_transform : NodeOps (state ++ (fifos.node_inputs nid)) state
     pipeline : NodeOps (state ++ (fifos.node_inputs nid)) (fifos.node_outputs nid)
 
-  -- We want nodes to be sorted in reverse post order
   def NodeList (fifos : FIFOList inputs num_nodes num_fifos) :=
     (nid : Fin num_nodes) → Node fifos nid
 
@@ -158,20 +161,6 @@ namespace VirtualRDA
     num_fifos : Nat
     fifos : FIFOList inputs num_nodes num_fifos
     nodes : NodeList fifos
-
-  def VirtualRDA.state_map (vrda : VirtualRDA) :=
-    (nid : Fin vrda.num_nodes) → (TysHList (vrda.fifos.node_outputs nid)) × (TysHList (vrda.nodes nid).state)
-
-  def VirtualRDA.output_fifos (vrda : VirtualRDA) : List vrda.fifos.non_input_fid :=
-    let fin_range := List.finRange vrda.num_fifos
-    let filtered := fin_range.filter (λ i => (vrda.fifos i).is_output)
-    filtered.attach.map (λ ⟨fid, h_mem⟩ => ⟨fid, by
-      have h_is_output : (vrda.fifos fid).is_output = true
-      · apply (List.mem_filter.mp h_mem).right
-      simp [FIFO.is_output] at h_is_output
-      simp [FIFO.is_output]
-      cases h : vrda.fifos fid <;> simp [h] at h_is_output; simp
-    ⟩)
 
   -- Semantics
 
@@ -198,38 +187,49 @@ namespace VirtualRDA
 
   namespace VirtualRDA
 
-    def get_output (vrda : VirtualRDA) (fid : Fin vrda.num_fifos)
-      {fifo : FIFO vrda.inputs vrda.num_nodes} (h : vrda.fifos fid = fifo)
-      (h_is_not_input : fifo.is_not_input = true)
+    def state_map (vrda : VirtualRDA) :=
+      (nid : Fin vrda.num_nodes) → (TysHList (vrda.fifos.node_outputs nid)) × (TysHList (vrda.nodes nid).state)
+
+    theorem filtered_output_is_not_input {vrda : VirtualRDA} {fid : Fin vrda.num_fifos}
+      (h_mem : fid ∈ (List.finRange vrda.num_fifos).filter (λ i => (vrda.fifos i).is_output))
+      : (vrda.fifos fid).is_output = true := by
+      simp [List.mem_filter] at h_mem
+      exact h_mem
+
+    def output_fifos (vrda : VirtualRDA) : List vrda.fifos.output_fid :=
+      let fin_range := List.finRange vrda.num_fifos
+      let filtered := fin_range.filter (λ i => (vrda.fifos i).is_output)
+      filtered.attach.map (λ ⟨fid, h_mem⟩ => ⟨fid, filtered_output_is_not_input h_mem⟩)
+
+    theorem output_fid_idx_lt_output_tys_length {vrda : VirtualRDA} {fid : Fin vrda.num_fifos} {fifo : FIFO vrda.inputs vrda.num_nodes}
+      (h : vrda.fifos fid = fifo) (h_is_not_input : fifo.is_input = false)
+      : (vrda.fifos.node_output_fids (fifo.producer h_is_not_input)).indexOf fid
+        < (vrda.fifos.node_outputs (fifo.producer h_is_not_input)).length := by
+      simp [List.indexOf, FIFOList.node_outputs]
+      apply List.findIdx_lt_length_of_exists
+      · simp [FIFOList.node_output_fids]
+        apply List.mem_filter.mpr
+        apply And.intro
+        · apply List.mem_finRange
+        · simp [FIFOList.is_node_output, h]
+          cases fifo <;> simp [FIFO.producer]; simp at h_is_not_input
+
+    def extract_fifo_output {vrda : VirtualRDA} {fid : Fin vrda.num_fifos} {fifo : FIFO vrda.inputs vrda.num_nodes}
+      (h : vrda.fifos fid = fifo) (h_is_not_input : fifo.is_input = false)
       (outputs : TysHList (vrda.fifos.node_outputs (fifo.producer h_is_not_input))) : fifo.get_ty.denote :=
 
-      let output_fids := vrda.fifos.node_output_fids (fifo.producer h_is_not_input)
-      let output_tys := vrda.fifos.node_outputs (fifo.producer h_is_not_input)
-      let idx := output_fids.indexOf fid
+      let producer_id := fifo.producer h_is_not_input
+      let output_fids := vrda.fifos.node_output_fids producer_id
+      let output_tys := vrda.fifos.node_outputs producer_id
 
-      let idx_fin : Fin output_tys.length := ⟨
-        idx, by
-          simp [List.indexOf, FIFOList.node_outputs]
-          apply List.findIdx_lt_length_of_exists
-          · simp [FIFOList.node_output_fids]
-            apply List.mem_filter.mpr
-            apply And.intro
-            · apply List.mem_finRange
-            · simp [FIFOList.is_node_output, h]
-              cases fifo <;> simp [FIFO.producer]; simp [FIFO.is_not_input] at h_is_not_input
-      ⟩
-
-      let h_eq : Member (output_tys.get idx_fin) output_tys = Member fifo.get_ty output_tys :=
-        by
-          simp [FIFOList.node_outputs, FIFOList.get_ty, FIFO.get_ty, h]
-
-      let mem : Member fifo.get_ty output_tys := h_eq ▸ (output_tys.nth_member idx_fin)
-
+      let idx : Fin output_tys.length := ⟨output_fids.indexOf fid, output_fid_idx_lt_output_tys_length h h_is_not_input⟩
+      let h_eq : Member (output_tys.get idx) output_tys = Member fifo.get_ty output_tys := by simp [FIFOList.node_outputs, h]
+      let mem := h_eq ▸ (output_tys.nth_member idx)
       outputs.get mem
 
-    theorem adv_fifo_lt {vrda : VirtualRDA} {nid : Fin vrda.num_nodes} {fid : vrda.fifos.non_output_fid} {fifo : AdvancingFIFO vrda.num_nodes}
-                    (h_mem : fid ∈ vrda.fifos.node_input_fids nid) (h_match : vrda.fifos fid.val = FIFO.advancing fifo)
-                    : fifo.producer < nid := by
+    theorem advancing_fifo_lt {vrda : VirtualRDA} {nid : Fin vrda.num_nodes} {fid : vrda.fifos.non_output_fid} {fifo : AdvancingFIFO vrda.num_nodes}
+      (h_mem : fid ∈ vrda.fifos.node_input_fids nid) (h_match : vrda.fifos fid.val = FIFO.advancing fifo)
+      : fifo.producer < nid := by
       have h_is_input : vrda.fifos.is_node_input nid fid.val = true
       · simp [FIFOList.node_input_fids] at h_mem
         have h_mem' : fid.val ∈ (List.finRange vrda.num_fifos).filter (vrda.fifos.is_node_input nid)
@@ -242,15 +242,15 @@ namespace VirtualRDA
                   rw [py]
                 rw [h_x_eq]
                 exact y
-        apply (List.mem_filter.mp h_mem').right
+        exact (List.mem_filter.mp h_mem').right
       have h_consumer_eq : nid = fifo.consumer
-      . simp [FIFOList.is_node_input, h_match] at h_is_input
+      . simp [h_match] at h_is_input
         symm
         assumption
       rw [h_consumer_eq]
       exact fifo.adv
 
-    def convert_output {vrda : VirtualRDA} {coe : Idx → Fin vrda.num_fifos} {fid : Idx}
+    def convert_fifo_ty {vrda : VirtualRDA} {coe : Idx → Fin vrda.num_fifos} {fid : Idx}
                       {fifo : FIFO vrda.inputs vrda.num_nodes} (h_match : vrda.fifos (coe fid) = fifo)
                       (val : fifo.get_ty.denote)
                       : (vrda.fifos.get_ty coe fid).denote :=
@@ -267,20 +267,19 @@ namespace VirtualRDA
               match h_match : vrda.fifos fid.val, fid.property with
                 | .input fifo, _ =>
                   let val := (inputs n).get fifo.producer
-                  convert_output h_match val
+                  convert_fifo_ty h_match val
                 | .advancing fifo, _ =>
-                  have := adv_fifo_lt h_mem h_match
-                  let producer_outputs : TysHList (vrda.fifos.node_outputs fifo.producer) :=
-                    (vrda.nth_cycle_state inputs n fifo.producer).fst
-                  let val := vrda.get_output fid.val h_match (by simp [FIFO.is_not_input]) producer_outputs
-                  convert_output h_match val
+                  have := advancing_fifo_lt h_mem h_match
+                  let producer_outputs := (vrda.nth_cycle_state inputs n fifo.producer).fst
+                  let val := extract_fifo_output h_match rfl producer_outputs
+                  convert_fifo_ty h_match val
                 | .initialized fifo, _ =>
                   let val := match n with
                     | 0 => fifo.initial_value
                     | n' + 1 =>
                       let last_outputs := (vrda.nth_cycle_state inputs n' fifo.producer).fst
-                      vrda.get_output fid.val h_match (by simp [FIFO.is_not_input]) last_outputs
-                  convert_output h_match val
+                      extract_fifo_output h_match rfl last_outputs
+                  convert_fifo_ty h_match val
             )
         let node := vrda.nodes nid
         let outputs := node.denote input_vals node.initial_state
@@ -294,14 +293,13 @@ namespace VirtualRDA
       let state_stream := vrda.nth_cycle_state packed_inputs
       let packed_output_stream : TysHListStream (vrda.output_fifos.map (vrda.fifos.get_ty (·.val))) :=
         λ n =>
-          let curr_state := state_stream n
           HList.from_list (vrda.fifos.get_ty (·.val)) (
             λ fid =>
               match h_match : vrda.fifos fid.val, fid.property with
                 | .output fifo, _ =>
-                  let producer_outputs := (curr_state fifo.producer).fst
-                  let val := vrda.get_output fid.val h_match (by simp [FIFO.is_not_input]) producer_outputs
-                  convert_output h_match val
+                  let producer_outputs := ((state_stream n) fifo.producer).fst
+                  let val := extract_fifo_output h_match rfl producer_outputs
+                  convert_fifo_ty h_match val
           ) vrda.output_fifos
       unpack_hlist_stream packed_output_stream
 
