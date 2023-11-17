@@ -135,7 +135,7 @@ namespace VirtualRDA
       let filtered := fin_range.filter (fifos.is_node_input nid)
       filtered.attach.map (λ ⟨fid, h_mem⟩ => ⟨fid, filtered_input_is_not_output h_mem⟩)
 
-    def node_inputs (fifos : FIFOList ins nn nf) (nid : Fin nn) : List Ty :=
+    @[simp] def node_inputs (fifos : FIFOList ins nn nf) (nid : Fin nn) : List Ty :=
       (fifos.node_input_fids nid).map (fifos.get_ty (·.val))
 
     def node_output_fids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List (Fin nf) :=
@@ -263,9 +263,14 @@ namespace VirtualRDA
                         : vrda.state_map :=
       λ nid =>
         let input_fids : List vrda.fifos.non_output_fid := vrda.fifos.node_input_fids nid
+        let h_eq : vrda.fifos.node_inputs nid = (input_fids.attach.map (vrda.fifos.get_ty Subtype.val ∘ Subtype.val)) := by
+          rw [List.comp_map (vrda.fifos.get_ty Subtype.val) Subtype.val]
+          rw [List.attach_map_val]
+          simp
+          rfl
         let input_vals : TysHList (vrda.fifos.node_inputs nid) :=
-          HList.from_list_with_mem input_fids (vrda.fifos.get_ty (·.val))
-            (λ fid h_mem =>
+          h_eq ▸ input_fids.attach.to_hlist (vrda.fifos.get_ty Subtype.val ∘ Subtype.val) (
+            λ ⟨fid, h_mem⟩ =>
               match h_match : vrda.fifos fid.val, fid.property with
                 | .input fifo, _ =>
                   let val := (inputs n).get fifo.producer
@@ -282,7 +287,7 @@ namespace VirtualRDA
                       let last_outputs := (vrda.nth_cycle_state inputs n' fifo.producer).fst
                       extract_fifo_output h_match rfl last_outputs
                   convert_fifo_ty h_match val
-            )
+          )
         let node := vrda.nodes nid
         let outputs := node.denote input_vals node.initial_state
         let next_state := node.next_state input_vals node.initial_state
@@ -295,14 +300,14 @@ namespace VirtualRDA
       let state_stream := vrda.nth_cycle_state packed_inputs
       let packed_output_stream : TysHListStream (vrda.output_fifos.map (vrda.fifos.get_ty (·.val))) :=
         λ n =>
-          HList.from_list (vrda.fifos.get_ty (·.val)) (
+          vrda.output_fifos.to_hlist (vrda.fifos.get_ty (·.val)) (
             λ fid =>
               match h_match : vrda.fifos fid.val, fid.property with
                 | .output fifo, _ =>
                   let producer_outputs := ((state_stream n) fifo.producer).fst
                   let val := extract_fifo_output h_match rfl producer_outputs
                   convert_fifo_ty h_match val
-          ) vrda.output_fifos
+          )
       unpack_hlist_stream packed_output_stream
 
   end VirtualRDA
