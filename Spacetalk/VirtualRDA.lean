@@ -50,6 +50,7 @@ namespace VirtualRDA
   -- monotonic to preserver old inputs
   inductive NodeOps : (inputs : List Ty) → List Ty → Type
     | nop : NodeOps α α -- for stateless nodes
+    | dropall : NodeOps α []
     | add : (a : Member .nat inputs) → (b : Member .nat inputs) → NodeOps inputs (.nat :: inputs)
     | mul : (a : Member .nat inputs) → (b : Member .nat inputs) → NodeOps inputs (.nat :: inputs)
     | select : (ty : Ty) → (a : Member ty inputs) → NodeOps inputs [ty]
@@ -167,6 +168,7 @@ namespace VirtualRDA
 
   @[simp] def NodeOps.denote : NodeOps α β → (TysHList α → TysHList β)
     | .nop => id
+    | .dropall => λ _ => []
     | .add a b => λ inputs => ((inputs.get a) + (inputs.get b)) :: inputs
     | .mul a b => λ inputs => ((inputs.get a) * (inputs.get b)) :: inputs
     | .select _ a => λ inputs => inputs.get a :: []
@@ -309,6 +311,22 @@ namespace VirtualRDA
                   convert_fifo_ty h_match val
           )
       unpack_hlist_stream packed_output_stream
+
+
+    -- builder functions
+
+    structure IOConnection (vrda : VirtualRDA) where
+      ty : Ty
+      initial_value : ty.denote
+      in_fid : Fin vrda.num_fifos
+      out_fid : Fin vrda.num_fifos
+      in_fifo : InputFIFO vrda.inputs
+      out_fifo : OutputFIFO vrda.num_nodes
+      h_in : (vrda.fifos in_fid) = FIFO.input in_fifo
+      h_out : (vrda.fifos out_fid) = FIFO.output out_fifo
+
+    def rewire_io (vrda : VirtualRDA) (ioc : IOConnection vrda) : VirtualRDA :=
+      sorry
 
   end VirtualRDA
 
