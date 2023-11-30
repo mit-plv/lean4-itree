@@ -4,6 +4,7 @@ import Mathlib.Data.Vector
 import Mathlib.Data.List.Range
 import Mathlib.Logic.Basic
 import Std.Data.List.Lemmas
+import Mathlib.Tactic.Linarith
 
 namespace VirtualRDA
 
@@ -326,6 +327,9 @@ namespace VirtualRDA
       h_out : (vrda.fifos out_fid) = FIFO.output out_fifo
 
     def rewire_io (vrda : VirtualRDA) (ioc : IOConnection vrda) : VirtualRDA :=
+      let fifos' : FIFOList vrda.inputs vrda.num_nodes (vrda.num_fifos - 1) :=
+        λ ⟨idx, h_idx⟩ =>
+          vrda.fifos ⟨idx, by linarith⟩
       sorry
 
   end VirtualRDA
