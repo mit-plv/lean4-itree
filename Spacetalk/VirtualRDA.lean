@@ -327,10 +327,32 @@ namespace VirtualRDA
       h_out : (vrda.fifos out_fid) = FIFO.output out_fifo
 
     def rewire_io (vrda : VirtualRDA) (ioc : IOConnection vrda) : VirtualRDA :=
+      let filtered_fids : List (Fin vrda.num_fifos) :=
+        (List.finRange vrda.num_fifos).filter (λ i => i != ioc.in_fid && i != ioc.out_fid)
+
       let fifos' : FIFOList vrda.inputs vrda.num_nodes (vrda.num_fifos - 1) :=
         λ ⟨idx, h_idx⟩ =>
-          vrda.fifos ⟨idx, by linarith⟩
-      sorry
+          if h_lt : idx < (vrda.num_fifos - 2) then
+            let idx' : Fin vrda.num_fifos := filtered_fids.get ⟨idx, by
+              have h_len : filtered_fids.length = vrda.num_fifos - 2 := by
+                sorry
+              rw [h_len]
+              exact h_lt
+            ⟩
+            vrda.fifos idx'
+          else
+            FIFO.initialized {
+              ty := ioc.ty,
+              producer := ioc.out_fifo.producer,
+              consumer := ioc.in_fifo.consumer,
+              initial_value := ioc.initial_value,
+            }
+
+      { vrda with
+        num_fifos := vrda.num_fifos - 1,
+        fifos := fifos',
+        nodes := sorry
+      }
 
   end VirtualRDA
 
