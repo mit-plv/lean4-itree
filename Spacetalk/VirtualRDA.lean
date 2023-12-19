@@ -6,6 +6,31 @@ import Mathlib.Logic.Basic
 import Std.Data.List.Lemmas
 import Mathlib.Tactic.Linarith
 
+def filtered_finRange (n : Nat) (a b : Fin n) (h_neq : a ≠ b) : Vector (Fin n) (n - 2) :=
+  let v : Vector (Fin n) n := ⟨List.finRange n, List.length_finRange n⟩
+  if h : ↑b < ↑a then
+    let v' := v.removeNth a
+    let v'' := v'.removeNth ⟨↑b, by
+      apply Nat.lt_of_lt_of_le h
+      apply Nat.le_pred_of_lt
+      exact a.is_lt
+    ⟩
+    v''
+  else
+    let v' := v.removeNth b
+    let v'' := v'.removeNth ⟨↑a, by
+      have h_lt : ↑a < ↑b := by
+        apply Nat.lt_iff_le_and_ne.mpr
+        apply And.intro
+        · exact Nat.not_lt.mp h
+        · apply Fin.val_ne_iff.mpr h_neq
+      apply Nat.lt_of_lt_of_le
+      · exact h_lt
+      · apply Nat.le_pred_of_lt
+        exact b.is_lt
+    ⟩
+    v''
+
 namespace VirtualRDA
 
   -- Syntax
@@ -316,6 +341,11 @@ namespace VirtualRDA
 
     -- builder functions
 
+    theorem congr_contrapositive {f : α → β} {a b : α} (h : f a ≠ f b) : a ≠ b := by
+      intro h_eq
+      apply h
+      rw [h_eq]
+
     structure IOConnection (vrda : VirtualRDA) where
       ty : Ty
       initial_value : ty.denote
@@ -326,19 +356,18 @@ namespace VirtualRDA
       h_in : (vrda.fifos in_fid) = FIFO.input in_fifo
       h_out : (vrda.fifos out_fid) = FIFO.output out_fifo
 
-    def rewire_io (vrda : VirtualRDA) (ioc : IOConnection vrda) : VirtualRDA :=
-      let filtered_fids : List (Fin vrda.num_fifos) :=
-        (List.finRange vrda.num_fifos).filter (λ i => i != ioc.in_fid && i != ioc.out_fid)
+    def make_backedge (vrda : VirtualRDA) (ioc : IOConnection vrda) : VirtualRDA :=
+      have h_distinct : ioc.in_fid ≠ ioc.out_fid := by
+        have h_fifo_neq : vrda.fifos ioc.in_fid ≠ vrda.fifos ioc.out_fid := by
+          rw [ioc.h_in, ioc.h_out]
+          simp
+        apply congr_contrapositive h_fifo_neq
+      let filtered := filtered_finRange vrda.num_fifos ioc.in_fid ioc.out_fid h_distinct
 
       let fifos' : FIFOList vrda.inputs vrda.num_nodes (vrda.num_fifos - 1) :=
         λ ⟨idx, h_idx⟩ =>
           if h_lt : idx < (vrda.num_fifos - 2) then
-            let idx' : Fin vrda.num_fifos := filtered_fids.get ⟨idx, by
-              have h_len : filtered_fids.length = vrda.num_fifos - 2 := by
-                sorry
-              rw [h_len]
-              exact h_lt
-            ⟩
+            let idx' : Fin vrda.num_fifos := filtered.get ⟨idx, h_lt⟩
             vrda.fifos idx'
           else
             FIFO.initialized {
