@@ -19,13 +19,11 @@ def filtered_finRange (n : Nat) (a b : Fin n) (h_neq : a ≠ b) : Vector (Fin n)
   else
     let v' := v.removeNth b
     let v'' := v'.removeNth ⟨↑a, by
-      have h_lt : ↑a < ↑b := by
-        apply Nat.lt_iff_le_and_ne.mpr
+      apply Nat.lt_of_lt_of_le
+      · apply Nat.lt_iff_le_and_ne.mpr
         apply And.intro
         · exact Nat.not_lt.mp h
         · apply Fin.val_ne_iff.mpr h_neq
-      apply Nat.lt_of_lt_of_le
-      · exact h_lt
       · apply Nat.le_pred_of_lt
         exact b.is_lt
     ⟩
@@ -377,10 +375,25 @@ namespace VirtualRDA
               initial_value := ioc.initial_value,
             }
 
+      let nodes' : NodeList fifos' :=
+        λ nid =>
+          let node := vrda.nodes nid
+          have inputs_eq : vrda.fifos.node_inputs nid = fifos'.node_inputs nid := by
+            sorry
+          have outputs_eq : vrda.fifos.node_outputs nid = fifos'.node_outputs nid := by
+            sorry
+          {
+            state := node.state,
+            initial_state := node.initial_state,
+            state_transform := inputs_eq ▸ node.state_transform,
+            pipeline := inputs_eq ▸ outputs_eq ▸ node.pipeline
+            : Node fifos' nid
+          }
+
       { vrda with
         num_fifos := vrda.num_fifos - 1,
         fifos := fifos',
-        nodes := sorry
+        nodes := nodes'
       }
 
   end VirtualRDA
