@@ -9,6 +9,7 @@ notation "[" "]" => HList.nil
 inductive Member : α → List α → Type
   | head : Member a (a::as)
   | tail : Member a bs → Member a (b::bs)
+deriving DecidableEq
 
 def List.nth_member : (l : List α) → (n : Fin l.length) → Member (l.get n) l
   | _::_, ⟨0, _⟩ => .head
