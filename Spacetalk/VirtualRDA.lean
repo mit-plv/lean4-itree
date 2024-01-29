@@ -127,14 +127,6 @@ namespace VirtualRDA
           | ⟨.nat, ai, _, _, _⟩, ⟨.nat, bi, _, _, _⟩ => ai == bi
           | _, _ => false
 
-  #check Decidable.byCases
-  #check Decidable.by_cases
-  #check heq_of_eq
-  #check eq_of_heq
-  #check Decidable
-  #print HEq
-  #check Eq.recOn
-
   instance {ty : Ty} : DecidableEq ty.denote :=
     λ a b =>
       match ty with
@@ -146,18 +138,16 @@ namespace VirtualRDA
       rw [InitializedFIFO.mk.injEq]
       apply Decidable.byCases (p := a.ty = b.ty)
       · intro h_ty_eq
-        have h_dety_eq : b.ty.denote = a.ty.denote := by rw [h_ty_eq]
-        apply Decidable.byCases (p := a.initial_value = cast h_dety_eq b.initial_value)
+        have h_dety_eq : a.ty.denote = b.ty.denote := by rw [h_ty_eq]
+        apply Decidable.byCases (p := cast h_dety_eq a.initial_value = b.initial_value)
         · intro h_init_eq
-          have h_init_heq : HEq a.initial_value b.initial_value := by
-            rw [h_init_eq]
-            apply cast_heq
           apply Decidable.byCases (p := a.producer = b.producer ∧ a.consumer = b.consumer ∧ a.port = b.port)
           · intro h_rest_eq
             apply isTrue
             apply And.intro h_ty_eq
-            apply And.intro h_init_heq
-            exact h_rest_eq
+            apply And.intro
+            · exact heq_of_cast_eq h_dety_eq h_init_eq
+            · exact h_rest_eq
           · intro h_rest_neq
             apply isFalse
             intro h_eq
@@ -167,25 +157,20 @@ namespace VirtualRDA
           apply isFalse
           intro h_and
           apply h_init_neq
-          apply eq_of_heq
-          have h_init_eq : HEq a.initial_value b.initial_value := h_and.right.left
-          apply HEq.subst (b := a.initial_value) (a := b.initial_value) (p := λ _ val => HEq val (cast h_dety_eq b.initial_value))
-          · exact h_init_eq.symm
-          · symm
-            apply cast_heq
+          apply cast_eq_iff_heq.mpr
+          exact h_and.right.left
       · intro h_ty_neq
         apply isFalse
-        intro h_eq
-        apply h_ty_neq
-        exact h_eq.left
+        simp
+        intro
+        contradiction
 
   inductive FIFO (inputs : List Ty) (num_nodes : Nat)
     | input : InputFIFO inputs num_nodes → FIFO inputs num_nodes
     | output : OutputFIFO num_nodes → FIFO inputs num_nodes
     | advancing : AdvancingFIFO num_nodes → FIFO inputs num_nodes
     | initialized : InitializedFIFO num_nodes → FIFO inputs num_nodes
-  deriving BEq
-
+  deriving DecidableEq
 
   namespace FIFO
 
