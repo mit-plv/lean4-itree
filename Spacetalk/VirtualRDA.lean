@@ -6,28 +6,11 @@ import Mathlib.Logic.Basic
 import Std.Data.List.Lemmas
 import Mathlib.Tactic.Linarith
 
--- def filtered_finRange (n : Nat) (a b : Fin n) (h_neq : a ≠ b) : Vector (Fin n) (n - 2) :=
---   let v : Vector (Fin n) n := ⟨List.finRange n, List.length_finRange n⟩
---   if h : ↑b < ↑a then
---     let v' := v.removeNth a
---     let v'' := v'.removeNth ⟨↑b, by
---       apply Nat.lt_of_lt_of_le h
---       apply Nat.le_pred_of_lt
---       exact a.is_lt
---     ⟩
---     v''
---   else
---     let v' := v.removeNth b
---     let v'' := v'.removeNth ⟨↑a, by
---       apply Nat.lt_of_lt_of_le
---       · apply Nat.lt_iff_le_and_ne.mpr
---         apply And.intro
---         · exact Nat.not_lt.mp h
---         · apply Fin.val_ne_iff.mpr h_neq
---       · apply Nat.le_pred_of_lt
---         exact b.is_lt
---     ⟩
---     v''
+theorem List.pwFilter_mem {l : List α} {R : α → α → Prop} [DecidableRel R] {a : α} : a ∈ l.pwFilter R → a ∈ l := by
+  intro h_mem
+  -- How does the types work here with Set and List?
+  apply Set.mem_of_subset_of_mem (List.pwFilter_subset l (R := R))
+  exact h_mem
 
 namespace VirtualRDA
 
@@ -42,11 +25,11 @@ namespace VirtualRDA
     | unit => Unit
     | nat => Nat
 
-  -- instance {ty : Ty} : BEq ty.denote where
-  --   beq := λ a b =>
-  --     match ty with
-  --       | .unit => true
-  --       | .nat => a == b
+  instance {ty : Ty} : DecidableEq ty.denote :=
+    λ a b =>
+      match ty with
+        | .unit => isTrue rfl
+        | .nat => Nat.decEq a b
 
   abbrev TyStream (ty : Ty) := Stream' (ty.denote)
 
@@ -97,15 +80,16 @@ namespace VirtualRDA
   structure OutputFIFO (num_nodes : Nat) where
     ty : Ty
     producer : Fin num_nodes
-    port: Nat
+    producer_port: Nat
   deriving DecidableEq
 
   structure AdvancingFIFO (num_nodes : Nat) where
     ty : Ty
     producer : Fin num_nodes
     consumer : Fin num_nodes
+    proucer_port: Nat
+    consumer_port: Nat
     adv : producer < consumer
-    port: Nat
   deriving DecidableEq
 
   structure InitializedFIFO (num_nodes : Nat) where
@@ -113,25 +97,8 @@ namespace VirtualRDA
     initial_value : ty.denote
     producer : Fin num_nodes
     consumer : Fin num_nodes
-    port: Nat
-
-  #check InitializedFIFO.mk.injEq
-
-  instance {nn : Nat} : BEq (InitializedFIFO nn) where
-    beq := λ a b =>
-      if a.producer != b.producer || a.consumer != b.consumer || a.port != b.port then
-        false
-      else
-        match a, b with
-          | ⟨.unit, _, _, _, _⟩, ⟨.unit, _, _, _, _⟩ => true
-          | ⟨.nat, ai, _, _, _⟩, ⟨.nat, bi, _, _, _⟩ => ai == bi
-          | _, _ => false
-
-  instance {ty : Ty} : DecidableEq ty.denote :=
-    λ a b =>
-      match ty with
-        | .unit => isTrue rfl
-        | .nat => Nat.decEq a b
+    producer_port: Nat
+    consumer_port: Nat
 
   instance {nn : Nat} : DecidableEq (InitializedFIFO nn) :=
     λ a b => by
@@ -141,7 +108,10 @@ namespace VirtualRDA
         have h_dety_eq : a.ty.denote = b.ty.denote := by rw [h_ty_eq]
         apply Decidable.byCases (p := cast h_dety_eq a.initial_value = b.initial_value)
         · intro h_init_eq
-          apply Decidable.byCases (p := a.producer = b.producer ∧ a.consumer = b.consumer ∧ a.port = b.port)
+          apply Decidable.byCases (p := a.producer = b.producer ∧
+                                        a.consumer = b.consumer ∧
+                                        a.producer_port = b.producer_port ∧
+                                        a.consumer_port = b.consumer_port)
           · intro h_rest_eq
             apply isTrue
             apply And.intro h_ty_eq
@@ -188,9 +158,6 @@ namespace VirtualRDA
     @[simp] def producer : (fifo : FIFO inputs nn) → fifo.is_input = false → Fin nn
       | .initialized fifo', _ | .advancing fifo', _ | .output fifo', _ => fifo'.producer
 
-    def port : FIFO inputs nn → Nat
-      | .input fifo | .output fifo | .advancing fifo | .initialized fifo => fifo.port
-
   end FIFO
 
   def FIFOList (inputs : List Ty) (num_nodes num_fifos : Nat) :=
@@ -218,22 +185,21 @@ namespace VirtualRDA
       {fid : Fin nf // (fifos fid).is_output = false}
 
     theorem filtered_input_is_not_output {fifos : FIFOList ins nn nf} {fid : Fin nf}
-      (h_mem : fid ∈ (List.finRange nf).filter (fifos.is_node_input nid))
+      (h_mem : fid ∈ ((List.finRange nf).filter (fifos.is_node_input nid)).pwFilter (λ a b => fifos a ≠ fifos b))
       : (fifos fid).is_output = false := by
-      simp [List.mem_filter] at h_mem
-      cases h_match : fifos fid <;> simp; simp [h_match] at h_mem
+      have h_mem' : fid ∈ (List.finRange nf).filter (fifos.is_node_input nid) := List.pwFilter_mem h_mem
+      simp [List.mem_filter] at h_mem'
+      cases h_match : fifos fid <;> simp; simp [h_match] at h_mem'
 
     @[simp] def node_input_fids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List fifos.non_output_fid :=
       let fin_range := List.finRange nf
-      let filtered := fin_range.filter (fifos.is_node_input nid)
-      filtered.attach.map (λ ⟨fid, h_mem⟩ => ⟨fid, filtered_input_is_not_output h_mem⟩)
+      let input_fids := fin_range.filter (fifos.is_node_input nid)
+      let deduped := input_fids.pwFilter (λ a b => fifos a ≠ fifos b)
+      deduped.attach.map (λ ⟨fid, h_mem⟩ => ⟨fid, filtered_input_is_not_output h_mem⟩)
 
     @[simp] def node_inputs (fifos : FIFOList ins nn nf) (nid : Fin nn) : List Ty :=
       let input_fids := fifos.node_input_fids nid
-      let fifos : List (FIFO ins nn) := input_fids.map (fifos ∘ Subtype.val)
-      let fifos_deduped := fifos.dedup
-
-      (fifos.node_input_fids nid).map (fifos.get_ty Subtype.val)
+      input_fids.map (fifos.get_ty Subtype.val)
 
     @[simp] def node_output_fids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List (Fin nf) :=
       let fin_range := List.finRange nf
@@ -341,7 +307,7 @@ namespace VirtualRDA
                 · symm at py
                   rw [py]
                 rw [h_x_eq]
-                exact y
+                exact (List.pwFilter_mem y)
         exact (List.mem_filter.mp h_mem').right
       have h_consumer_eq : nid = fifo.consumer
       . simp [h_match] at h_is_input
