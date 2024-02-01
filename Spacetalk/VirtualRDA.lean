@@ -349,6 +349,7 @@ namespace VirtualRDA
                                 (List.attach (List.pwFilter (fun a b => fifos vrda a ≠ fifos vrda b) (List.filter (FIFOList.is_node_input vrda.fifos nid) (List.finRange vrda.num_fifos))))) := by
             apply List.mem_mergeSort (r := vrda.fifos.node_input_sort_rel)
             exact h_mem
+          simp at h_mem''
           cases h_mem'' with
           | intro x px =>
             cases px with
