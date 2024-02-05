@@ -234,9 +234,12 @@ namespace VirtualRDA
       λ a b => by
         apply Nat.decLt
 
-    @[simp] def node_input_fids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List fifos.non_output_fid :=
+    def node_input_filtered_fids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List (Fin nf) :=
       let fin_range := List.finRange nf
-      let input_fids := fin_range.filter (fifos.is_node_input nid)
+      fin_range.filter (fifos.is_node_input nid)
+
+    @[simp] def node_input_fids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List fifos.non_output_fid :=
+      let input_fids := fifos.node_input_filtered_fids nid
       let deduped := input_fids.pwFilter (λ a b => fifos a ≠ fifos b)
       let attached := deduped.attach.map (λ ⟨fid, h_mem⟩ => ⟨fid, filtered_input_is_not_output h_mem⟩)
       let sorted := attached.mergeSort node_input_sort_rel
@@ -450,6 +453,14 @@ namespace VirtualRDA
           simp
         apply congr_contrapositive h_fifo_neq
       let filtered := filtered_finRange vrda.num_fifos ioc.in_fid ioc.out_fid h_distinct
+      let newFIFO := FIFO.initialized {
+        ty := ioc.ty,
+        initial_value := ioc.initial_value,
+        producer := ioc.out_fifo.producer,
+        consumer := ioc.in_fifo.consumer,
+        producer_port := ioc.out_fifo.producer_port,
+        consumer_port := ioc.in_fifo.consumer_port
+      }
 
       let fifos' : FIFOList vrda.inputs vrda.num_nodes (vrda.num_fifos - 1) :=
         λ ⟨idx, h_idx⟩ =>
@@ -457,14 +468,7 @@ namespace VirtualRDA
             let idx' : Fin vrda.num_fifos := filtered.get ⟨idx, h_lt⟩
             vrda.fifos idx'
           else
-            FIFO.initialized {
-              ty := ioc.ty,
-              initial_value := ioc.initial_value,
-              producer := ioc.out_fifo.producer,
-              consumer := ioc.in_fifo.consumer,
-              producer_port := ioc.out_fifo.producer_port,
-              consumer_port := ioc.in_fifo.consumer_port
-            }
+            newFIFO
 
       let nodes' : NodeList fifos' :=
         λ nid =>
