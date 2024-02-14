@@ -434,17 +434,20 @@ namespace VirtualRDA
           rfl
         · simp
 
-    def extract_fifo_output {vrda : VirtualRDA} {fid : vrda.fifos.NonInputFid} {fifo : FIFO vrda.inputs vrda.numNodes}
+    def extractOutput {vrda : VirtualRDA} {fid : vrda.fifos.NonInputFid} {fifo : FIFO vrda.inputs vrda.numNodes}
       (h : vrda.fifos.get fid = fifo) (h_is_not_input : fifo.isInput = false)
       (outputs : TysHList (vrda.fifos.NodeOutputTys (fifo.producer h_is_not_input))) : fifo.ty.denote :=
 
-      let producer_id := fifo.producer h_is_not_input
-      let output_fids := vrda.fifos.NodeOutputFids producer_id
-      let output_tys := vrda.fifos.NodeOutputTys producer_id
+      let producerId := fifo.producer h_is_not_input
+      let outputFids := vrda.fifos.NodeOutputFids producerId
+      let outputTys := vrda.fifos.NodeOutputTys producerId
 
-      let idx : Fin output_tys.length := ⟨output_fids.indexOf fid, output_fid_idx_lt_output_tys_length h h_is_not_input⟩
-      let h_eq : Member (output_tys.get idx) output_tys = Member fifo.ty output_tys := by simp [h]
-      let mem := h_eq ▸ (output_tys.nth_member idx)
+      let idx : Fin outputTys.length := ⟨outputFids.indexOf fid, output_fid_idx_lt_output_tys_length h h_is_not_input⟩
+      let h_eq : Member (outputTys.get idx) outputTys = Member fifo.ty outputTys := by
+        have : outputTys.get idx = fifo.ty := by
+          simp_rw [←h]
+        rw [this]
+      let mem := h_eq ▸ (outputTys.nth_member idx)
       outputs.get mem
 
     theorem advancing_fifo_lt {vrda : VirtualRDA} {nid : Fin vrda.num_nodes} {fid : vrda.fifos.non_output_fid} {fifo : AdvancingFIFO vrda.num_nodes}
