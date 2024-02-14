@@ -356,7 +356,7 @@ namespace VirtualRDA
 
     @[simp] def NodeOutputTys (fifos : FIFOList ins nn nf) (nid : Fin nn) : List Ty :=
       let outputFids := fifos.NodeOutputFids nid
-      outputFids.map fifos.ty
+      outputFids.map (fifos.ty ∘ Subtype.val)
 
   end FIFOList
 
@@ -422,7 +422,7 @@ namespace VirtualRDA
       : (vrda.fifos.NodeOutputFids (fifo.producer h_is_not_input)).indexOf fid
         < (vrda.fifos.NodeOutputTys (fifo.producer h_is_not_input)).length := by
       have h_len_eq : (vrda.fifos.NodeOutputTys (fifo.producer h_is_not_input)).length = (vrda.fifos.NodeOutputFids (fifo.producer h_is_not_input)).length := by
-        sorry
+        apply List.length_map
       rw [h_len_eq]
       simp only [List.indexOf]
       apply List.findIdx_lt_length_of_exists
@@ -443,7 +443,7 @@ namespace VirtualRDA
       let output_tys := vrda.fifos.NodeOutputTys producer_id
 
       let idx : Fin output_tys.length := ⟨output_fids.indexOf fid, output_fid_idx_lt_output_tys_length h h_is_not_input⟩
-      let h_eq : Member (output_tys.get idx) output_tys = Member fifo.get_ty output_tys := by simp [h]
+      let h_eq : Member (output_tys.get idx) output_tys = Member fifo.ty output_tys := by simp [h]
       let mem := h_eq ▸ (output_tys.nth_member idx)
       outputs.get mem
 
