@@ -6,7 +6,7 @@ inductive HList {α : Type v} (β : α → Type u) : List α → Type (max u v)
 infixr:67 " :: " => HList.cons
 notation "[" "]" => HList.nil
 
-inductive Member : α → List α → Type
+inductive Member {α : Type u} : α → List α → Type u
   | head : Member a (a::as)
   | tail : Member a bs → Member a (b::bs)
 deriving DecidableEq
