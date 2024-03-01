@@ -1,79 +1,303 @@
-import Mathlib.Tactic.Contrapose
-import Std.Logic
+import Mathlib.Data.Vector
+import Mathlib.Data.List.Range
+import Mathlib.Data.List.Sort
 import Mathlib.Logic.Basic
+import Std.Data.List.Lemmas
 
 import Spacetalk.HList
+import Spacetalk.Stream
 
-structure InputEdge (α : Type u) (inputs : List α) (numNodes : Nat):=
-  a : α
-  producer : Member a inputs
+inductive Ty
+  | unit
+  | nat
+deriving BEq, DecidableEq
+
+@[reducible] def Ty.denote : Ty → Type
+  | unit => Unit
+  | nat => Nat
+
+def Ty.default : (ty : Ty) → ty.denote
+  | unit => ()
+  | nat => 0
+
+instance {ty : Ty} : DecidableEq ty.denote :=
+  λ a b =>
+    match ty with
+      | .unit => isTrue rfl
+      | .nat => Nat.decEq a b
+
+instance {ty : Ty} : Inhabited ty.denote where
+  default := ty.default
+
+abbrev TyStream (ty : Ty) := Stream' (ty.denote)
+
+abbrev TyStreamsHList (tys : List Ty) := HList TyStream tys
+
+abbrev TysHList (tys : List Ty) := HList Ty.denote tys
+
+abbrev TysHListStream (tys : List Ty) := Stream' (TysHList tys)
+
+def TyStreamsHList.pack (shl : TyStreamsHList tys) : TysHListStream tys :=
+  match tys with
+    | [] => λ _ => []
+    | h::t =>
+      λ n =>
+        let h_elem : h.denote := (shl.get .head) n
+        let tail_streams : TyStreamsHList t :=
+          match shl with
+            | _ :: rest => rest
+        h_elem :: (pack tail_streams) n
+
+def TysHListStream.unpack (s : TysHListStream tys) : TyStreamsHList tys :=
+  match tys with
+    | [] => []
+    | h::t =>
+      let h_stream : Stream' h.denote := λ n => (s n).get .head
+      let t_stream : TysHListStream t := λ n =>
+        match s n with
+          | _ :: rest => rest
+      h_stream :: unpack t_stream
+
+inductive NodeOps : (inputs : List Ty) → List Ty → Type
+  | nop : NodeOps α α -- for stateless nodes
+  | dropAll : NodeOps α []
+  | add : (a : Member .nat inputs) → (b : Member .nat inputs) → NodeOps inputs (.nat :: inputs)
+  | mul : (a : Member .nat inputs) → (b : Member .nat inputs) → NodeOps inputs (.nat :: inputs)
+  | select : (ty : Ty) → (a : Member ty inputs) → NodeOps inputs [ty]
+  | comp : NodeOps α β → NodeOps β γ → NodeOps α γ
+
+structure Node where
+  state : List Ty
+  initialState : TysHList state
+  inputs : List Ty
+  outputs : List Ty
+  stateTransform : NodeOps (state ++ inputs) state
+  pipeline : NodeOps (state ++ inputs) outputs
+
+def NodeList (numNodes : Nat) := Vector Node numNodes
+
+structure InputFIFO (inputs : List Ty) (nodes : NodeList numNodes) where
+  ty : Ty
+  producer : Member ty inputs
   consumer : Fin numNodes
-  consumerPort : Nat
+  consumerPort: Member ty (nodes.get consumer).inputs
 deriving DecidableEq
 
-structure OutputEdge (α : Type u) (numNodes : Nat):=
-  a : α
+structure OutputFIFO (outputs : List Ty) (nodes : NodeList numNodes) where
+  ty : Ty
   producer : Fin numNodes
-  producerPort : Nat
+  producerPort: Member ty (nodes.get producer).outputs
+  consumer : Member ty outputs
 deriving DecidableEq
 
-structure AdvancingEdge (α : Type u) (numNodes : Nat):=
-  a : α
+structure AdvancingFIFO (nodes : NodeList numNodes) where
+  ty : Ty
   producer : Fin numNodes
-  producerPort : Nat
   consumer : Fin numNodes
-  consumerPort : Nat
-  h : producer < consumer
+  producerPort: Member ty (nodes.get producer).outputs
+  consumerPort: Member ty (nodes.get consumer).inputs
+  adv : producer < consumer
 deriving DecidableEq
 
-structure InitializedEdge (α : Type u) (rep : α → Type) (numNodes : Nat) :=
-  a : α
+structure InitializedFIFO (nodes : NodeList numNodes) where
+  ty : Ty
+  initialValue : ty.denote
   producer : Fin numNodes
-  producerPort : Nat
   consumer : Fin numNodes
-  consumerPort : Nat
-  initialValue : rep a
+  producerPort: Member ty (nodes.get producer).outputs
+  consumerPort: Member ty (nodes.get consumer).inputs
 
-instance [DecidableEq α] [∀ a, DecidableEq (rep a)] : DecidableEq (InitializedEdge α rep numNodes) :=
+instance {nn : Nat} {nodes : NodeList nn} : DecidableEq (InitializedFIFO nodes) :=
   λ a b => by
-    rw [InitializedEdge.mk.injEq]
-    apply Decidable.byCases (p := (a.a = b.a ∧ a.producer = b.producer ∧ a.producerPort = b.producerPort ∧ a.consumer = b.consumer ∧ a.consumerPort = b.consumerPort))
-    · intro h
-      have h_eq : rep a.a = rep b.a := by rw [h.left]
-      apply Decidable.byCases (p := cast h_eq a.initialValue = b.initialValue)
-      · intro h_cast
-        apply isTrue
-        have := heq_of_cast_eq h_eq h_cast
-        have := And.intro h this
-        repeat rw [and_assoc] at this
-        exact this
-      · intro h_cast_neq
+    rw [InitializedFIFO.mk.injEq]
+    apply Decidable.byCases (p := a.ty = b.ty)
+    · intro h_ty_eq
+      have h_dety_eq : a.ty.denote = b.ty.denote := by rw [h_ty_eq]
+      apply Decidable.byCases (p := cast h_dety_eq a.initialValue = b.initialValue)
+      · intro h_init_eq
+        apply Decidable.byCases (p := a.producer = b.producer ∧ a.consumer = b.consumer)
+        · intro h_pc_eq
+          have h_ppty_eq : Member a.ty (nodes.get a.producer).outputs = Member b.ty (nodes.get b.producer).outputs := by
+            rw [h_ty_eq]
+            rw [h_pc_eq.left]
+          have h_cpty_eq : Member a.ty (nodes.get a.consumer).inputs = Member b.ty (nodes.get b.consumer).inputs := by
+            rw [h_ty_eq]
+            rw [h_pc_eq.right]
+          apply Decidable.byCases (p := cast h_ppty_eq a.producerPort = b.producerPort)
+          · intro h_pp_eq
+            apply Decidable.byCases (p := cast h_cpty_eq a.consumerPort = b.consumerPort)
+            · intro h_cp_eq
+              apply isTrue
+              apply And.intro h_ty_eq
+              apply And.intro (heq_of_cast_eq h_dety_eq h_init_eq)
+              apply And.intro h_pc_eq.left
+              apply And.intro h_pc_eq.right
+              apply And.intro (heq_of_cast_eq h_ppty_eq h_pp_eq)
+              exact heq_of_cast_eq h_cpty_eq h_cp_eq
+            · intro h_cp_neq
+              apply isFalse
+              intro h_and
+              apply h_cp_neq
+              apply cast_eq_iff_heq.mpr
+              exact h_and.right.right.right.right.right
+          · intro h_pp_neq
+            apply isFalse
+            intro h_and
+            apply h_pp_neq
+            apply cast_eq_iff_heq.mpr
+            exact h_and.right.right.right.right.left
+        · intro h_pc_neq
+          apply isFalse
+          intro h_eq
+          apply h_pc_neq
+          exact And.intro h_eq.right.right.left h_eq.right.right.right.left
+      · intro h_init_neq
         apply isFalse
-        intro h
-        apply h_cast_neq
+        intro h_and
+        apply h_init_neq
         apply cast_eq_iff_heq.mpr
-        exact h.right.right.right.right.right
-    · intro h_neq
+        exact h_and.right.left
+    · intro h_ty_neq
       apply isFalse
-      intro h
-      apply h_neq
-      repeat rw [←and_assoc] at h
-      conv at h =>
-        lhs
-        repeat rw [and_assoc]
-      exact h.left
+      simp
+      intro
+      contradiction
 
-inductive Edge (α : Type u) (rep : α → Type) (inputs : List α) (numNodes : Nat) : Type u
-  | input : InputEdge α inputs numNodes → Edge α rep inputs numNodes
-  | output : OutputEdge α numNodes → Edge α rep inputs numNodes
-  | advancing : AdvancingEdge α numNodes → Edge α rep inputs numNodes
-  | initialized : InitializedEdge α rep numNodes → Edge α rep inputs numNodes
+inductive FIFO {numNodes : Nat} (inputs outputs : List Ty) (nodes : NodeList numNodes)
+  | input : InputFIFO inputs nodes → FIFO inputs outputs nodes
+  | output : OutputFIFO outputs nodes → FIFO inputs outputs nodes
+  | advancing : AdvancingFIFO nodes → FIFO inputs outputs nodes
+  | initialized : InitializedFIFO nodes → FIFO inputs outputs nodes
+deriving DecidableEq
 
-instance [DecidableEq α] [∀ a, DecidableEq (rep a)] : DecidableEq (Edge α rep inputs numNodes) :=
-  λ a b => by
-    cases a <;> cases b <;> try exact isFalse Edge.noConfusion
-    all_goals (rename_i ae be
-               apply Decidable.byCases (p := ae = be)
-               all_goals intro h
-               · apply isTrue; simp [h]
-               · apply isFalse; simp [h])
+@[simp] def FIFO.ty : (fifo : FIFO inputs outputs nodes) → Ty
+  | .input f | .output f | .advancing f | .initialized f => f.ty
+
+structure VirtualRDA where
+  inputs : List Ty
+  outputs : List Ty
+  numNodes : Nat
+  nodes : NodeList numNodes
+  fifos : List (FIFO inputs outputs nodes)
+
+@[simp] def NodeOps.denote : NodeOps α β → (TysHList α → TysHList β)
+  | .nop => id
+  | .dropAll => λ _ => []
+  | .add a b => λ inputs => ((inputs.get a) + (inputs.get b)) :: inputs
+  | .mul a b => λ inputs => ((inputs.get a) * (inputs.get b)) :: inputs
+  | .select _ a => λ inputs => inputs.get a :: []
+  | .comp f g => g.denote ∘ f.denote
+
+namespace Node
+
+  def nextState (node : Node)
+    (inputs : TysHList node.inputs)
+    (currState : TysHList node.state)
+      : TysHList node.state :=
+    node.stateTransform.denote (currState ++ inputs)
+
+  @[simp] def denote (node : Node)
+    (inputs : TysHList node.inputs)
+    (currState : TysHList node.state) : TysHList node.outputs :=
+    node.pipeline.denote (currState ++ inputs)
+
+end Node
+
+namespace VirtualRDA
+
+  def FIFOType (vrda : VirtualRDA) := FIFO vrda.inputs vrda.outputs vrda.nodes
+
+  def isInput (vrda : VirtualRDA) {nid : Fin vrda.numNodes} {ty : Ty}
+    (port : Member ty (vrda.nodes.get nid).inputs) (fifo : vrda.FIFOType) : Bool :=
+    let node := vrda.nodes.get nid
+    match fifo with
+      | .input fifo' | .initialized fifo' | .advancing fifo' =>
+        if h : fifo'.consumer = nid ∧ fifo'.ty = ty then
+          have h_eq : Member ty node.inputs = Member fifo'.ty (vrda.nodes.get fifo'.consumer).inputs := by
+            rw [h.left, h.right]
+          h_eq ▸ fifo'.consumerPort == port
+        else
+          false
+      | _ => false
+
+  def stateMap (vrda : VirtualRDA) :=
+    (nid : Fin vrda.numNodes) → (TysHList (vrda.nodes.get nid).outputs) × (TysHList (vrda.nodes.get nid).state)
+
+  def nthCycleState (vrda : VirtualRDA) (inputs : TysHListStream vrda.inputs) (n : Nat)
+                      : vrda.stateMap :=
+    λ nid =>
+      let node := vrda.nodes.get nid
+      let inputsFinRange := List.finRange node.inputs.length
+      have finRange_map_eq : inputsFinRange.map node.inputs.get = node.inputs := by simp [List.get]
+      let nodeInputs : (TysHList node.inputs) := finRange_map_eq ▸ inputsFinRange.toHList node.inputs.get (
+        λ fin =>
+          let port := node.inputs.nthMember fin
+          let fifoOpt := vrda.fifos.find? (vrda.isInput port)
+          match h_match : fifoOpt with
+            | .some fifo =>
+              have h_is_node_input : vrda.isInput port fifo = true := List.find?_some h_match
+              have h_ty_eq : fifo.ty = node.inputs.get fin := by
+                cases h_fm : fifo <;> simp [h_fm, VirtualRDA.isInput] at h_is_node_input <;>
+                (
+                  rename_i fifo'
+                  have p : fifo'.consumer = nid ∧ fifo'.ty = (vrda.nodes.get nid).inputs.get fin := by
+                    apply (dite_eq_iff.mp h_is_node_input).elim
+                    · intro e
+                      exact e.fst
+                    · intro e
+                      have := e.snd
+                      contradiction
+                  exact p.right
+                )
+              match fifo with
+                | .input fifo' =>
+                  h_ty_eq ▸ (inputs n).get fifo'.producer
+                | .advancing fifo' =>
+                  have : fifo'.producer < nid := by
+                    have : fifo'.consumer = nid := by
+                      simp [VirtualRDA.isInput] at h_is_node_input
+                      have p : fifo'.consumer = nid ∧ fifo'.ty = (vrda.nodes.get nid).inputs.get fin := by
+                        apply (dite_eq_iff.mp h_is_node_input).elim
+                        · intro e
+                          exact e.fst
+                        · intro e
+                          have := e.snd
+                          contradiction
+                      exact p.left
+                    rw [←this]
+                    exact fifo'.adv
+                  let producerOutputs := (vrda.nthCycleState inputs n fifo'.producer).fst
+                  h_ty_eq ▸ producerOutputs.get fifo'.producerPort
+                | .initialized fifo' =>
+                  match n with
+                    | 0 => h_ty_eq ▸ fifo'.initialValue
+                    | n' + 1 =>
+                      let producerOutputs := (vrda.nthCycleState inputs n' fifo'.producer).fst
+                      h_ty_eq ▸ producerOutputs.get fifo'.producerPort
+            | .none =>
+              (node.inputs.get fin).default
+      )
+      let currState : TysHList node.state :=
+        match n with
+         | 0 => node.initialState
+         | n' + 1 => (vrda.nthCycleState inputs n' nid).snd
+      let nodeOutputs := node.denote nodeInputs currState
+      let nextState := node.nextState nodeInputs currState
+      (nodeOutputs, nextState)
+      termination_by nthCycleState _ _ n nid => (n, nid)
+
+  def denote (vrda : VirtualRDA) (inputs : TyStreamsHList vrda.inputs)
+                    : TyStreamsHList (vrda.outputs) :=
+    let packedInputs := inputs.pack
+    let stateStream := vrda.nthCycleState packedInputs
+    let outputsFinRange := List.finRange vrda.outputs.length
+    have finRange_map_eq : outputsFinRange.map vrda.outputs.get = vrda.outputs := by simp [List.get]
+    let packedOutputStream : TysHListStream vrda.outputs :=
+      λ n =>
+        finRange_map_eq ▸ outputsFinRange.toHList vrda.outputs.get (
+          λ fin =>
+            sorry
+        )
+    packedOutputStream.unpack
+
+end VirtualRDA

@@ -27,7 +27,6 @@ theorem List.mem_mergeSort {l : List α} {r : α → α → Prop} [DecidableRel 
     apply List.perm_mergeSort (r := r)
     exact h_mem
 
-
 def finRangeRemovePair (n : Nat) (a b : Fin n) (h : a ≠ b) : Vector (Fin n) (n - 2) :=
   let v : Vector (Fin n) n := ⟨List.finRange n, List.length_finRange n⟩
   if h_lt : ↑b < ↑a then
@@ -67,6 +66,15 @@ namespace VirtualRDA
       match ty with
         | .unit => isTrue rfl
         | .nat => Nat.decEq a b
+
+  structure TaggedTy (numFifos : Nat) where
+    fid : Fin numFifos
+    ty : Ty
+
+  def TaggedTy.denote {numFifos : Nat} (tty : TaggedTy numFifos) : Type :=
+    tty.ty.denote
+
+  abbrev TaggedHList {numFifos : Nat} (ttys : List (TaggedTy numFifos)) := HList TaggedTy.denote ttys
 
   abbrev TyStream (ty : Ty) := Stream' (ty.denote)
 
@@ -179,37 +187,54 @@ namespace VirtualRDA
     | initialized : InitializedFIFO numNodes → FIFO inputs numNodes
   deriving DecidableEq
 
-  namespace FIFO
+  @[simp] def FIFO.ty : FIFO inputs nn → Ty
+    | .input fifo | .output fifo | .advancing fifo | .initialized fifo => fifo.ty
 
-    @[simp] def ty : FIFO inputs nn → Ty
-      | .input fifo | .output fifo | .advancing fifo | .initialized fifo => fifo.ty
+  @[simp] def FIFO.isInput : FIFO inputs nn → Bool
+    | .input _ => true
+    | _ => false
 
-    @[simp] def isInput : FIFO inputs nn → Bool
-      | .input _ => true
-      | _ => false
+  @[simp] def FIFO.isOutput : FIFO inputs nn → Bool
+    | .output _ => true
+    | _ => false
 
-    @[simp] def isOutput : FIFO inputs nn → Bool
-      | .output _ => true
-      | _ => false
+  def FIFO.consumer : (fifo : FIFO inputs nn) → ¬fifo.isOutput → Fin nn
+    | .initialized fifo', _ | .advancing fifo', _ | .input fifo', _ => fifo'.consumer
 
-    @[simp] def producer : (fifo : FIFO inputs nn) → fifo.isInput = false → Fin nn
-      | .initialized fifo', _ | .advancing fifo', _ | .output fifo', _ => fifo'.producer
+  def FIFO.consumerPort : (fifo : FIFO inputs nn) → ¬fifo.isOutput → Nat
+    | .initialized fifo', _ | .advancing fifo', _ | .input fifo', _ => fifo'.consumerPort
 
-    def producerPort : (fifo : FIFO inputs nn) → fifo.isInput = false → Nat
-      | .initialized fifo, _ | .advancing fifo, _ | .output fifo, _ => fifo.producerPort
+  def FIFO.producer : (fifo : FIFO inputs nn) → ¬fifo.isInput → Fin nn
+    | .initialized fifo', _ | .advancing fifo', _ | .output fifo', _ => fifo'.producer
 
-    def consumerPort : (fifo : FIFO inputs nn) → fifo.isOutput = false → Nat
-      | .input fifo, _ | .advancing fifo, _ | .initialized fifo, _ => fifo.consumerPort
+  def FIFO.producerPort : (fifo : FIFO inputs nn) → ¬fifo.isInput → Nat
+    | .initialized fifo, _ | .advancing fifo, _ | .output fifo, _ => fifo.producerPort
 
-  end FIFO
+  def ConsumerFIFO (inputs : List Ty) (numNodes : Nat) :=
+    {fifo : FIFO inputs numNodes // ¬fifo.isOutput}
+
+  def ConsumerFIFO.consumer (fifo : ConsumerFIFO inputs nn) : Fin nn :=
+    fifo.val.consumer fifo.property
+
+  def ConsumerFIFO.consumerPort (fifo : ConsumerFIFO inputs nn) : Nat :=
+    fifo.val.consumerPort fifo.property
+
+  def ProducerFIFO (inputs : List Ty) (numNodes : Nat) :=
+    {fifo : FIFO inputs numNodes // ¬fifo.isInput}
+
+  def ProducerFIFO.producer (fifo : ProducerFIFO inputs nn) : Fin nn :=
+    fifo.val.producer fifo.property
+
+  def ProducerFIFO.producerPort (fifo : ProducerFIFO inputs nn) : Nat :=
+    fifo.val.producerPort fifo.property
 
   def FIFOList (inputs : List Ty) (numNodes numFIFOs : Nat) :=
     {v : Vector (FIFO inputs numNodes) numFIFOs // List.Nodup v.toList}
 
-  def FIFOList.get (fifos: FIFOList ins nn nf) (i : Fin nf) : FIFO ins nn :=
-    fifos.val.get i
-
   namespace FIFOList
+
+    def get (fifos: FIFOList ins nn nf) (i : Fin nf) : FIFO ins nn :=
+      fifos.val.get i
 
     @[simp] def ty (fifos : FIFOList ins nn nf) (i : Fin nf) :=
       (fifos.get i).ty
@@ -224,139 +249,194 @@ namespace VirtualRDA
         | .output fifo | .advancing fifo | .initialized fifo => fifo.producer == nid
         | _ => false
 
-    def NonInputFid (fifos : FIFOList ins nn nf) :=
-      {fid : Fin nf // (fifos.get fid).isInput = false}
+    -- def NonInputFid (fifos : FIFOList ins nn nf) :=
+    --   {fid : Fin nf // (fifos.get fid).isInput = false}
 
-    instance {fifos : FIFOList ins nn nf} : BEq fifos.NonInputFid where
-      beq := λ a b => a.val = b.val
+    -- instance {fifos : FIFOList ins nn nf} : BEq fifos.NonInputFid where
+    --   beq := λ a b => a.val = b.val
 
-    instance {fifos : FIFOList ins nn nf} : DecidableEq fifos.NonInputFid :=
-      λ a b => by
-        apply Decidable.byCases (p := a.val = b.val)
-        · intro h_eq
-          apply isTrue
-          apply Subtype.eq
-          exact h_eq
-        · intro h_neq
-          apply isFalse
-          intro h_eq
-          apply h_neq
-          apply Subtype.coe_inj.mpr
-          exact h_eq
+    -- instance {fifos : FIFOList ins nn nf} : DecidableEq fifos.NonInputFid :=
+    --   λ a b => by
+    --     apply Decidable.byCases (p := a.val = b.val)
+    --     · intro h_eq
+    --       apply isTrue
+    --       apply Subtype.eq
+    --       exact h_eq
+    --     · intro h_neq
+    --       apply isFalse
+    --       intro h_eq
+    --       apply h_neq
+    --       apply Subtype.coe_inj.mpr
+    --       exact h_eq
 
-    instance {fifos : FIFOList ins nn nf} : LawfulBEq fifos.NonInputFid where
-      eq_of_beq {a b} h := by
-        apply Subtype.eq
-        simp [BEq.beq] at h
-        exact h
-      rfl {a} := by simp [BEq.beq]
+    -- instance {fifos : FIFOList ins nn nf} : LawfulBEq fifos.NonInputFid where
+    --   eq_of_beq {a b} h := by
+    --     apply Subtype.eq
+    --     simp [BEq.beq] at h
+    --     exact h
+    --   rfl {a} := by simp [BEq.beq]
 
-    instance {fifos : FIFOList ins nn nf} {fid : fifos.NonInputFid} : CoeDep fifos.NonInputFid fid (Fin nf) where
-      coe := fid.val
+    -- instance {fifos : FIFOList ins nn nf} {fid : fifos.NonInputFid} : CoeDep fifos.NonInputFid fid (Fin nf) where
+    --   coe := fid.val
 
-    def NonOutputFid (fifos : FIFOList ins nn nf) :=
-      {fid : Fin nf // (fifos.get fid).isOutput = false}
+    -- def NonOutputFid (fifos : FIFOList ins nn nf) :=
+    --   {fid : Fin nf // (fifos.get fid).isOutput = false}
 
-    instance {fifos : FIFOList ins nn nf} : BEq fifos.NonOutputFid where
-      beq := λ a b => a.val = b.val
+    -- instance {fifos : FIFOList ins nn nf} : BEq fifos.NonOutputFid where
+    --   beq := λ a b => a.val = b.val
 
-    instance {fifos : FIFOList ins nn nf} : DecidableEq fifos.NonOutputFid :=
-      λ a b => by
-        apply Decidable.byCases (p := a.val = b.val)
-        · intro h_eq
-          apply isTrue
-          apply Subtype.eq
-          exact h_eq
-        · intro h_neq
-          apply isFalse
-          intro h_eq
-          apply h_neq
-          apply Subtype.coe_inj.mpr
-          exact h_eq
+    -- instance {fifos : FIFOList ins nn nf} : DecidableEq fifos.NonOutputFid :=
+    --   λ a b => by
+    --     apply Decidable.byCases (p := a.val = b.val)
+    --     · intro h_eq
+    --       apply isTrue
+    --       apply Subtype.eq
+    --       exact h_eq
+    --     · intro h_neq
+    --       apply isFalse
+    --       intro h_eq
+    --       apply h_neq
+    --       apply Subtype.coe_inj.mpr
+    --       exact h_eq
 
-    instance {fifos : FIFOList ins nn nf} : LawfulBEq fifos.NonOutputFid where
-      eq_of_beq {a b} h := by
-        apply Subtype.eq
-        simp [BEq.beq] at h
-        exact h
-      rfl {a} := by simp [BEq.beq]
+    -- instance {fifos : FIFOList ins nn nf} : LawfulBEq fifos.NonOutputFid where
+    --   eq_of_beq {a b} h := by
+    --     apply Subtype.eq
+    --     simp [BEq.beq] at h
+    --     exact h
+    --   rfl {a} := by simp [BEq.beq]
 
-    instance {fifos : FIFOList ins nn nf} {fid : fifos.NonOutputFid} : CoeDep fifos.NonOutputFid fid (Fin nf) where
-      coe := fid.val
+    -- instance {fifos : FIFOList ins nn nf} {fid : fifos.NonOutputFid} : CoeDep fifos.NonOutputFid fid (Fin nf) where
+    --   coe := fid.val
 
     theorem filtered_input_is_not_output {fifos : FIFOList ins nn nf} {fid : Fin nf}
-      (h_mem : fid ∈ (List.finRange nf).filter (fifos.isNodeInput nid))
-      : (fifos.get fid).isOutput = false := by
-      simp [List.mem_filter] at h_mem
-      cases h_match : fifos.get fid <;> simp; simp [h_match] at h_mem
+      (h : fid ∈ (List.finRange nf).filter (fifos.isNodeInput nid))
+      : ¬(fifos.get fid).isOutput := by
+      simp [List.mem_filter] at h
+      cases h_match : fifos.get fid <;> simp; simp [h_match] at h
 
-    def consumer_port_sort_rel {fifos : FIFOList ins nn nf} (a : fifos.NonOutputFid) (b : fifos.NonOutputFid) : Prop :=
-      ((fifos.get a.val).consumerPort a.property) < ((fifos.get b.val).consumerPort b.property)
+    def consumer_port_sort_rel {α : Type} {inputs : List Ty} {numNodes : Nat}
+      (a : α × ConsumerFIFO inputs numNodes) (b : α × ConsumerFIFO inputs numNodes) : Prop :=
+      a.snd.consumerPort < b.snd.consumerPort
 
-    instance {fifos : FIFOList ins nn nf} : DecidableRel fifos.consumer_port_sort_rel :=
+    theorem consumer_port_sort_rel_eq {inputs : List Ty} {numNodes : Nat} :
+      ∀ α β : Type, (@consumer_port_sort_rel α inputs numNodes = @consumer_port_sort_rel β inputs numNodes) := by
+      sorry
+
+    instance {α : Type} {inputs : List Ty} {numNodes : Nat} : DecidableRel (@consumer_port_sort_rel α inputs numNodes) :=
       λ a b => by
         apply Nat.decLt
 
-    @[simp] def NodeInputFids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List fifos.NonOutputFid :=
+    def inputTup {fifos : FIFOList ins nn nf} {nid : Fin nn}
+      (fid : {x : Fin nf // x ∈ (List.finRange nf).filter (fifos.isNodeInput nid)})
+      : Fin nf × ConsumerFIFO ins nn :=
+      (fid.val, ⟨fifos.get fid.val, filtered_input_is_not_output fid.property⟩)
+
+    def nodeInputTups (fifos : FIFOList ins nn nf) (nid : Fin nn) : List (Fin nf × ConsumerFIFO ins nn) :=
       let finRange := List.finRange nf
-      let inputFids := finRange.filter (fifos.isNodeInput nid)
-      let attached := inputFids.attach.map (λ ⟨fid, h_mem⟩ => ⟨fid, filtered_input_is_not_output h_mem⟩)
-      let sorted := attached.mergeSort consumer_port_sort_rel
-      sorted
+      let outputFids := finRange.filter (fifos.isNodeInput nid)
+      let outputTups := outputFids.attach.map inputTup
+      outputTups.mergeSort consumer_port_sort_rel
+
+    @[simp] def nodeInputFids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List (Fin nf) :=
+      let inputTups := fifos.nodeInputTups nid
+      inputTups.map (·.fst)
 
     @[simp] def NodeInputTys (fifos : FIFOList ins nn nf) (nid : Fin nn) : List Ty :=
-      let inputFids := fifos.NodeInputFids nid
-      inputFids.map fifos.ty
+      let inputTups := fifos.nodeInputTups nid
+      inputTups.map (·.snd.val.ty)
 
     theorem filtered_output_is_not_input {fifos : FIFOList ins nn nf} {fid : Fin nf}
-      (h_mem : fid ∈ (List.finRange nf).filter (fifos.isNodeOutput nid))
-      : (fifos.get fid).isInput = false := by
-      simp [List.mem_filter] at h_mem
-      cases h_match : fifos.get fid <;> simp; simp [h_match] at h_mem
+      (h : fid ∈ (List.finRange nf).filter (fifos.isNodeOutput nid))
+      : ¬(fifos.get fid).isInput := by
+      simp [List.mem_filter] at h
+      cases h_match : fifos.get fid <;> simp; simp [h_match] at h
 
-    def producer_port_sort_rel {fifos : FIFOList ins nn nf} (a : fifos.NonInputFid) (b : fifos.NonInputFid) : Prop :=
-      ((fifos.get a.val).producerPort a.property) < ((fifos.get b.val).producerPort b.property)
+    def producer_port_sort_rel {α : Type} {inputs : List Ty} {numNodes : Nat}
+      (a : α × ProducerFIFO inputs numNodes) (b : α × ProducerFIFO inputs numNodes) : Prop :=
+      a.snd.producerPort < b.snd.producerPort
 
-    instance {fifos : FIFOList ins nn nf} : DecidableRel fifos.producer_port_sort_rel :=
+    instance {α : Type} {inputs : List Ty} {numNodes : Nat} : DecidableRel (@producer_port_sort_rel α inputs numNodes) :=
       λ a b => by
         apply Nat.decLt
 
-    def NodeOutputFidsPreSort (fifos : FIFOList ins nn nf) (nid : Fin nn) : List fifos.NonInputFid :=
+    def outputTup {fifos : FIFOList ins nn nf} {nid : Fin nn}
+      (fid : {x : Fin nf // x ∈ (List.finRange nf).filter (fifos.isNodeOutput nid)})
+      : Fin nf × ProducerFIFO ins nn :=
+      (fid.val, ⟨fifos.get fid.val, filtered_output_is_not_input fid.property⟩)
+
+    def nodeOutputTups (fifos : FIFOList ins nn nf) (nid : Fin nn) : List (Fin nf × ProducerFIFO ins nn) :=
       let finRange := List.finRange nf
       let outputFids := finRange.filter (fifos.isNodeOutput nid)
-      let attached := outputFids.attach.map (λ ⟨fid, h_mem⟩ => ⟨fid, filtered_output_is_not_input h_mem⟩)
-      attached
+      let outputTups := outputFids.attach.map outputTup
+      outputTups.mergeSort producer_port_sort_rel
 
-    theorem mem_NodeOutputFidsPreSort {fifos : FIFOList ins nn nf} {nid : Fin nn} {fid : fifos.NonInputFid}
-      (h : fifos.get fid = fifo) (h_is_not_input : fifo.isInput = false)
-      (h_prod : fifo.producer h_is_not_input = nid)
-      : fid ∈ fifos.NodeOutputFidsPreSort nid := by
-      simp only [FIFOList.NodeOutputFidsPreSort]
-      apply List.mem_map.mpr
-      exists ⟨fid, by
-        apply List.mem_filter.mpr
-        apply And.intro
-        · simp
-        · simp
-          rw [h]
-          cases h_match : fifo
-          simp [h_match] at h_is_not_input
-          all_goals simp_rw [h_match] at h_prod
-          all_goals rw[←h_prod]
-          all_goals simp
-      ⟩
-      apply And.intro
-      · apply List.mem_attach
-      · rfl
-
-    @[simp] def NodeOutputFids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List fifos.NonInputFid :=
-      let attached := fifos.NodeOutputFidsPreSort nid
-      let sorted := attached.mergeSort (λ a b => fifos.producer_port_sort_rel a b)
-      sorted
+    @[simp] def nodeOutputFids (fifos : FIFOList ins nn nf) (nid : Fin nn) : List (Fin nf) :=
+      let outputTups := fifos.nodeOutputTups nid
+      outputTups.map (·.fst)
 
     @[simp] def NodeOutputTys (fifos : FIFOList ins nn nf) (nid : Fin nn) : List Ty :=
-      let outputFids := fifos.NodeOutputFids nid
-      outputFids.map (fifos.ty ∘ Subtype.val)
+      let outputTups := fifos.nodeOutputTups nid
+      outputTups.map (·.snd.val.ty)
+
+    -- theorem mem_NodeOutputFids {fifos : FIFOList ins nn nf} {nid : Fin nn} {fid : Fin nf}
+    --   (h : fifos.get fid = fifo) (h_is_not_input : ¬fifo.isInput)
+    --   (h_prod : fifo.producer h_is_not_input = nid)
+    --   : fid ∈ fifos.NodeOutputFids nid := by
+    --   simp only [FIFOList.NodeOutputFidsPreSort]
+    --   apply List.mem_map.mpr
+    --   exists ⟨fid, by
+    --     apply List.mem_filter.mpr
+    --     apply And.intro
+    --     · simp
+    --     · simp
+    --       rw [h]
+    --       cases h_match : fifo
+    --       simp [h_match] at h_is_not_input
+    --       all_goals simp_rw [h_match] at h_prod
+    --       all_goals rw[←h_prod]
+    --       all_goals simp
+    --   ⟩
+    --   apply And.intro
+    --   · apply List.mem_attach
+    --   · rfl
+
+    -- theorem output_fid_idx_lt_output_tys_length {fifos : FIFOList ins nn nf} {fid : Fin nf} {fifo : FIFO ins nn}
+    --   (h : fifos.get fid = fifo) (h_is_not_input : ¬fifo.isInput)
+    --   : (fifos.NodeOutputFids (fifo.producer h_is_not_input)).indexOf fid
+    --     < (fifos.NodeOutputTys (fifo.producer h_is_not_input)).length := by
+    --   have h_len_eq : (fifos.NodeOutputTys (fifo.producer h_is_not_input)).length = (fifos.NodeOutputFids (fifo.producer h_is_not_input)).length := by
+    --     -- apply List.length_map
+    --     sorry
+    --   rw [h_len_eq]
+    --   simp only [List.indexOf]
+    --   apply List.findIdx_lt_length_of_exists
+    --   · exists fid
+    --     apply And.intro
+    --     · simp only [FIFOList.NodeOutputFids]
+    --       sorry
+
+    --       -- apply List.mem_mergeSort (r := vrda.fifos.producer_port_sort_rel).mpr
+    --       -- apply vrda.fifos.mem_NodeOutputFidsPreSort h h_is_not_input
+    --       -- rfl
+    --     · simp
+
+    -- def getOutputFromFid {fifos : FIFOList ins nn nf} {fid : Fin nf} {fifo : FIFO ins nn}
+    --   (h : fifos.get fid = fifo) (h_is_not_input : ¬fifo.isInput)
+    --   (outputs : TysHList (fifos.NodeOutputTys (fifo.producer h_is_not_input))) : fifo.ty.denote :=
+
+    --   let producerId := fifo.producer h_is_not_input
+    --   let outputFids := fifos.NodeOutputFids producerId
+    --   let outputTys := fifos.NodeOutputTys producerId
+
+    --   let idx : Fin outputTys.length := ⟨outputFids.indexOf fid, output_fid_idx_lt_output_tys_length h h_is_not_input⟩
+    --   let h_eq : Member (outputTys.get idx) outputTys = Member fifo.ty outputTys := by
+    --     have : outputTys.get idx = fifo.ty := by
+
+    --       simp_rw [←h]
+    --     rw [this]
+    --   let mem := h_eq ▸ (outputTys.nth_member idx)
+    --   outputs.get mem
 
   end FIFOList
 
@@ -404,97 +484,44 @@ namespace VirtualRDA
   namespace VirtualRDA
 
     def stateMap (vrda : VirtualRDA) :=
-      (nid : Fin vrda.numNodes) → (TysHList (vrda.fifos.NodeOutputTys nid)) × (TysHList (vrda.nodes nid).state)
+      (nid : Fin vrda.numNodes) → (TysHList (Fin (vrda.numFifos) × vrda.fifos.NodeOutputTys nid)) × (TysHList (vrda.nodes nid).state)
 
     theorem filtered_output_is_not_input {vrda : VirtualRDA} {fid : Fin vrda.numFifos}
       (h_mem : fid ∈ (List.finRange vrda.numFifos).filter (λ i => (vrda.fifos.get i).isOutput))
-      : (vrda.fifos.get fid).isInput = false := by
+      : ¬(vrda.fifos.get fid).isInput := by
       simp [List.mem_filter] at h_mem
       cases h_match : vrda.fifos.get fid <;> simp; simp [h_match] at h_mem
 
-    def outputFifos (vrda : VirtualRDA) : List vrda.fifos.NonInputFid :=
+    def outputFifos (vrda : VirtualRDA) : List (ProducerFIFO vrda.inputs vrda.numNodes) :=
       let finRange := List.finRange vrda.numFifos
       let filtered := finRange.filter (λ i => (vrda.fifos.get i).isOutput)
-      filtered.attach.map (λ ⟨fid, h_mem⟩ => ⟨fid, filtered_output_is_not_input h_mem⟩)
+      filtered.attach.map (λ ⟨fid, h_mem⟩ => ⟨vrda.fifos.get fid, filtered_output_is_not_input h_mem⟩)
 
-    theorem output_fid_idx_lt_output_tys_length {vrda : VirtualRDA} {fid : vrda.fifos.NonInputFid} {fifo : FIFO vrda.inputs vrda.numNodes}
-      (h : vrda.fifos.get fid = fifo) (h_is_not_input : fifo.isInput = false)
-      : (vrda.fifos.NodeOutputFids (fifo.producer h_is_not_input)).indexOf fid
-        < (vrda.fifos.NodeOutputTys (fifo.producer h_is_not_input)).length := by
-      have h_len_eq : (vrda.fifos.NodeOutputTys (fifo.producer h_is_not_input)).length = (vrda.fifos.NodeOutputFids (fifo.producer h_is_not_input)).length := by
-        apply List.length_map
-      rw [h_len_eq]
-      simp only [List.indexOf]
-      apply List.findIdx_lt_length_of_exists
-      · exists fid
-        apply And.intro
-        · simp only [FIFOList.NodeOutputFids, FIFOList.NodeOutputFidsPreSort]
-          apply List.mem_mergeSort (r := vrda.fifos.producer_port_sort_rel).mpr
-          apply vrda.fifos.mem_NodeOutputFidsPreSort h h_is_not_input
-          rfl
-        · simp
-
-    def extractOutput {vrda : VirtualRDA} {fid : vrda.fifos.NonInputFid} {fifo : FIFO vrda.inputs vrda.numNodes}
-      (h : vrda.fifos.get fid = fifo) (h_is_not_input : fifo.isInput = false)
-      (outputs : TysHList (vrda.fifos.NodeOutputTys (fifo.producer h_is_not_input))) : fifo.ty.denote :=
-
-      let producerId := fifo.producer h_is_not_input
-      let outputFids := vrda.fifos.NodeOutputFids producerId
-      let outputTys := vrda.fifos.NodeOutputTys producerId
-
-      let idx : Fin outputTys.length := ⟨outputFids.indexOf fid, output_fid_idx_lt_output_tys_length h h_is_not_input⟩
-      let h_eq : Member (outputTys.get idx) outputTys = Member fifo.ty outputTys := by
-        have : outputTys.get idx = fifo.ty := by
-          simp_rw [←h]
-        rw [this]
-      let mem := h_eq ▸ (outputTys.nth_member idx)
-      outputs.get mem
-
-    theorem advancing_fifo_lt {vrda : VirtualRDA} {nid : Fin vrda.num_nodes} {fid : vrda.fifos.non_output_fid} {fifo : AdvancingFIFO vrda.num_nodes}
-      (h_mem : fid ∈ vrda.fifos.NodeInputFids nid) (h_match : vrda.fifos fid.val = FIFO.advancing fifo)
+    theorem advancing_fifo_lt {vrda : VirtualRDA} {nid : Fin vrda.numNodes} {fid : Fin vrda.numFifos} {fifo : AdvancingFIFO vrda.numNodes}
+      (h_mem : fid ∈ vrda.fifos.NodeInputFids nid) (h_match : vrda.fifos.get fid = FIFO.advancing fifo)
       : fifo.producer < nid := by
-      have h_is_input : vrda.fifos.is_node_input nid fid.val = true
-      · simp at h_mem
-        have h_mem' : fid.val ∈ (List.finRange vrda.num_fifos).filter (vrda.fifos.is_node_input nid)
-        · have h_mem'' : fid ∈ (List.map
-                                (λ ⟨fid, h_mem⟩ => ⟨fid, vrda.fifos.filtered_input_is_not_output h_mem⟩)
-                                (List.attach (List.pwFilter (fun a b => fifos vrda a ≠ fifos vrda b) (List.filter (FIFOList.is_node_input vrda.fifos nid) (List.finRange vrda.num_fifos))))) := by
-            apply List.mem_mergeSort (r := vrda.fifos.consumer_port_sort_rel)
-            exact h_mem
-          simp at h_mem''
-          cases h_mem'' with
-          | intro x px =>
-            cases px with
-              | intro y py =>
-                have h_x_eq : fid.val = x
-                · symm at py
-                  rw [py]
-                rw [h_x_eq]
-                exact (List.mem_pwFilter y)
-        exact (List.mem_filter.mp h_mem').right
-      have h_consumer_eq : nid = fifo.consumer
-      . simp [h_match] at h_is_input
-        symm
-        assumption
-      rw [h_consumer_eq]
+      have h_is_input : vrda.fifos.isNodeInput nid fid = true := (List.mem_filter.mp h_mem).right
+      simp [h_match] at h_is_input
+      rw [←h_is_input]
       exact fifo.adv
 
-    def convert_fifo_ty {vrda : VirtualRDA} {coe : Idx → Fin vrda.num_fifos} {fid : Idx}
-                      {fifo : FIFO vrda.inputs vrda.num_nodes} (h_match : vrda.fifos (coe fid) = fifo)
-                      (val : fifo.get_ty.denote)
-                      : (vrda.fifos.get_ty coe fid).denote :=
-      let h_eq : fifo.get_ty = (vrda.fifos.get_ty coe) fid := by simp [h_match]
+    def convert_fifo_ty {vrda : VirtualRDA} {fid : Fin vrda.numFifos}
+                      {fifo : FIFO vrda.inputs vrda.numNodes} (h_match : vrda.fifos.get fid = fifo)
+                      (val : fifo.ty.denote)
+                      : (vrda.fifos.ty fid).denote :=
+      let h_eq : fifo.ty = vrda.fifos.ty fid := by simp [h_match]
       h_eq ▸ val
 
-    theorem input_map_attach_eq {vrda : VirtualRDA} {nid : Fin vrda.num_nodes}
-      : vrda.fifos.NodeInputTys nid = ((vrda.fifos.NodeInputFids nid).attach.map (vrda.fifos.get_ty Subtype.val ∘ Subtype.val)) := by
-      rw [List.comp_map (vrda.fifos.get_ty Subtype.val) Subtype.val]
-      simp
+    -- This is probably no longer true
+    theorem input_map_attach_eq {vrda : VirtualRDA} {nid : Fin vrda.numNodes}
+      : vrda.fifos.NodeInputTys nid = (vrda.fifos.NodeInputFids nid).attach.map vrda.fifos.ty := by
+      -- rw [List.comp_map vrda.fifos.ty]
+      sorry
 
     def nth_cycle_state (vrda : VirtualRDA) (inputs : TysHListStream vrda.inputs) (n : Nat)
-                        : vrda.state_map :=
+                        : vrda.stateMap :=
       λ nid =>
-        let input_fids : List vrda.fifos.non_output_fid := vrda.fifos.NodeInputFids nid
+        let input_fids : List (Fin vrda.numFifos) := vrda.fifos.NodeInputFids nid
         let input_vals : TysHList (vrda.fifos.NodeInputTys nid) :=
           input_map_attach_eq ▸ input_fids.attach.to_hlist (vrda.fifos.get_ty Subtype.val ∘ Subtype.val) (
             λ ⟨fid, h_mem⟩ =>
