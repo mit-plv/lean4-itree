@@ -207,15 +207,22 @@ namespace VirtualRDA
 
   def FIFOType (vrda : VirtualRDA) := FIFO vrda.inputs vrda.outputs vrda.nodes
 
-  def isInput (vrda : VirtualRDA) {nid : Fin vrda.numNodes} {ty : Ty}
+  def isNodeInput (vrda : VirtualRDA) {nid : Fin vrda.numNodes} {ty : Ty}
     (port : Member ty (vrda.nodes.get nid).inputs) (fifo : vrda.FIFOType) : Bool :=
-    let node := vrda.nodes.get nid
     match fifo with
       | .input fifo' | .initialized fifo' | .advancing fifo' =>
         if h : fifo'.consumer = nid ∧ fifo'.ty = ty then
-          have h_eq : Member ty node.inputs = Member fifo'.ty (vrda.nodes.get fifo'.consumer).inputs := by
-            rw [h.left, h.right]
-          h_eq ▸ fifo'.consumerPort == port
+          h.left ▸ h.right ▸ fifo'.consumerPort == port
+        else
+          false
+      | _ => false
+
+  def isGlobalOutput (vrda : VirtualRDA) {ty : Ty} (output : Member ty vrda.outputs)
+    (fifo : vrda.FIFOType) : Bool :=
+    match fifo with
+      | .output fifo' =>
+        if h : fifo'.ty = ty then
+          h ▸ fifo'.consumer == output
         else
           false
       | _ => false
@@ -232,12 +239,12 @@ namespace VirtualRDA
       let nodeInputs : (TysHList node.inputs) := finRange_map_eq ▸ inputsFinRange.toHList node.inputs.get (
         λ fin =>
           let port := node.inputs.nthMember fin
-          let fifoOpt := vrda.fifos.find? (vrda.isInput port)
+          let fifoOpt := vrda.fifos.find? (vrda.isNodeInput port)
           match h_match : fifoOpt with
             | .some fifo =>
-              have h_is_node_input : vrda.isInput port fifo = true := List.find?_some h_match
+              have h_is_node_input : vrda.isNodeInput port fifo = true := List.find?_some h_match
               have h_ty_eq : fifo.ty = node.inputs.get fin := by
-                cases h_fm : fifo <;> simp [h_fm, VirtualRDA.isInput] at h_is_node_input <;>
+                cases h_fm : fifo <;> simp [h_fm, VirtualRDA.isNodeInput] at h_is_node_input <;>
                 (
                   rename_i fifo'
                   have p : fifo'.consumer = nid ∧ fifo'.ty = (vrda.nodes.get nid).inputs.get fin := by
@@ -255,7 +262,7 @@ namespace VirtualRDA
                 | .advancing fifo' =>
                   have : fifo'.producer < nid := by
                     have : fifo'.consumer = nid := by
-                      simp [VirtualRDA.isInput] at h_is_node_input
+                      simp [VirtualRDA.isNodeInput] at h_is_node_input
                       have p : fifo'.consumer = nid ∧ fifo'.ty = (vrda.nodes.get nid).inputs.get fin := by
                         apply (dite_eq_iff.mp h_is_node_input).elim
                         · intro e
@@ -296,7 +303,25 @@ namespace VirtualRDA
       λ n =>
         finRange_map_eq ▸ outputsFinRange.toHList vrda.outputs.get (
           λ fin =>
-            sorry
+            let outputMem := vrda.outputs.nthMember fin
+            let fifoOpt := vrda.fifos.find? (vrda.isGlobalOutput outputMem)
+            match h_some : fifoOpt with
+              | .some fifo =>
+                have h_is_output : vrda.isGlobalOutput outputMem fifo = true := List.find?_some h_some
+                have h_ty_eq : fifo.ty = vrda.outputs.get fin := by
+                  cases h_fm : fifo <;> simp [h_fm, VirtualRDA.isGlobalOutput] at h_is_output
+                  rename_i fifo'
+                  apply (dite_eq_iff.mp h_is_output).elim
+                  · intro e
+                    exact e.fst
+                  · intro e
+                    have := e.snd
+                    contradiction
+                match fifo with
+                  | .output fifo' =>
+                    h_ty_eq ▸ (stateStream n fifo'.producer).fst.get fifo'.producerPort
+              | .none =>
+                (vrda.outputs.get fin).default
         )
     packedOutputStream.unpack
 
