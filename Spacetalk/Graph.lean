@@ -107,61 +107,36 @@ structure InitializedFIFO (nodes : NodeList numNodes) where
   producerPort: Member ty (nodes.get producer).outputs
   consumerPort: Member ty (nodes.get consumer).inputs
 
+def aa : True ∧ True := ⟨trivial, trivial⟩
+
 instance {nn : Nat} {nodes : NodeList nn} : DecidableEq (InitializedFIFO nodes) :=
-  λ a b => by
-    rw [InitializedFIFO.mk.injEq]
-    apply Decidable.byCases (p := a.ty = b.ty)
-    · intro h_ty_eq
-      have h_dety_eq : a.ty.denote = b.ty.denote := by rw [h_ty_eq]
-      apply Decidable.byCases (p := cast h_dety_eq a.initialValue = b.initialValue)
-      · intro h_init_eq
-        apply Decidable.byCases (p := a.producer = b.producer ∧ a.consumer = b.consumer)
-        · intro h_pc_eq
-          have h_ppty_eq : Member a.ty (nodes.get a.producer).outputs = Member b.ty (nodes.get b.producer).outputs := by
-            rw [h_ty_eq]
-            rw [h_pc_eq.left]
-          have h_cpty_eq : Member a.ty (nodes.get a.consumer).inputs = Member b.ty (nodes.get b.consumer).inputs := by
-            rw [h_ty_eq]
-            rw [h_pc_eq.right]
-          apply Decidable.byCases (p := cast h_ppty_eq a.producerPort = b.producerPort)
-          · intro h_pp_eq
-            apply Decidable.byCases (p := cast h_cpty_eq a.consumerPort = b.consumerPort)
-            · intro h_cp_eq
-              apply isTrue
-              apply And.intro h_ty_eq
-              apply And.intro (heq_of_cast_eq h_dety_eq h_init_eq)
-              apply And.intro h_pc_eq.left
-              apply And.intro h_pc_eq.right
-              apply And.intro (heq_of_cast_eq h_ppty_eq h_pp_eq)
-              exact heq_of_cast_eq h_cpty_eq h_cp_eq
-            · intro h_cp_neq
-              apply isFalse
-              intro h_and
-              apply h_cp_neq
-              apply cast_eq_iff_heq.mpr
-              exact h_and.right.right.right.right.right
-          · intro h_pp_neq
-            apply isFalse
-            intro h_and
-            apply h_pp_neq
-            apply cast_eq_iff_heq.mpr
-            exact h_and.right.right.right.right.left
-        · intro h_pc_neq
-          apply isFalse
-          intro h_eq
-          apply h_pc_neq
-          exact And.intro h_eq.right.right.left h_eq.right.right.right.left
-      · intro h_init_neq
-        apply isFalse
-        intro h_and
-        apply h_init_neq
-        apply cast_eq_iff_heq.mpr
-        exact h_and.right.left
-    · intro h_ty_neq
-      apply isFalse
-      simp
-      intro
-      contradiction
+  λ a b =>
+    let eq := InitializedFIFO.mk.injEq a.ty a.initialValue a.producer a.consumer a.producerPort a.consumerPort b.ty b.initialValue b.producer b.consumer b.producerPort b.consumerPort
+    if h_ty : a.ty = b.ty then
+      have h_dety_eq := congr rfl h_ty
+      if h_init : cast h_dety_eq a.initialValue = b.initialValue then
+        have h_init_eq := heq_of_cast_eq h_dety_eq h_init
+        if h_p : a.producer = b.producer then
+          have h_ppty_eq := by rw[h_ty, h_p]
+          if h_pp : cast h_ppty_eq a.producerPort = b.producerPort then
+            have h_pp_eq := heq_of_cast_eq h_ppty_eq h_pp
+            if h_c : a.consumer = b.consumer then
+              have h_cpty_eq := by rw[h_ty, h_c]
+              if h_cp : cast h_cpty_eq a.consumerPort = b.consumerPort then
+                have h_cp_eq := heq_of_cast_eq h_cpty_eq h_cp
+                isTrue (eq.mpr ⟨h_ty, h_init_eq, h_p, h_c, h_pp_eq, h_cp_eq⟩)
+              else
+                isFalse (λ h_eq => h_cp (cast_eq_iff_heq.mpr (eq.mp h_eq).right.right.right.right.right))
+            else
+              isFalse (λ h_eq => h_c (eq.mp h_eq).right.right.right.left)
+          else
+            isFalse (λ h_eq => h_pp (cast_eq_iff_heq.mpr (eq.mp h_eq).right.right.right.right.left))
+        else
+          isFalse (λ h_eq => h_p (eq.mp h_eq).right.right.left)
+      else
+        isFalse (λ h_eq => h_init (cast_eq_iff_heq.mpr (eq.mp h_eq).right.left))
+    else
+      isFalse (λ h_eq => h_ty (eq.mp h_eq).left)
 
 inductive FIFO {numNodes : Nat} (inputs outputs : List Ty) (nodes : NodeList numNodes)
   | input : InputFIFO inputs nodes → FIFO inputs outputs nodes
