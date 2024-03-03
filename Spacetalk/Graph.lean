@@ -3,6 +3,7 @@ import Mathlib.Data.List.Range
 import Mathlib.Data.List.Sort
 import Mathlib.Logic.Basic
 import Std.Data.List.Lemmas
+import Mathlib.Data.List.Card
 
 import Spacetalk.HList
 import Spacetalk.Stream
@@ -145,8 +146,42 @@ inductive FIFO {numNodes : Nat} (inputs outputs : List Ty) (nodes : NodeList num
   | initialized : InitializedFIFO nodes → FIFO inputs outputs nodes
 deriving DecidableEq
 
-@[simp] def FIFO.ty : (fifo : FIFO inputs outputs nodes) → Ty
-  | .input f | .output f | .advancing f | .initialized f => f.ty
+namespace FIFO
+
+  @[simp] def ty : (fifo : FIFO inputs outputs nodes) → Ty
+    | .input f | .output f | .advancing f | .initialized f => f.ty
+
+  @[simp] def isInput : (fifo : FIFO inputs outputs nodes) → Bool
+    | .input _ => true
+    | _ => false
+
+  @[simp] def isOutput : (fifo : FIFO inputs outputs nodes) → Bool
+    | .output _ => true
+    | _ => false
+
+  theorem outputNotInput {fifo : FIFO inputs outputs nodes} : fifo.isOutput = true → fifo.isInput = false := by
+    intro h
+    cases h_match : fifo <;> repeat (first | simp | simp [h_match] at h)
+
+  theorem inputNotOutput {fifo : FIFO inputs outputs nodes} : fifo.isInput = true → fifo.isOutput = false := by
+    intro h
+    cases h_match : fifo <;> repeat (first | simp | simp [h_match] at h)
+
+  def producer {numNodes : Nat} {nodes : NodeList numNodes} : (fifo : @FIFO numNodes inputs outputs nodes) → fifo.isInput = false → Fin numNodes
+    | .initialized f, _ | .advancing f, _ | .output f, _ => f.producer
+
+  def producerPort {numNodes : Nat} {nodes : NodeList numNodes} :
+    (fifo : @FIFO numNodes inputs outputs nodes) → (h : fifo.isInput = false) → Member fifo.ty (nodes.get (fifo.producer h)).outputs
+    | .initialized f, _ | .advancing f, _ | .output f, _ => f.producerPort
+
+  def consumer {numNodes : Nat} {nodes : NodeList numNodes} : (fifo : @FIFO numNodes inputs outputs nodes) → fifo.isOutput = false → Fin numNodes
+    | .initialized f, _ | .advancing f, _ | .input f, _ => f.consumer
+
+  def consumerPort {numNodes : Nat} {nodes : NodeList numNodes} :
+    (fifo : @FIFO numNodes inputs outputs nodes) → (h : fifo.isOutput = false) → Member fifo.ty (nodes.get (fifo.consumer h)).inputs
+    | .initialized f, _ | .advancing f, _ | .input f, _ => f.consumerPort
+
+end FIFO
 
 structure VirtualRDA where
   inputs : List Ty
@@ -299,5 +334,37 @@ namespace VirtualRDA
                 (vrda.outputs.get fin).default
         )
     packedOutputStream.unpack
+
+  -- How does this change the semantics?
+  def connectFIFOs (vrda : VirtualRDA) (ty : Ty)
+    (pi : Fin vrda.fifos.length) (ci : Fin vrda.fifos.length) (init : ty.denote)
+    : VirtualRDA :=
+    let pf := vrda.fifos.get pi
+    let cf := vrda.fifos.get ci
+    if h : pf.isOutput = true ∧ cf.isInput = true ∧ pf.ty = ty ∧ cf.ty = ty then
+      let trimmedFifos := (vrda.fifos.remove pf).remove cf
+      let h_ni : pf.isInput = false := pf.outputNotInput h.left
+      let h_no : cf.isOutput = false := cf.inputNotOutput h.right.left
+      let initFifo : InitializedFIFO vrda.nodes := {
+        ty := ty,
+        initialValue := init,
+        producer := pf.producer h_ni,
+        consumer := cf.consumer h_no,
+        producerPort := h.right.right.left ▸ pf.producerPort h_ni,
+        consumerPort := h.right.right.right ▸ cf.consumerPort h_no,
+      }
+      let newFifo : vrda.FIFOType := FIFO.initialized initFifo
+      let newFifos := newFifo :: trimmedFifos
+      { vrda with
+        fifos := newFifos
+      }
+    else
+      vrda
+
+  -- theorem connection_type_invariance {vrda : VirtualRDA} {ty : Ty} {pi : Fin vrda.fifos.length} {ci : Fin vrda.fifos.length} {init : ty.denote}
+  --   (h : (vrda.fifos.get pi).isOutput = true ∧ (vrda.fifos.get ci).isInput = true ∧ (vrda.fifos.get pi).ty = ty ∧ (vrda.fifos.get ci).ty = ty)
+  --   : vrda.denote = (vrda.connectFIFOs ty pi ci init).denote :=
+  --   sorry
+
 
 end VirtualRDA
