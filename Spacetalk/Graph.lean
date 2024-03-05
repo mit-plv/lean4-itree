@@ -4,6 +4,8 @@ import Mathlib.Data.List.Sort
 import Mathlib.Logic.Basic
 import Std.Data.List.Lemmas
 import Mathlib.Data.List.Card
+import Mathlib.Data.Real.Basic
+import Mathlib.Data.Option.Defs
 
 import Spacetalk.HList
 import Spacetalk.Stream
@@ -11,21 +13,39 @@ import Spacetalk.Stream
 inductive Ty
   | unit
   | nat
+  | option : Ty → Ty
 deriving BEq, DecidableEq
 
 @[reducible] def Ty.denote : Ty → Type
   | unit => Unit
   | nat => Nat
+  | option ty => Option ty.denote
+
 
 def Ty.default : (ty : Ty) → ty.denote
   | unit => ()
   | nat => 0
+  | option _ => none
+
+theorem Eq.symm_iff : (a = b) ↔ (b = a) := by
+  apply Iff.intro <;> exact Eq.symm
+
+def Ty.denote_decEq (ty : Ty) (a b : ty.denote) : Decidable (a = b) :=
+  match ty with
+    | .unit => isTrue rfl
+    | .nat => Nat.decEq a b
+    | .option ty' =>
+      match a, b with
+        | none, none => isTrue rfl
+        | none, some _ => isFalse Option.noConfusion
+        | some _, none => isFalse Option.noConfusion
+        | some a', some b' =>
+          match ty'.denote_decEq a' b' with
+            | isTrue h => isTrue (congrArg some h)
+            | isFalse h => isFalse (λ h' => h (Option.some.inj h'))
 
 instance {ty : Ty} : DecidableEq ty.denote :=
-  λ a b =>
-    match ty with
-      | .unit => isTrue rfl
-      | .nat => Nat.decEq a b
+  Ty.denote_decEq ty
 
 instance {ty : Ty} : Inhabited ty.denote where
   default := ty.default
