@@ -37,13 +37,7 @@ abbrev DenoListsStream {τ : Type} [DecidableEq τ] [Denote τ] (ts : List τ) :
 
 theorem DenoStreamsList_pack_unpack_eq {τ : Type} [DecidableEq τ] [Denote τ] {ts : List τ} {dsl : DenoStreamsList ts}
   : dsl.pack.unpack = dsl := by
-  induction dsl
-  case nil => rfl
-  case cons h t ih =>
-    simp
-    apply And.intro
-    · simp [HList.get]
-    · exact ih
+  induction dsl <;> simp; assumption
 
 theorem DenoListsStream_unpack_pack_eq {τ : Type} [DecidableEq τ] [Denote τ] {ts : List τ} {dls : DenoListsStream ts}
   : dls.unpack.pack = dls := by
@@ -52,17 +46,16 @@ theorem DenoListsStream_unpack_pack_eq {τ : Type} [DecidableEq τ] [Denote τ] 
   induction ts
   case nil => simp; cases dls n; rfl
   case cons h t ih =>
-    simp [HList.get]
+    simp
     cases hm : dls n with
     | cons hh tt =>
-      apply (HList.cons.injEq ((hh :: tt).get .head) (DenoStreamsList.pack (DenoListsStream.unpack fun n => match dls n with | a :: rest => rest) n) hh tt).mpr
+      apply (HList.cons.injEq _ _ _ _).mpr
       apply And.intro
-      · simp [HList.get]
-      · simp at ih
-        have : (fun n => match dls n with | _ :: rest => rest) n = tt := by
+      · simp
+      · have : tt = (match dls · with | _ :: rest => rest) n := by
           simp
           rw [hm]
-        rw [←this]
+        rw [this]
         exact ih
 
 abbrev NodeType (τ : Type) [DecidableEq τ][Denote τ] :=

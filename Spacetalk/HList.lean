@@ -21,7 +21,7 @@ namespace HList
     | [] => 0
     | _ :: t => 1 + t.length
 
-  def get : HList β is → Member i is → β i
+  @[simp] def get : HList β is → Member i is → β i
     | a :: as, .head => a
     | _ :: as, .tail h => as.get h
 
