@@ -1,10 +1,12 @@
 import Mathlib.Data.Vector
 import Mathlib.Data.Stream.Defs
+import Mathlib.Data.List.Range
 
 import Spacetalk.HList
 
 class Denote (τ : Type) [DecidableEq τ] where
   denote : τ → Type
+  default : (t : τ) → denote t
 
 abbrev DenoList {τ : Type} [DecidableEq τ] [Denote τ] (ts : List τ) := HList Denote.denote ts
 
@@ -200,125 +202,111 @@ namespace DataflowGraph
   def stateMap {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] (dfg : DataflowGraph τ F) :=
     (nid : Fin dfg.numNodes) → (DenoList (dfg.nodes.get nid).outputs) × (DenoList (dfg.nodes.get nid).state)
 
+  theorem node_input_fifo_ty_eq {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {dfg : DataflowGraph τ F}
+    {nid : Fin dfg.numNodes} {fin : Fin (dfg.nodes.get nid).inputs.length}
+    {port : Member ((dfg.nodes.get nid).inputs.get fin) (dfg.nodes.get nid).inputs} {fifo : dfg.FIFOType}
+    (h_is_node_input : dfg.isNodeInput port fifo = true) : fifo.t = (dfg.nodes.get nid).inputs.get fin := by
+    cases h_fm : fifo <;> simp [h_fm, isNodeInput] at h_is_node_input <;>
+    (
+      rename_i fifo'
+      have p : fifo'.consumer = nid ∧ fifo'.t = (dfg.nodes.get nid).inputs.get fin := by
+        apply (dite_eq_iff.mp h_is_node_input).elim
+        · intro e
+          exact e.fst
+        · intro e
+          have := e.snd
+          contradiction
+      exact p.right
+    )
+
+  theorem advancing_fifo_lt {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {dfg : DataflowGraph τ F}
+    {nid : Fin dfg.numNodes} {fin : Fin (dfg.nodes.get nid).inputs.length}
+    {port : Member ((dfg.nodes.get nid).inputs.get fin) (dfg.nodes.get nid).inputs} {fifo : AdvancingFIFO dfg.nodes}
+    (h_is_node_input : dfg.isNodeInput port (.advancing fifo) = true) : fifo.producer < nid := by
+    have : fifo.consumer = nid := by
+      simp [isNodeInput] at h_is_node_input
+      have p : fifo.consumer = nid ∧ fifo.t = (dfg.nodes.get nid).inputs.get fin := by
+        apply (dite_eq_iff.mp h_is_node_input).elim
+        · intro e
+          exact e.fst
+        · intro e
+          have := e.snd
+          contradiction
+      exact p.left
+    rw [←this]
+    exact fifo.adv
+
+  theorem global_output_ty_eq {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {dfg : DataflowGraph τ F}
+    {fin : Fin dfg.outputs.length} {fifo : dfg.FIFOType}
+    (h_is_output : isGlobalOutput (dfg.outputs.nthMember fin) fifo = true) : fifo.t = dfg.outputs.get fin := by
+    cases h_fm : fifo <;> simp [h_fm, isGlobalOutput] at h_is_output
+    rename_i fifo'
+    apply (dite_eq_iff.mp h_is_output).elim
+    · intro e
+      exact e.fst
+    · intro e
+      have := e.snd
+      contradiction
+
   def nthCycleState {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] (dfg : DataflowGraph τ F)
-    (inputs : TysHListStream vrda.inputs) (n : Nat) : vrda.stateMap :=
+    (inputs : DenoListsStream dfg.inputs) (n : Nat) : dfg.stateMap :=
     λ nid =>
-      let node := vrda.nodes.get nid
+      let node := dfg.nodes.get nid
       let inputsFinRange := List.finRange node.inputs.length
       have finRange_map_eq : inputsFinRange.map node.inputs.get = node.inputs := by simp [List.get]
-      let nodeInputs : (TysHList node.inputs) := finRange_map_eq ▸ inputsFinRange.toHList node.inputs.get (
+      let nodeInputs : (DenoList node.inputs) := finRange_map_eq ▸ inputsFinRange.toHList node.inputs.get (
         λ fin =>
           let port := node.inputs.nthMember fin
-          let fifoOpt := vrda.fifos.find? (vrda.isNodeInput port)
-          match h_match : fifoOpt with
+          let fifoOpt := dfg.fifos.find? (dfg.isNodeInput port)
+          match h_match_opt : fifoOpt with
             | .some fifo =>
-              have h_is_node_input : vrda.isNodeInput port fifo = true := List.find?_some h_match
-              have h_ty_eq : fifo.ty = node.inputs.get fin := by
-                cases h_fm : fifo <;> simp [h_fm, VirtualRDA.isNodeInput] at h_is_node_input <;>
-                (
-                  rename_i fifo'
-                  have p : fifo'.consumer = nid ∧ fifo'.ty = (vrda.nodes.get nid).inputs.get fin := by
-                    apply (dite_eq_iff.mp h_is_node_input).elim
-                    · intro e
-                      exact e.fst
-                    · intro e
-                      have := e.snd
-                      contradiction
-                  exact p.right
-                )
+              have h_is_node_input : dfg.isNodeInput port fifo = true := List.find?_some h_match_opt
+              have h_ty_eq : fifo.t = node.inputs.get fin := node_input_fifo_ty_eq (h_is_node_input)
               match fifo with
                 | .input fifo' =>
                   h_ty_eq ▸ (inputs n).get fifo'.producer
                 | .advancing fifo' =>
-                  have : fifo'.producer < nid := by
-                    have : fifo'.consumer = nid := by
-                      simp [VirtualRDA.isNodeInput] at h_is_node_input
-                      have p : fifo'.consumer = nid ∧ fifo'.ty = (vrda.nodes.get nid).inputs.get fin := by
-                        apply (dite_eq_iff.mp h_is_node_input).elim
-                        · intro e
-                          exact e.fst
-                        · intro e
-                          have := e.snd
-                          contradiction
-                      exact p.left
-                    rw [←this]
-                    exact fifo'.adv
-                  let producerOutputs := (vrda.nthCycleState inputs n fifo'.producer).fst
+                  have := advancing_fifo_lt h_is_node_input
+                  let producerOutputs := (dfg.nthCycleState inputs n fifo'.producer).fst
                   h_ty_eq ▸ producerOutputs.get fifo'.producerPort
                 | .initialized fifo' =>
                   match n with
                     | 0 => h_ty_eq ▸ fifo'.initialValue
                     | n' + 1 =>
-                      let producerOutputs := (vrda.nthCycleState inputs n' fifo'.producer).fst
+                      let producerOutputs := (dfg.nthCycleState inputs n' fifo'.producer).fst
                       h_ty_eq ▸ producerOutputs.get fifo'.producerPort
             | .none =>
-              (node.inputs.get fin).default
+              Denote.default (node.inputs.get fin)
       )
-      let currState : TysHList node.state :=
+      let currState : DenoList node.state :=
         match n with
          | 0 => node.initialState
-         | n' + 1 => (vrda.nthCycleState inputs n' nid).snd
-      let nodeOutputs := node.denote nodeInputs currState
-      let nextState := node.nextState nodeInputs currState
-      (nodeOutputs, nextState)
+         | n' + 1 => (dfg.nthCycleState inputs n' nid).snd
+      (NodeOps.eval node.ops) nodeInputs currState
       termination_by nthCycleState _ _ n nid => (n, nid)
 
-  def denote (vrda : VirtualRDA) (inputs : TyStreamsHList vrda.inputs)
-                    : TyStreamsHList (vrda.outputs) :=
+  def denote {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] (dfg : DataflowGraph τ F)
+  (inputs : DenoStreamsList dfg.inputs) : DenoStreamsList (dfg.outputs) :=
     let packedInputs := inputs.pack
-    let stateStream := vrda.nthCycleState packedInputs
-    let outputsFinRange := List.finRange vrda.outputs.length
-    have finRange_map_eq : outputsFinRange.map vrda.outputs.get = vrda.outputs := by simp [List.get]
-    let packedOutputStream : TysHListStream vrda.outputs :=
+    let stateStream := dfg.nthCycleState packedInputs
+    let outputsFinRange := List.finRange dfg.outputs.length
+    have finRange_map_eq : outputsFinRange.map dfg.outputs.get = dfg.outputs := by simp [List.get]
+    let packedOutputStream : DenoListsStream dfg.outputs :=
       λ n =>
-        finRange_map_eq ▸ outputsFinRange.toHList vrda.outputs.get (
+        finRange_map_eq ▸ outputsFinRange.toHList dfg.outputs.get (
           λ fin =>
-            let outputMem := vrda.outputs.nthMember fin
-            let fifoOpt := vrda.fifos.find? (vrda.isGlobalOutput outputMem)
+            let outputMem := dfg.outputs.nthMember fin
+            let fifoOpt := dfg.fifos.find? (isGlobalOutput outputMem)
             match h_some : fifoOpt with
               | .some fifo =>
-                have h_is_output : vrda.isGlobalOutput outputMem fifo = true := List.find?_some h_some
-                have h_ty_eq : fifo.ty = vrda.outputs.get fin := by
-                  cases h_fm : fifo <;> simp [h_fm, VirtualRDA.isGlobalOutput] at h_is_output
-                  rename_i fifo'
-                  apply (dite_eq_iff.mp h_is_output).elim
-                  · intro e
-                    exact e.fst
-                  · intro e
-                    have := e.snd
-                    contradiction
+                have h_is_output : isGlobalOutput outputMem fifo = true := List.find?_some h_some
+                have h_ty_eq : fifo.t = dfg.outputs.get fin := global_output_ty_eq h_is_output
                 match fifo with
                   | .output fifo' =>
                     h_ty_eq ▸ (stateStream n fifo'.producer).fst.get fifo'.producerPort
               | .none =>
-                (vrda.outputs.get fin).default
+                Denote.default (dfg.outputs.get fin)
         )
     packedOutputStream.unpack
-
-  -- How does this change the semantics?
-  def connectFIFOs (vrda : VirtualRDA) (ty : Ty)
-    (pi : Fin vrda.fifos.length) (ci : Fin vrda.fifos.length) (init : ty.denote)
-    : VirtualRDA :=
-    let pf := vrda.fifos.get pi
-    let cf := vrda.fifos.get ci
-    if h : pf.isOutput = true ∧ cf.isInput = true ∧ pf.ty = ty ∧ cf.ty = ty then
-      let trimmedFifos := (vrda.fifos.remove pf).remove cf
-      let h_ni : pf.isInput = false := pf.outputNotInput h.left
-      let h_no : cf.isOutput = false := cf.inputNotOutput h.right.left
-      let initFifo : InitializedFIFO vrda.nodes := {
-        ty := ty,
-        initialValue := init,
-        producer := pf.producer h_ni,
-        consumer := cf.consumer h_no,
-        producerPort := h.right.right.left ▸ pf.producerPort h_ni,
-        consumerPort := h.right.right.right ▸ cf.consumerPort h_no,
-      }
-      let newFifo : vrda.FIFOType := FIFO.initialized initFifo
-      let newFifos := newFifo :: trimmedFifos
-      { vrda with
-        fifos := newFifos
-      }
-    else
-      vrda
 
 end DataflowGraph
