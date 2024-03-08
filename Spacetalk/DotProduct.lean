@@ -39,6 +39,24 @@ namespace SimpleDataflow
 
     .comp incState (.comp stateReset (.comp outputGuard (.comp sumOut sumUpdate)))
 
+  theorem accum_dim_some : ∀ {x sum counter : Nat} (dim : Nat),
+    (((accum dim).eval (x :: []) (counter :: sum :: [])).fst.get .head).isSome = true ↔ counter = dim - 1 := by
+    intro x sum counter dim
+    apply Iff.intro
+    · intro h
+      symm
+      simp [Option.isSome] at h
+      split at h <;>
+      (
+        rename_i heq
+        simp [accum, Ops.eval, UnaryOp.eval, BinaryOp.eval] at heq
+        split at heq <;> first | assumption | split at heq <;> contradiction
+      )
+    · intro h
+      simp [accum, Ops.eval, UnaryOp.eval, BinaryOp.eval]
+      rw [←h]
+      simp
+
   def mul : Ops [.nat, .nat] [.nat] [] := .binaryOp .mul
 
   def dotProdGraph (dim : Nat) : DataflowMachine :=
@@ -88,6 +106,15 @@ namespace SimpleDataflow
       fifos := fifos
     }
 
+  theorem dp_nth_counter_eq_n : ∀ {dim : Nat} (inputs : DenoListsStream (dotProdGraph dim).inputs) (n : Nat),
+    ((((dotProdGraph dim).nthCycleState inputs n) ⟨1, by simp [dotProdGraph]⟩).snd.get .head) = n := by
+    intro dim inputs n
+    induction n with
+    | zero =>
+      -- simp [dotProdGraph]
+      sorry
+    | succ n' ih => sorry
+
   def dotProdUnfiltered (dim : Nat) (a : Stream' Nat) (b : Stream' Nat) : Stream' (Option Nat) :=
     ((dotProdGraph dim).denote (a :: b :: [])).get .head
 
@@ -98,7 +125,15 @@ namespace SimpleDataflow
     · sorry
     · intro h
       simp [dotProdUnfiltered]
-      sorry
+      split
+      · split
+        simp [Option.isSome]
+        split
+        · rfl
+        · rename_i heq
+          simp [DataflowGraph.nthCycleState, dotProdGraph, Ops.eval, UnaryOp.eval, BinaryOp.eval] at heq
+          sorry
+      · sorry
 
   def dotProd (dim : Nat) (h : 0 < dim) (a : Stream' Nat) (b : Stream' Nat) : Stream' Nat :=
     let unfiltered := dotProdUnfiltered dim a b
