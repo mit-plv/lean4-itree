@@ -1,6 +1,7 @@
 import Spacetalk.Step
 import Spacetalk.SimpleDataflow
-
+import Mathlib.Tactic.Linarith.Frontend
+import Mathlib.Tactic.ClearExcept
 
 def dotProd (n : Nat) (a : Stream' Nat) (b : Stream' Nat) : Stream' Nat :=
   Stream'.reduce (· + ·) n 0 (Stream'.zip (· * ·) a b)
@@ -105,17 +106,38 @@ namespace SimpleDataflow
       fifos := fifos
     }
 
-  set_option maxHeartbeats 100000000
+  theorem Nat.mod_eq_zero_of_le_sub_eq_zero {m n : Nat} : m ≤ n → n - m = 0 → m % n = 0 := by
+    intro h1 h2
+    have : n = m := by
+      rw [←Nat.sub_add_cancel h1]
+      rw [h2]
+      simp
+    rw [this]
+    simp
+
+  -- set_option maxHeartbeats 100000000
   theorem dp_nth_counter_eq_n : ∀ {dim : Nat} (inputs : DenoListsStream (dotProdGraph dim).inputs) (n : Nat),
-    ((((dotProdGraph dim).nthCycleState inputs n) ⟨1, by simp [dotProdGraph]⟩).snd.get .head) = n := by
-    intro dim inputs n
+    0 < dim → ((((dotProdGraph dim).nthCycleState inputs n) ⟨1, by simp [dotProdGraph]⟩).snd.get .head) = n := by
+    intro dim inputs n h
     induction n with
     | zero =>
       rw [DataflowGraph.nthCycleState]
-      simp [List.nthLe, List.cons, HList.cons, dotProdGraph, mul, Vector.get, Vector.cons, HList.get, List.map, List.length, List.finRange, List.get, Denote.default, List.toHList, Ops.eval, UnaryOp.eval, BinaryOp.eval, accum, mul]
       split
-      · rename_i heq
-        sorry
+      · simp [List.toHList]
+        split
+        · split
+          · simp [NodeOps.eval, Ops.eval]
+            split
+            · rename_i heq
+              simp [heq]
+              simp [UnaryOp.eval]
+              simp [UnaryOp.eval] at heq
+              clear *- h heq
+              exact Nat.mod_eq_zero_of_le_sub_eq_zero h heq
+            · sorry
+          · sorry
+          · sorry
+        · sorry
       · sorry
     | succ n ih => sorry
 
