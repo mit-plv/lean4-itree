@@ -248,7 +248,7 @@ namespace DataflowGraph
       have := e.snd
       contradiction
 
-  @[simp] def nthCycleState {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] (dfg : DataflowGraph τ F)
+  def nthCycleState {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] (dfg : DataflowGraph τ F)
     (inputs : DenoListsStream dfg.inputs) (n : Nat) : dfg.stateMap :=
     λ nid =>
       let node := dfg.nodes.get nid
@@ -285,7 +285,7 @@ namespace DataflowGraph
       (NodeOps.eval node.ops) nodeInputs currState
       termination_by nthCycleState _ _ n nid => (n, nid)
 
-  @[simp] def denote {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] (dfg : DataflowGraph τ F)
+  def denote {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] (dfg : DataflowGraph τ F)
   (inputs : DenoStreamsList dfg.inputs) : DenoStreamsList (dfg.outputs) :=
     let packedInputs := inputs.pack
     let stateStream := dfg.nthCycleState packedInputs

@@ -132,6 +132,7 @@ namespace SimpleDataflow
         · rfl
         · rename_i heq
           simp [DataflowGraph.nthCycleState, dotProdGraph, Ops.eval, UnaryOp.eval, BinaryOp.eval] at heq
+
           sorry
       · sorry
 
