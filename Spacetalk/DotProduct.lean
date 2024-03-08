@@ -21,8 +21,7 @@ namespace Step
     .lam λ a => .lam λ b => .app reduction (.app (.app multiply (.var a)) (.var b))
 end Step
 
-theorem step_dp_equiv : ∀n : Nat, (Step.dotProd n).denote = dotProd n := by
-  simp [dotProd]
+theorem step_dp_equiv : ∀n : Nat, (Step.dotProd n).denote = dotProd n := by aesop
 
 namespace SimpleDataflow
 
@@ -113,9 +112,11 @@ namespace SimpleDataflow
     induction n with
     | zero =>
       rw [DataflowGraph.nthCycleState]
-      simp [dotProdGraph, mul, Vector.get, Vector.cons, HList.get, List.map, List.length, List.finRange, List.get, Denote.default, List.toHList, Ops.eval, UnaryOp.eval, BinaryOp.eval, accum, mul]
-
-      sorry
+      simp [List.nthLe, List.cons, HList.cons, dotProdGraph, mul, Vector.get, Vector.cons, HList.get, List.map, List.length, List.finRange, List.get, Denote.default, List.toHList, Ops.eval, UnaryOp.eval, BinaryOp.eval, accum, mul]
+      split
+      · rename_i heq
+        sorry
+      · sorry
     | succ n ih => sorry
 
   def dotProdUnfiltered (dim : Nat) (a : Stream' Nat) (b : Stream' Nat) : Stream' (Option Nat) :=

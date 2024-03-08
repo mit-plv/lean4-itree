@@ -285,7 +285,6 @@ namespace DataflowGraph
       (NodeOps.eval node.ops) nodeInputs currState
     termination_by _ _ n nid => (n, nid)
 
-  #check List.get
   def denote {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] (dfg : DataflowGraph τ F)
   (inputs : DenoStreamsList dfg.inputs) : DenoStreamsList (dfg.outputs) :=
     let packedInputs := inputs.pack
