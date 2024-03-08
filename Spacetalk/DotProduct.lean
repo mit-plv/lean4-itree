@@ -8,6 +8,11 @@ def dotProd (n : Nat) (a : Stream' Nat) (b : Stream' Nat) : Stream' Nat :=
 def sa : Stream' Nat := id
 def sb : Stream' Nat := id
 
+theorem Nat.sub_one_succ {n : Nat} : 0 < n → n - 1 + 1 = n := by
+  intro h
+  rw [Nat.sub_add_cancel]
+  exact h
+
 namespace Step
   -- A dot product of length n vectors
   def dotProd (n : Nat) : Prog rep (.stream .nat → .stream .nat → .stream .nat) :=
@@ -36,7 +41,7 @@ namespace SimpleDataflow
 
   def mul : Ops [.nat, .nat] [.nat] [] := .binaryOp .mul
 
-  def dotProd (dim : Nat) : DataflowMachine :=
+  def dotProdGraph (dim : Nat) : DataflowMachine :=
     let inputs := [.nat, .nat]
     let outputs := [.option .nat]
     let mulNode : Node Ty Ops := ⟨inputs, [.nat], [], [], mul⟩
@@ -83,11 +88,31 @@ namespace SimpleDataflow
       fifos := fifos
     }
 
-  def dotProduct (dim : Nat) (a : Stream' Nat) (b : Stream' Nat) : Stream' (Option Nat) :=
-    let unfiltered := ((dotProd dim).denote (a :: b :: [])).get .head
-    unfiltered
+  def dotProdUnfiltered (dim : Nat) (a : Stream' Nat) (b : Stream' Nat) : Stream' (Option Nat) :=
+    ((dotProdGraph dim).denote (a :: b :: [])).get .head
 
-  def dp := dotProduct 10 sa sb
-  #eval dp 9
+  theorem dp_dim_some : ∀ (dim : Nat) (a : Stream' Nat) (b : Stream' Nat) (n : Nat),
+    ((dotProdUnfiltered dim a b) n).isSome = true ↔ (n + 1) % dim = 0 := by
+    intro dim a b n
+    apply Iff.intro
+    · sorry
+    · intro h
+      simp [dotProdUnfiltered]
+      sorry
+
+  def dotProd (dim : Nat) (h : 0 < dim) (a : Stream' Nat) (b : Stream' Nat) : Stream' Nat :=
+    let unfiltered := dotProdUnfiltered dim a b
+    λ n =>
+      let val := unfiltered ((n + 1) * dim - 1)
+      have h : val.isSome = true := by
+        rw [dp_dim_some]
+        have : 0 < (n + 1) * dim := by simp [h]
+        calc
+          ((n + 1) * dim - 1 + 1) % dim = ((n + 1) * dim) % dim := by rw [Nat.sub_one_succ this]
+          _ = 0 := by rw [Nat.mul_mod_left]
+      val.get h
+
+  def dp := dotProd 10 (by decide) sa sb
+  #eval dp 4
 
 end SimpleDataflow

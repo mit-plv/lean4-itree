@@ -1,4 +1,5 @@
 import Mathlib.Data.Stream.Defs
+import Mathlib.Data.Vector
 
 def Stream'.reduce (f : α → β → α) (dim : Nat) (a : α) (s : Stream' β) : Stream' α :=
   λ n =>
