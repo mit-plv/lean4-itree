@@ -248,12 +248,12 @@ namespace DataflowGraph
       have := e.snd
       contradiction
 
-  def nthCycleState {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] (dfg : DataflowGraph τ F)
-    (inputs : DenoListsStream dfg.inputs) (n : Nat) : dfg.stateMap :=
-    λ nid =>
+  def nthCycleState {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] :
+    (dfg : DataflowGraph τ F) → DenoListsStream dfg.inputs → Nat → dfg.stateMap :=
+    λ dfg inputs n nid =>
       let node := dfg.nodes.get nid
       let inputsFinRange := List.finRange node.inputs.length
-      have finRange_map_eq : inputsFinRange.map node.inputs.get = node.inputs := by simp [List.get]
+      have finRange_map_eq : inputsFinRange.map node.inputs.get = node.inputs := List.finRange_map_get node.inputs
       let nodeInputs : (DenoList node.inputs) := finRange_map_eq ▸ inputsFinRange.toHList node.inputs.get (
         λ fin =>
           let port := node.inputs.nthMember fin
@@ -283,14 +283,15 @@ namespace DataflowGraph
          | 0 => node.initialState
          | n' + 1 => (dfg.nthCycleState inputs n' nid).snd
       (NodeOps.eval node.ops) nodeInputs currState
-      termination_by nthCycleState _ _ n nid => (n, nid)
+    termination_by _ _ n nid => (n, nid)
 
+  #check List.get
   def denote {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] (dfg : DataflowGraph τ F)
   (inputs : DenoStreamsList dfg.inputs) : DenoStreamsList (dfg.outputs) :=
     let packedInputs := inputs.pack
     let stateStream := dfg.nthCycleState packedInputs
     let outputsFinRange := List.finRange dfg.outputs.length
-    have finRange_map_eq : outputsFinRange.map dfg.outputs.get = dfg.outputs := by simp [List.get]
+    have finRange_map_eq : outputsFinRange.map dfg.outputs.get = dfg.outputs := List.finRange_map_get dfg.outputs
     let packedOutputStream : DenoListsStream dfg.outputs :=
       λ n =>
         finRange_map_eq ▸ outputsFinRange.toHList dfg.outputs.get (
