@@ -115,28 +115,17 @@ namespace SimpleDataflow
     rw [this]
     simp
 
-  -- set_option maxHeartbeats 100000000
   theorem dp_nth_counter_eq_n : ∀ {dim : Nat} (inputs : DenoListsStream (dotProdGraph dim).inputs) (n : Nat),
     0 < dim → ((((dotProdGraph dim).nthCycleState inputs n) ⟨1, by simp [dotProdGraph]⟩).snd.get .head) = n := by
     intro dim inputs n h
     induction n with
     | zero =>
       rw [DataflowGraph.nthCycleState]
+      simp [NodeOps.eval, Ops.eval, UnaryOp.eval, BinaryOp.eval, HList.get, HList.replace]
       split
-      · simp [List.toHList]
-        split
-        · split
-          · simp [NodeOps.eval, Ops.eval]
-            split
-            · rename_i heq
-              simp [heq]
-              simp [UnaryOp.eval]
-              simp [UnaryOp.eval] at heq
-              clear *- h heq
-              exact Nat.mod_eq_zero_of_le_sub_eq_zero h heq
-            · sorry
-          · sorry
-          · sorry
+      rename_i heq
+      · split
+        · split <;> repeat (first | split | (simp; exact Nat.mod_eq_zero_of_le_sub_eq_zero h heq))
         · sorry
       · sorry
     | succ n ih => sorry
