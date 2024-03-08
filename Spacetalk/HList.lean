@@ -11,6 +11,11 @@ inductive Member {α : Type u} : α → List α → Type u
   | tail : Member a bs → Member a (b::bs)
 deriving DecidableEq
 
+def List.replaceMember {α : Type u} {a : α} : (l : List α) → Member a l → α → List α
+  | [], _, _ => []
+  | _::t, .head, x => x :: t
+  | h::t, .tail m, x => h :: t.replaceMember m x
+
 def List.nthMember : (l : List α) → (n : Fin l.length) → Member (l.get n) l
   | _::_, ⟨0, _⟩ => .head
   | _::t, ⟨n'+1, _⟩ => .tail (t.nthMember ⟨n', _⟩)
@@ -32,6 +37,11 @@ namespace HList
   def append : HList β is1 → HList β is2 → HList β (is1 ++ is2)
     | [], l => l
     | (h :: s), t => h :: s.append t
+
+  def replace : HList β is → Member i is → β i → HList β is
+    | [], _, _ => []
+    | _::t, .head, x => x :: t
+    | h::t, .tail m, x => h :: t.replace m x
 
   infixr:67 " ++ " => HList.append
 

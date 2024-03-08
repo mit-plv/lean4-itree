@@ -36,8 +36,6 @@ namespace Step
     | zip : Expr (α → β → δ) → Prog rep (.stream α → .stream β → .stream δ)
     | map : Expr (α → β) → Prog rep (.stream α → .stream β)
     | reduce : Expr (α → β → α) → Nat → α.denote → Prog rep (.stream β → .stream α)
-    | comp : Prog rep (β → δ) → Prog rep (α → β) → Prog rep (α → δ)
-  infixr:90 " ∘ " => Prog.comp
 
   ------------------ Semantics ------------------
 
@@ -56,6 +54,5 @@ namespace Step
     | zip f => Stream'.zip f.denote
     | map f => Stream'.map f.denote
     | reduce f dim init => Stream'.reduce f.denote dim init
-    | comp f g => Function.comp f.denote g.denote
 
 end Step
