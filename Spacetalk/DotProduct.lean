@@ -106,14 +106,17 @@ namespace SimpleDataflow
       fifos := fifos
     }
 
+  set_option maxHeartbeats 100000000
   theorem dp_nth_counter_eq_n : ∀ {dim : Nat} (inputs : DenoListsStream (dotProdGraph dim).inputs) (n : Nat),
     ((((dotProdGraph dim).nthCycleState inputs n) ⟨1, by simp [dotProdGraph]⟩).snd.get .head) = n := by
     intro dim inputs n
     induction n with
     | zero =>
-      -- simp [dotProdGraph]
+      rw [DataflowGraph.nthCycleState]
+      simp [dotProdGraph, mul, Vector.get, Vector.cons, HList.get, List.map, List.length, List.finRange, List.get, Denote.default, List.toHList, Ops.eval, UnaryOp.eval, BinaryOp.eval, accum, mul]
+
       sorry
-    | succ n' ih => sorry
+    | succ n ih => sorry
 
   def dotProdUnfiltered (dim : Nat) (a : Stream' Nat) (b : Stream' Nat) : Stream' (Option Nat) :=
     ((dotProdGraph dim).denote (a :: b :: [])).get .head
