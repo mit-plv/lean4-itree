@@ -26,44 +26,29 @@ theorem step_dp_equiv : ∀n : Nat, (Step.dotProd n).denote = dotProd n := by ae
 
 namespace SimpleDataflow
 
-  def accum (dim : Nat) : Ops [.nat] [.option .nat] [.nat, .nat] :=
-    let state := [.nat, .nat] -- [counter, sum]
-    let counter : Member .nat state := .head
-    let sum : Member .nat state := .tail .head
+  def accumInputs := [Ty.nat]
+  def accumOutputs := [Ty.option .nat]
+  def accumState := [Ty.nat, .nat]
+  def accumStateCtr : Member .nat accumState := .head
+  def accumStateSum : Member .nat accumState := .tail .head
+  def AccumType := Ops accumInputs accumOutputs accumState
 
-    let sumUpdate : Ops [.nat] [] state := .binaryStateUpdate .add sum
-    let sumOut : Ops [] [.nat] state := .unaryStateOp .id sum
-    let outputGuard : Ops [.nat] [.option .nat] state := .stateUnaryGuard (.eqConst (dim - 1)) counter
-    let stateReset : Ops [.option .nat] [.option .nat] state := .stateReset (.eqConst (dim - 1)) counter sum 0
-    let incState : Ops [.option .nat] [.option .nat] state := .unaryStateUpdate (.incMod dim) counter
+  def accum (dim : Nat) : AccumType :=
+    let sumFold : Ops accumInputs accumInputs accumState := .binaryStateUpdate .add accumStateSum
+    let stateInc : Ops accumInputs accumInputs accumState := .unaryStateUpdate (.binOpRightConst .add 1) accumStateCtr
+    let outputGuard : Ops accumInputs accumOutputs accumState := .stateUnaryGuard (.binOpRightConst .eq dim) accumStateCtr
+    let sumReset : Ops accumOutputs accumOutputs accumState := .stateReset (.binOpRightConst .eq dim) accumStateCtr accumStateSum 0
+    let stateMod : Ops accumOutputs accumOutputs accumState := .unaryStateUpdate (.binOpRightConst .mod dim) accumStateCtr
 
-    .comp incState (.comp stateReset (.comp outputGuard (.comp sumOut sumUpdate)))
+    .comp stateMod (.comp sumReset (.comp outputGuard (.comp stateInc sumFold)))
 
-  theorem accum_dim_some : ∀ {x sum counter : Nat} (dim : Nat),
-    (((accum dim).eval (x :: []) (counter :: sum :: [])).fst.get .head).isSome = true ↔ counter = dim - 1 := by
-    intro x sum counter dim
-    apply Iff.intro
-    · intro h
-      symm
-      simp [Option.isSome] at h
-      split at h <;>
-      (
-        rename_i heq
-        simp [accum, Ops.eval, UnaryOp.eval, BinaryOp.eval] at heq
-        split at heq <;> first | assumption | split at heq <;> contradiction
-      )
-    · intro h
-      simp [accum, Ops.eval, UnaryOp.eval, BinaryOp.eval]
-      rw [←h]
-      simp
-
-  def mul : Ops [.nat, .nat] [.nat] [] := .binaryOp .mul
+  def mulInputs : List Ty := [.nat, .nat]
+  def mulOutputs : List Ty := [.nat]
+  def mul : Ops mulInputs mulOutputs [] := .binaryOp .mul
 
   def dotProdGraph (dim : Nat) : DataflowMachine :=
-    let inputs := [.nat, .nat]
-    let outputs := [.option .nat]
-    let mulNode : Node Ty Ops := ⟨inputs, [.nat], [], [], mul⟩
-    let accumNode : Node Ty Ops := ⟨[.nat], outputs, [.nat, .nat], 0 :: 0 :: [], accum dim⟩
+    let mulNode : Node Ty Ops := ⟨mulInputs, mulOutputs, [], [], mul⟩
+    let accumNode : Node Ty Ops := ⟨accumInputs, accumOutputs, accumState, 0 :: 0 :: [], accum dim⟩
     let nodes : Vector (Node Ty Ops) 2:= .cons mulNode (.cons accumNode .nil)
 
     let mulToAccum := {
@@ -92,7 +77,7 @@ namespace SimpleDataflow
       producerPort := .head,
       consumer := .head,
     }
-    let fifos : List (FIFO inputs outputs nodes) := [
+    let fifos : List (FIFO mulInputs accumOutputs nodes) := [
       .input inputA,
       .input inputB,
       .advancing mulToAccum,
@@ -100,70 +85,52 @@ namespace SimpleDataflow
     ]
 
     {
-      inputs := inputs,
-      outputs := outputs,
+      inputs := mulInputs,
+      outputs := accumOutputs,
       nodes := nodes,
       fifos := fifos
     }
 
   theorem Nat.mod_eq_zero_of_le_sub_eq_zero {m n : Nat} : m ≤ n → n - m = 0 → m % n = 0 := by
     intro h1 h2
-    have : n = m := by
-      rw [←Nat.sub_add_cancel h1]
-      rw [h2]
-      simp
-    rw [this]
+    zify [h1] at h2
+    zify at h1
+    zify
+    have heq := Int.eq_of_sub_eq_zero h2
+    simp [heq]
+    apply Int.emod_eq_zero_of_dvd
     simp
-
-  theorem dp_nth_counter_eq_n : ∀ {dim : Nat} (inputs : DenoListsStream (dotProdGraph dim).inputs) (n : Nat),
-    0 < dim → ((((dotProdGraph dim).nthCycleState inputs n) ⟨1, by simp [dotProdGraph]⟩).snd.get .head) = n := by
-    intro dim inputs n h
-    induction n with
-    | zero =>
-      rw [DataflowGraph.nthCycleState]
-      simp [NodeOps.eval, Ops.eval, UnaryOp.eval, BinaryOp.eval, HList.get, HList.replace]
-      split
-      rename_i heq
-      · split
-        · split <;> repeat (first | split | (simp; exact Nat.mod_eq_zero_of_le_sub_eq_zero h heq))
-        · sorry
-      · sorry
-    | succ n ih => sorry
 
   def dotProdUnfiltered (dim : Nat) (a : Stream' Nat) (b : Stream' Nat) : Stream' (Option Nat) :=
     ((dotProdGraph dim).denote (a :: b :: [])).get .head
 
   theorem dp_dim_some : ∀ (dim : Nat) (a : Stream' Nat) (b : Stream' Nat) (n : Nat),
     ((dotProdUnfiltered dim a b) n).isSome = true ↔ (n + 1) % dim = 0 := by
-    intro dim a b n
-    apply Iff.intro
-    · sorry
-    · intro h
-      simp [dotProdUnfiltered]
-      split
-      · split
-        simp [Option.isSome]
-        split
-        · rfl
-        · rename_i heq
-          simp [DataflowGraph.nthCycleState, dotProdGraph, Ops.eval, UnaryOp.eval, BinaryOp.eval] at heq
-
-          sorry
-      · sorry
+    sorry
 
   def dotProd (dim : Nat) (h : 0 < dim) (a : Stream' Nat) (b : Stream' Nat) : Stream' Nat :=
     let unfiltered := dotProdUnfiltered dim a b
     λ n =>
       let val := unfiltered ((n + 1) * dim - 1)
-      have h : val.isSome = true := by
+      have hs : val.isSome = true := by
         rw [dp_dim_some]
-        have : 0 < (n + 1) * dim := by simp [h]
-        calc
-          ((n + 1) * dim - 1 + 1) % dim = ((n + 1) * dim) % dim := by rw [Nat.sub_one_succ this]
-          _ = 0 := by rw [Nat.mul_mod_left]
-      val.get h
-
-  def dp := dotProd 10 (by decide) sa sb
-  #eval dp 4
+        zify [h]
+        aesop
+      val.get hs
 
 end SimpleDataflow
+
+theorem dataflow_dp_eq : ∀ dim : Nat, (h : 0 < dim) → SimpleDataflow.dotProd dim h = dotProd dim := by
+  intro dim h
+  apply funext
+  intro sa
+  apply funext
+  intro sb
+  apply funext
+  intro n
+  sorry
+
+def dim := 10
+def sdp := SimpleDataflow.dotProd dim (by simp [dim]) sa sb
+def gdp := dotProd dim sa sb
+#eval (λ n => (sdp n, gdp n)) 9

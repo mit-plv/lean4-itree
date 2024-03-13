@@ -39,25 +39,27 @@ instance : Denote Ty where
 instance : OfNat (Denote.denote Ty.nat) n where
   ofNat := n
 
-inductive UnaryOp : Ty → Ty → Type
-  | id : UnaryOp α α
-  | incMod : Nat → UnaryOp .nat .nat
-  | eqConst : α.denote → UnaryOp α .bool
-
-def UnaryOp.eval : UnaryOp α β → (α.denote → β.denote)
-  | id => (·)
-  | incMod n => λ x => (x + 1) % n
-  | eqConst x => (x == ·)
-
 inductive BinaryOp : Ty → Ty → Ty → Type
   | add : BinaryOp .nat .nat .nat
   | mul : BinaryOp .nat .nat .nat
   | eq : BinaryOp α α .bool
+  | mod : BinaryOp .nat .nat .nat
 
 def BinaryOp.eval : BinaryOp α β γ → (α.denote → β.denote → γ.denote)
   | add => HAdd.hAdd
   | mul => HMul.hMul
   | eq => BEq.beq
+  | mod => Mod.mod
+
+inductive UnaryOp : Ty → Ty → Type
+  | id : UnaryOp α α
+  | binOpLeftConst : BinaryOp α β γ → α.denote → UnaryOp β γ
+  | binOpRightConst : BinaryOp α β γ → β.denote → UnaryOp α γ
+
+def UnaryOp.eval : UnaryOp α β → (α.denote → β.denote)
+  | id => (·)
+  | binOpLeftConst bOp a => (bOp.eval a ·)
+  | binOpRightConst bOp b => (bOp.eval · b)
 
 inductive Ops : (inputs : List Ty) → (outputs : List Ty) → (state : List Ty) → Type
   | unaryOp : UnaryOp α α → Ops [α] [α] state
@@ -65,7 +67,7 @@ inductive Ops : (inputs : List Ty) → (outputs : List Ty) → (state : List Ty)
   | unaryStateOp : UnaryOp α α → Member α state → Ops [] [α] state
   | binaryStateOp : BinaryOp α β γ → Member β state → Ops [α] [γ] state
   | unaryStateUpdate : UnaryOp α α → Member α state → Ops inputs inputs state
-  | binaryStateUpdate : BinaryOp α β α → Member α state → Ops [β] [] state
+  | binaryStateUpdate : BinaryOp α β α → Member α state → Ops [β] [α] state
   | stateUnaryGuard : UnaryOp α .bool → Member α state → Ops [β] [.option β] state
   | stateReset : UnaryOp α .bool → Member α state → Member β state → β.denote → Ops inputs inputs state
   | comp : Ops β γ state → Ops α β state → Ops α γ state
@@ -78,7 +80,9 @@ def Ops.eval {inputs outputs state : List Ty} (ops : Ops inputs outputs state) :
     | unaryStateOp uOp i => λ _ currState => (uOp.eval (currState.get i) :: [], currState)
     | binaryStateOp bOp i => λ (a :: []) currState => (bOp.eval a (currState.get i) :: [], currState)
     | unaryStateUpdate uOp i => λ ins currState => (ins, currState.replace i (uOp.eval (currState.get i)))
-    | binaryStateUpdate bOp i => λ (b :: []) currState => ([], currState.replace i (bOp.eval (currState.get i) b))
+    | binaryStateUpdate bOp i => λ (b :: []) currState =>
+      let newState := bOp.eval (currState.get i) b
+      (newState :: [], currState.replace i newState)
     | stateUnaryGuard uOp i => λ (b :: []) currState => if uOp.eval (currState.get i) then (.some b :: [], currState) else (.none :: [], currState)
     | stateReset uOp i j val => λ ins currState => if uOp.eval (currState.get i) then (ins, currState.replace j val) else (ins, currState)
     | comp f g => λ ins currState => let (outs, state') := g.eval ins currState; f.eval outs state'
