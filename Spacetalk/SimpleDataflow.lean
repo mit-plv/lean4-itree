@@ -38,7 +38,7 @@ instance : Denote Ty where
   denote := Ty.denote
   default := Ty.default
 
-def BitVecTy (w : Nat) := Ty.prim (Prim.bitVec w)
+abbrev BitVecTy (w : Nat) := Ty.prim (Prim.bitVec w)
 
 inductive BinaryOp : Ty → Ty → Ty → Type
   | add : {w : Nat} → BinaryOp (BitVecTy w) (BitVecTy w) (BitVecTy w)
@@ -65,12 +65,14 @@ inductive Pipeline : (inputs : List Ty) → (outputs : List Ty) → Type
   | unaryOp : {α β : Ty} → UnaryOp α β → Pipeline [α] [β]
   | binaryOp : {α β γ : Ty} → BinaryOp α β γ → Pipeline [α, β] [γ]
   | comp : {α β γ : List Ty} → Pipeline β γ → Pipeline α β → Pipeline α γ
+  | par : {α β γ δ : List Ty} → Pipeline α β → Pipeline γ δ → Pipeline (α ++ γ) (β ++ δ)
 
 def Pipeline.eval : Pipeline α β → (DenoList α → DenoList β)
   | const a => λ _ => [a]ₕ
   | unaryOp op => λ ([a]ₕ) => [op.eval a]ₕ
   | binaryOp op => λ ([a, b]ₕ) => [op.eval a b]ₕ
   | comp f g => f.eval ∘ g.eval
+  | par f g => λ inputs => let (a, b) := inputs.split; (f.eval a) ++ₕ (g.eval b)
 
 def Ops (inputs outputs state : List Ty) :=
   Pipeline (inputs ++ state) (outputs ++ state)

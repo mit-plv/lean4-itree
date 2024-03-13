@@ -5,54 +5,54 @@ namespace Step
 
   ------------------ Syntax ------------------
 
+  inductive Prim
+    | bitVec : Nat → Prim
+  deriving DecidableEq
+
+  @[reducible] def Prim.denote : Prim → Type
+    | bitVec w => BitVec w
+
   inductive Ty
-    | nat
+    | prim : Prim → Ty
+    | stream : Prim → Ty
     | fn : Ty → Ty → Ty
-    | stream : Ty → Ty
-  infixr:35 " × " => Ty.prod
+  deriving DecidableEq
+
   infixr:25 " → " => Ty.fn
 
+  abbrev BitVecTy (w : Nat) := Ty.prim (Prim.bitVec w)
+
   @[reducible] def Ty.denote : Ty → Type
-    | nat => Nat
+    | prim p => p.denote
+    | stream p => Stream' p.denote
     | fn α β => α.denote → β.denote
-    | stream ty => Stream' ty.denote
 
-  inductive BinOp : Ty → Ty → Ty → Type
-    | add : BinOp .nat .nat .nat
-    | mul : BinOp .nat .nat .nat
+  inductive BinaryOp : Prim → Prim → Prim → Type
+    | add : {w : Nat} → BinaryOp (.bitVec w) (.bitVec w) (.bitVec w)
+    | mul : {w : Nat} → BinaryOp (.bitVec w) (.bitVec w) (.bitVec w)
 
-  -- Exprs operate on not streams
-  -- Progs operate on streams and are always stream(s) → stream(s)
-  -- This is so that a final program is always a function from stream(s) to stream(s)
+  inductive UnaryOp : Prim → Prim → Type
+    | addConst : {w : Nat} → BitVec w → UnaryOp (.bitVec w) (.bitVec w)
+    | mulConst : {w : Nat} → BitVec w → UnaryOp (.bitVec w) (.bitVec w)
 
-  inductive Expr : Ty → Type
-    | const : {ty : Ty} → ty.denote → Expr ty
-    | binop : BinOp α β δ → Expr (α → β → δ)
-
-  inductive Prog (rep : Ty → Type) : Ty → Type
-    | var : rep ty → Prog rep ty
-    | lam : (rep dom → Prog rep ran) → Prog rep (dom → ran)
-    | app : Prog rep (dom → ran) → Prog rep dom → Prog rep ran
-    | zip : Expr (α → β → δ) → Prog rep (.stream α → .stream β → .stream δ)
-    | map : Expr (α → β) → Prog rep (.stream α → .stream β)
-    | reduce : Expr (α → β → α) → Nat → α.denote → Prog rep (.stream β → .stream α)
+  inductive Prog : Ty → Type
+    | zip : BinaryOp α β γ → Prog (.stream α → .stream β → .stream γ)
+    | map : UnaryOp α β → Prog (.stream α → .stream β)
+    | reduce : BinaryOp α β α → Nat → α.denote → Prog (.stream β → .stream α)
 
   ------------------ Semantics ------------------
 
-  @[simp] def BinOp.denote : BinOp α β δ → (α.denote → β.denote → δ.denote)
-    | add => HAdd.hAdd
-    | mul => HMul.hMul
+  def BinaryOp.denote : BinaryOp α β γ → α.denote → β.denote → γ.denote
+    | BinaryOp.add => BitVec.add
+    | BinaryOp.mul => BitVec.mul
 
-  @[simp] def Expr.denote : Expr ty → ty.denote
-    | const val => val
-    | binop op => op.denote
+  def UnaryOp.denote : UnaryOp α β → α.denote → β.denote
+    | UnaryOp.addConst c => BitVec.add c
+    | UnaryOp.mulConst c => BitVec.mul c
 
-  @[simp] def Prog.denote : Prog Ty.denote ty → ty.denote
-    | var x => x
-    | lam f => λ x => (f x).denote
-    | app f a => f.denote a.denote
-    | zip f => Stream'.zip f.denote
-    | map f => Stream'.map f.denote
-    | reduce f dim init => Stream'.reduce f.denote dim init
+  def Prog.denote {α : Ty} : Prog α → α.denote
+    | Prog.zip op => Stream'.zip op.denote
+    | Prog.map op => Stream'.map op.denote
+    | Prog.reduce op n init => Stream'.reduce op.denote n init
 
 end Step
