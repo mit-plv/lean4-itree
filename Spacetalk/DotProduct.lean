@@ -3,11 +3,10 @@ import Spacetalk.SimpleDataflow
 import Mathlib.Tactic.Linarith.Frontend
 import Mathlib.Tactic.ClearExcept
 
-def dotProd (n : Nat) (a : Stream' Nat) (b : Stream' Nat) : Stream' Nat :=
+def dotProd (n : Nat) (a : Stream' (BitVec 32)) (b : Stream' (BitVec 32)) : Stream' (BitVec 32) :=
   Stream'.reduce (· + ·) n 0 (Stream'.zip (· * ·) a b)
 
-def sa : Stream' Nat := id
-def sb : Stream' Nat := id
+def sa : Stream' (BitVec 32) := λ n => ⟨n % (2 ^ 32), by apply Nat.mod_lt; simp⟩
 
 theorem Nat.sub_one_succ {n : Nat} : 0 < n → n - 1 + 1 = n := by
   intro h
@@ -15,14 +14,23 @@ theorem Nat.sub_one_succ {n : Nat} : 0 < n → n - 1 + 1 = n := by
   exact h
 
 namespace Step
-  -- A dot product of length n vectors
-  def dotProd (n : Nat) : Prog rep (.stream .nat → .stream .nat → .stream .nat) :=
-    let multiply := .zip (.binop .mul)
-    let reduction := .reduce (.binop .add) n 0
-    .lam λ a => .lam λ b => .app reduction (.app (.app multiply (.var a)) (.var b))
-end Step
+  def TwoOne (w : Nat) := .stream (.bitVec w) → .stream (.bitVec w) → .stream (.bitVec w)
 
-theorem step_dp_equiv : ∀n : Nat, (Step.dotProd n).denote = dotProd n := by aesop
+  def OneOne (w : Nat) := .stream (.bitVec w) → .stream (.bitVec w)
+
+  def dotProd (w n : Nat) : Prog (TwoOne w) :=
+    let multiply : Prog (TwoOne w) := .zip (.mul)
+    let reduction : Prog (OneOne w) := .reduce (.add) n 0
+    .comp2 reduction multiply
+
+end Step
+def func (len n : Nat) :=
+  let step := (((Step.dotProd 32 len).denote sa sa) n).toNat
+  let ml := (dotProd len sa sa n).toNat
+  (step, ml, step == ml)
+#eval func 10 6
+
+theorem step_dp_equiv : ∀n : Nat, (Step.dotProd 32 n).denote = dotProd n := by aesop
 
 namespace SimpleDataflow
 
