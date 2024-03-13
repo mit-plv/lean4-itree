@@ -8,34 +8,38 @@ class Denote (τ : Type) [DecidableEq τ] where
   denote : τ → Type
   default : (t : τ) → denote t
 
+/-- Lean denotation of a (List τ) where τ implements Denote -/
 abbrev DenoList {τ : Type} [DecidableEq τ] [Denote τ] (ts : List τ) := HList Denote.denote ts
 
+/-- Lean denotation of a steram of type τ where τ implements Denote -/
 abbrev DenoStream {τ : Type} [DecidableEq τ] [Denote τ] (t : τ) := Stream' (Denote.denote t)
 
+/-- Lean denotation of a list of sterams of type τ where τ implements Denote -/
 abbrev DenoStreamsList {τ : Type} [DecidableEq τ] [Denote τ] (ts : List τ) := HList DenoStream ts
 
+/-- Lean denotation of a steram of list of type τ where τ implements Denote -/
 abbrev DenoListsStream {τ : Type} [DecidableEq τ] [Denote τ] (ts : List τ) := Stream' (DenoList ts)
 
 @[simp] def DenoStreamsList.pack {τ : Type} [DecidableEq τ] [Denote τ] {ts : List τ} (dsl : DenoStreamsList ts) : DenoListsStream ts :=
   match ts with
-    | [] => λ _ => []
+    | [] => λ _ => []ₕ
     | h::t =>
       λ n =>
         let h_elem : (Denote.denote h) := (dsl.get .head) n
         let tail_streams : DenoStreamsList t :=
           match dsl with
-            | _ :: rest => rest
-        h_elem :: (pack tail_streams) n
+            | _ ::ₕ rest => rest
+        h_elem ::ₕ (pack tail_streams) n
 
 @[simp] def DenoListsStream.unpack {τ : Type} [DecidableEq τ] [Denote τ] {ts : List τ} (dls : DenoListsStream ts) : DenoStreamsList ts :=
   match ts with
-    | [] => []
+    | [] => []ₕ
     | h::t =>
       let h_stream : Stream' (Denote.denote h) := λ n => (dls n).get .head
       let t_stream : DenoListsStream t := λ n =>
         match dls n with
-          | _ :: rest => rest
-      h_stream :: unpack t_stream
+          | _ ::ₕ rest => rest
+      h_stream ::ₕ unpack t_stream
 
 theorem DenoStreamsList_pack_unpack_eq {τ : Type} [DecidableEq τ] [Denote τ] {ts : List τ} {dsl : DenoStreamsList ts}
   : dsl.pack.unpack = dsl := by
@@ -54,7 +58,7 @@ theorem DenoListsStream_unpack_pack_eq {τ : Type} [DecidableEq τ] [Denote τ] 
       apply (HList.cons.injEq _ _ _ _).mpr
       apply And.intro
       · simp
-      · have : tt = (match dls · with | _ :: rest => rest) n := by
+      · have : tt = (match dls · with | _ ::ₕ rest => rest) n := by
           simp
           rw [hm]
         rw [this]

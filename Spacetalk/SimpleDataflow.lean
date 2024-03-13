@@ -1,31 +1,33 @@
 import Spacetalk.Graph
 
-inductive Ty
-  | unit
-  | bool
-  | nat
-  | option : Ty → Ty
+inductive Prim
+  | bitVec : Nat → Prim
 deriving DecidableEq
 
+inductive Ty
+  | prim : Prim → Ty
+  | option : Prim → Ty
+deriving DecidableEq
+
+@[reducible] def Prim.denote : Prim → Type
+  | bitVec w => BitVec w
+
+def Prim.default : (p : Prim) → p.denote
+  | bitVec _ => 0
+
 @[reducible] def Ty.denote : Ty → Type
-  | unit => Unit
-  | bool => Bool
-  | nat => Nat
-  | option ty => Option ty.denote
+  | prim p => p.denote
+  | option p => Option p.denote
 
 def Ty.default : (ty : Ty) → ty.denote
-  | unit => ()
-  | bool => false
-  | nat => 0
-  | option _ => none
+  | .prim p => p.default
+  | .option _ => none
 
 def Ty.denoteBEq : (ty : Ty) → (ty.denote → ty.denote → Bool)
-  | .unit => (· == ·)
-  | .bool => (· == ·)
-  | .nat => (· == ·)
-  | .option t => λ a b =>
+  | .prim _ => λ a b => a = b
+  | .option _ => λ a b =>
     match a, b with
-      | .some aa, .some bb => t.denoteBEq aa bb
+      | .some aa, .some bb => aa == bb
       | .none, .none => true
       | _, _ => false
 
@@ -36,20 +38,17 @@ instance : Denote Ty where
   denote := Ty.denote
   default := Ty.default
 
-instance : OfNat (Denote.denote Ty.nat) n where
-  ofNat := n
+def BitVecTy (w : Nat) := Ty.prim (Prim.bitVec w)
 
 inductive BinaryOp : Ty → Ty → Ty → Type
-  | add : BinaryOp .nat .nat .nat
-  | mul : BinaryOp .nat .nat .nat
-  | eq : BinaryOp α α .bool
-  | mod : BinaryOp .nat .nat .nat
+  | add : {w : Nat} → BinaryOp (BitVecTy w) (BitVecTy w) (BitVecTy w)
+  | mul : {w : Nat} → BinaryOp (BitVecTy w) (BitVecTy w) (BitVecTy w)
+  | eq : BinaryOp α α (BitVecTy 1)
 
 def BinaryOp.eval : BinaryOp α β γ → (α.denote → β.denote → γ.denote)
-  | add => HAdd.hAdd
-  | mul => HMul.hMul
-  | eq => BEq.beq
-  | mod => Mod.mod
+  | add => BitVec.add
+  | mul => BitVec.mul
+  | eq => λ a b => if a == b then ⟨1, by simp⟩ else ⟨0, by simp⟩
 
 inductive UnaryOp : Ty → Ty → Type
   | id : UnaryOp α α
@@ -61,33 +60,22 @@ def UnaryOp.eval : UnaryOp α β → (α.denote → β.denote)
   | binOpLeftConst bOp a => (bOp.eval a ·)
   | binOpRightConst bOp b => (bOp.eval · b)
 
-inductive Ops : (inputs : List Ty) → (outputs : List Ty) → (state : List Ty) → Type
-  | unaryOp : UnaryOp α α → Ops [α] [α] state
-  | binaryOp : BinaryOp α β γ → Ops [α, β] [γ] state
-  | unaryStateOp : UnaryOp α α → Member α state → Ops [] [α] state
-  | binaryStateOp : BinaryOp α β γ → Member β state → Ops [α] [γ] state
-  | unaryStateUpdate : UnaryOp α α → Member α state → Ops inputs inputs state
-  | binaryStateUpdate : BinaryOp α β α → Member α state → Ops [β] [α] state
-  | stateUnaryGuard : UnaryOp α .bool → Member α state → Ops [β] [.option β] state
-  | stateReset : UnaryOp α .bool → Member α state → Member β state → β.denote → Ops inputs inputs state
-  | comp : Ops β γ state → Ops α β state → Ops α γ state
+inductive Pipeline : (inputs : List Ty) → (outputs : List Ty) → Type
+  | const : {α : Ty} → α.denote → Pipeline [] [α]
+  | unaryOp : {α β : Ty} → UnaryOp α β → Pipeline [α] [β]
+  | binaryOp : {α β γ : Ty} → BinaryOp α β γ → Pipeline [α, β] [γ]
+  | comp : {α β γ : List Ty} → Pipeline β γ → Pipeline α β → Pipeline α γ
 
-def Ops.eval {inputs outputs state : List Ty} (ops : Ops inputs outputs state) :
-  DenoList inputs → DenoList state → (DenoList outputs) × (DenoList state) :=
-  match ops with
-    | unaryOp uOp => λ (a :: []) currState => (uOp.eval a :: [], currState)
-    | binaryOp bOp => λ (a :: b :: []) currState => (bOp.eval a b :: [], currState)
-    | unaryStateOp uOp i => λ _ currState => (uOp.eval (currState.get i) :: [], currState)
-    | binaryStateOp bOp i => λ (a :: []) currState => (bOp.eval a (currState.get i) :: [], currState)
-    | unaryStateUpdate uOp i => λ ins currState => (ins, currState.replace i (uOp.eval (currState.get i)))
-    | binaryStateUpdate bOp i => λ (b :: []) currState =>
-      let newState := bOp.eval (currState.get i) b
-      (newState :: [], currState.replace i newState)
-    | stateUnaryGuard uOp i => λ (b :: []) currState => if uOp.eval (currState.get i) then (.some b :: [], currState) else (.none :: [], currState)
-    | stateReset uOp i j val => λ ins currState => if uOp.eval (currState.get i) then (ins, currState.replace j val) else (ins, currState)
-    | comp f g => λ ins currState => let (outs, state') := g.eval ins currState; f.eval outs state'
+def Pipeline.eval : Pipeline α β → (DenoList α → DenoList β)
+  | const a => λ _ => [a]ₕ
+  | unaryOp op => λ ([a]ₕ) => [op.eval a]ₕ
+  | binaryOp op => λ ([a, b]ₕ) => [op.eval a b]ₕ
+  | comp f g => f.eval ∘ g.eval
+
+def Ops (inputs outputs state : List Ty) :=
+  Pipeline (inputs ++ state) (outputs ++ state)
 
 instance : NodeOps Ops where
-  eval := Ops.eval
+  eval := λ pipeline inputs state => (pipeline.eval (inputs ++ₕ state)).split
 
 def DataflowMachine := DataflowGraph Ty Ops
