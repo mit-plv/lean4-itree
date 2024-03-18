@@ -4,6 +4,7 @@ import Mathlib.Data.List.Range
 
 import Spacetalk.HList
 
+-- Bit rep?
 class Denote (τ : Type) [DecidableEq τ] where
   denote : τ → Type
   default : (t : τ) → denote t
