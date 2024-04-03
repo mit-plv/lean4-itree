@@ -2,49 +2,55 @@ import Spacetalk.SimpleDataflow
 import Spacetalk.Step
 import Spacetalk.Graph
 
+def SDFNodeList := NodeList SimpleDataflow.Ty SimpleDataflow.Ops
+
 def Step.Prim.toSDF : Step.Prim → SimpleDataflow.Ty
   | .bitVec w => .prim (.bitVec w)
 
 def Step.Prim.toSDFOpt : Step.Prim → SimpleDataflow.Ty
   | .bitVec w => .option (.bitVec w)
 
-def Step.UnaryOp.compile : Step.UnaryOp α β → SimpleDataflow.Pipeline [α.toSDF] [β.toSDF]
-  | .addConst c => .comp (.binaryOp .add) (.par (.id (tys := [α.toSDF])) (.const c))
-  | .mulConst c => .comp (.binaryOp .mul) (.par (.id (tys := [α.toSDF])) (.const c))
+def c : SimpleDataflow.Pipeline [] [SimpleDataflow.BoolTy] :=
+  .const 1
+
+def g : SimpleDataflow.DataflowMachine :=
+  let inputs : List SimpleDataflow.Ty := []
+  let outputs : List SimpleDataflow.Ty := [SimpleDataflow.BoolTy]
+  let state : List SimpleDataflow.Ty := []
+  let pipeline : SimpleDataflow.Ops inputs outputs state := c
+  let node := ⟨inputs, outputs, state, []ₕ, pipeline⟩
+  let nodes : SDFNodeList 1 := .cons node .nil
+  let fifos := [
+    .output ⟨SimpleDataflow.BoolTy, 0, .head, .head⟩
+  ]
+  ⟨inputs, outputs, 1, nodes, fifos⟩
+
+def binOpConstRight (op : SimpleDataflow.BinaryOp α β γ) (c : β.denote) : SimpleDataflow.DataflowMachine :=
+  let constNode := ⟨[], [β], [], []ₕ, .const c⟩
+  let opNode := ⟨[α, β], [γ], [], []ₕ, .binaryOp op⟩
+  let nodes : SDFNodeList 2 := .cons constNode (.cons opNode .nil)
+  let fifos := [
+    .input ⟨α, .head, 1, .head⟩,
+    .advancing ⟨β, 0, 1, .head, .tail .head, by simp⟩,
+    .output ⟨γ, 1, .head, .head⟩
+  ]
+  ⟨[α], [γ], 2, nodes, fifos⟩
+
+namespace _hidden
+  def w := 10
+  def add1 := binOpConstRight (.add (w := w)) 1
+  def mul1 := binOpConstRight (.mul (w := w)) 1
+  def s : Stream' (BitVec w) := λ n => ⟨n % (2 ^ w), by apply Nat.mod_lt; simp⟩
+  #eval ((add1.denote [s]ₕ).head 8).toNat
+end _hidden
+
+def Step.UnaryOp.compile : Step.UnaryOp α β → SimpleDataflow.DataflowMachine
+  | .addConst c => binOpConstRight .add c
+  | .mulConst c => binOpConstRight .mul c
 
 def Step.BinaryOp.compile : Step.BinaryOp α β γ → SimpleDataflow.Pipeline [α.toSDF, β.toSDF] [γ.toSDF]
   | .add => .binaryOp .add
   | .mul => .binaryOp .mul
-
-def SDFNodeList := NodeList SimpleDataflow.Ty SimpleDataflow.Ops
-
-def ReductionOps (α β : Step.Prim) (len : Nat) :=
-  let ctrWidth : Nat := (Nat.log2 len) + 1
-  let ctrType : SimpleDataflow.Ty := .prim (.bitVec ctrWidth)
-  SimpleDataflow.Ops [β.toSDF] [α.toSDFOpt] [α.toSDF, ctrType]
-
-def reductionBlock {α β : Step.Prim} (op : Step.BinaryOp α β α) (len : Nat) (init : α.denote) : ReductionOps α β len :=
-  let ctrWidth : Nat := (Nat.log2 len) + 1
-  let ctrType : SimpleDataflow.Ty := .prim (.bitVec ctrWidth)
-  let ctrInc : SimpleDataflow.Pipeline [ctrType] [ctrType] :=
-    .comp (.binaryOp .add) (.par (.id (tys := [ctrType])) (.const 1))
-  let ctrMod : SimpleDataflow.Pipeline [ctrType] [ctrType] :=
-    .comp (.binaryOp .umod) (.par (.id (tys := [ctrType])) (.const len))
-  let ctrUpdate : SimpleDataflow.Pipeline [ctrType] [ctrType] :=
-    .comp ctrMod ctrInc
-  let accum : SimpleDataflow.Pipeline [β.toSDF, α.toSDF] [α.toSDF] :=
-    .comp op.compile .swap
-  let output : SimpleDataflow.Pipeline [SimpleDataflow.BoolTy, α.toSDF] [α.toSDFOpt] :=
-    .comp .mux (.par (.id (tys := [SimpleDataflow.BoolTy])) (.par (.unaryOp .some) (.const none)))
-  let accumUpdate : SimpleDataflow.Pipeline [SimpleDataflow.BoolTy, α.toSDF] [α.toSDF] :=
-    .comp .mux (.par (.id (tys := [SimpleDataflow.BoolTy])) (.par (.const init) (.id (tys := [α.toSDF]))))
-  let ctrComp : SimpleDataflow.Pipeline [ctrType] [SimpleDataflow.BoolTy] :=
-    .comp (.binaryOp .eq) (.par (.id (tys := [ctrType])) (.const 0))
-  let pipeline : SimpleDataflow.Pipeline [β.toSDF, α.toSDF, ctrType] [α.toSDFOpt, α.toSDF, ctrType] :=
-    .split ctrUpdate (.split (φ := []) (.comp .swap (.par accum ctrComp)) output accumUpdate) .id
-  let permuteInputs : SimpleDataflow.Pipeline [β.toSDF, α.toSDF, ctrType] [β.toSDF, ctrType, α.toSDF] :=
-    .par (.id (tys := [β.toSDF])) .swap
-  .comp pipeline permuteInputs
 
 def Step.Prog.compile {sty : Step.Ty} : Step.Prog sty → SimpleDataflow.DataflowMachine
   | @Step.Prog.zip α β γ op =>
@@ -63,35 +69,11 @@ def Step.Prog.compile {sty : Step.Ty} : Step.Prog sty → SimpleDataflow.Dataflo
       .output ⟨γ.toSDF, 0, ic, ic⟩
     ]
     ⟨inputs, outputs, 1, nodes, fifos⟩
-  | @Step.Prog.map α β op =>
-    let inputs : List SimpleDataflow.Ty := [α.toSDF]
-    let ia : Member α.toSDF inputs := .head
-    let outputs : List SimpleDataflow.Ty := [β.toSDF]
-    let ib : Member β.toSDF outputs := .head
-    let state : List SimpleDataflow.Ty:= []
-    let pipeline : SimpleDataflow.Ops inputs outputs state := op.compile
-    let node := ⟨inputs, outputs, state, []ₕ, pipeline⟩
-    let nodes : SDFNodeList 1 := .cons node .nil
-    let fifos := [
-      .input ⟨α.toSDF, ia, 0, ia⟩,
-      .output ⟨β.toSDF, 0, ib, ib⟩
-    ]
-    ⟨inputs, outputs, 1, nodes, fifos⟩
-  | @Step.Prog.reduce α β op len init =>
-    let inputs : List SimpleDataflow.Ty := [β.toSDF]
-    let ib : Member β.toSDF inputs := .head
-    let outputs : List SimpleDataflow.Ty := [α.toSDFOpt]
-    let ia : Member α.toSDFOpt outputs := .head
-    let ctrWidth : Nat := (Nat.log2 len) + 1
-    let ctrType : SimpleDataflow.Ty := .prim (.bitVec ctrWidth)
-    let state : List SimpleDataflow.Ty:= [α.toSDF, ctrType]
-    let pipeline := reductionBlock op len init
-    let node := ⟨inputs, outputs, state, [init, ⟨0, by simp⟩]ₕ, pipeline⟩
-    let nodes : SDFNodeList 1 := .cons node .nil
-    let fifos := [
-      .input ⟨β.toSDF, ib, 0, ib⟩,
-      .output ⟨α.toSDFOpt, 0, ia, ia⟩
-    ]
-    ⟨inputs, outputs, 1, nodes, fifos⟩
-  | .comp f g => sorry
+  | Step.Prog.map op => op.compile
+  | @Step.Prog.reduce α β op len init => sorry
+  | @Step.Prog.comp α β γ f g =>
+    let fGraph := f.compile
+    let gGraph := g.compile
+    let ia : Member α.toSDF gGraph.inputs := .head
+    sorry
   | .comp2 f g => sorry

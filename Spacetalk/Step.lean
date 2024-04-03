@@ -39,8 +39,8 @@ namespace Step
     | zip : BinaryOp α β γ → Prog (.stream α → .stream β → .stream γ)
     | map : UnaryOp α β → Prog (.stream α → .stream β)
     | reduce : BinaryOp α β α → Nat → α.denote → Prog (.stream β → .stream α)
-    | comp : Prog (β → γ) → Prog (α → β) → Prog (α → γ)
-    | comp2 : Prog (γ → δ) → Prog (α → β → γ) → Prog (α → β → δ)
+    | comp : {α β γ : Ty} → Prog (β → γ) → Prog (α → β) → Prog (α → γ)
+    | comp2 : {α β γ δ : Ty} → Prog (γ → δ) → Prog (α → β → γ) → Prog (α → β → δ)
 
   ------------------ Semantics ------------------
 

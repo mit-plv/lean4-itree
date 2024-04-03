@@ -88,37 +88,17 @@ namespace SimpleDataflow
 
   inductive Pipeline : (inputs : List Ty) → (outputs : List Ty) → Type
     | const : {α : Ty} → α.denote → Pipeline [] [α]
-    | id : {tys : List Ty} → Pipeline tys tys
     | unaryOp : {α β : Ty} → UnaryOp α β → Pipeline [α] [β]
     | binaryOp : {α β γ : Ty} → BinaryOp α β γ → Pipeline [α, β] [γ]
     | mux : {α : Ty} → Pipeline [BoolTy, α, α] [α]
-    | comp : {α β γ : List Ty} → Pipeline β γ → Pipeline α β → Pipeline α γ
-    | par : {α β γ δ : List Ty} → Pipeline α β → Pipeline γ δ → Pipeline (α ++ γ) (β ++ δ)
-    | split : {α β γ δ φ ρ : List Ty}
-              → Pipeline α β
-              → Pipeline (φ ++ β) γ
-              → Pipeline (β ++ ρ) δ
-              → Pipeline (φ ++ α ++ ρ) (γ ++ δ)
-    | swap : {α β : Ty} → Pipeline [α, β] [β, α]
 
   def Pipeline.eval : Pipeline α β → (DenoList α → DenoList β)
     | const a => λ _ => [a]ₕ
-    | id => (·)
     | unaryOp op => λ ([a]ₕ) => [op.eval a]ₕ
     | binaryOp op => λ ([a, b]ₕ) => [op.eval a b]ₕ
     | mux => λ ([c, a, b]ₕ) =>
       have : DecidableEq (BitVecTy 1).denote := inferInstance
       if c = ⟨1, by simp⟩ then [a]ₕ else [b]ₕ
-    | comp f g => f.eval ∘ g.eval
-    | par f g => λ inputs => let (a, b) := inputs.split; (f.eval a) ++ₕ (g.eval b)
-    | split f g h => λ inputs =>
-      let (phiAlpha, rho) := inputs.split
-      let (phi, alpha) := phiAlpha.split
-      let beta := f.eval alpha
-      let gamma := g.eval (phi ++ₕ beta)
-      let delta := h.eval (beta ++ₕ rho)
-      gamma ++ₕ delta
-    | swap => λ ([a, b]ₕ) => [b, a]ₕ
 
   def Ops (inputs outputs state : List Ty) :=
     Pipeline (inputs ++ state) (outputs ++ state)
