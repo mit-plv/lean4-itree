@@ -10,6 +10,14 @@ def Step.Prim.toSDF : Step.Prim → SimpleDataflow.Ty
 def Step.Prim.toSDFOpt : Step.Prim → SimpleDataflow.Ty
   | .bitVec w => .option (.bitVec w)
 
+def Step.Ty.toSDF (sty : Step.Ty) :=
+  match sty with
+    | .stream p => ([], [p.toSDF])
+    | .fn α β =>
+      let (ai, ao) := α.toSDF
+      let (bi, bo) := β.toSDF
+      
+
 def c : SimpleDataflow.Pipeline [] [SimpleDataflow.BoolTy] :=
   .const 1
 

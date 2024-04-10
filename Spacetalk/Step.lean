@@ -13,17 +13,13 @@ namespace Step
     | bitVec w => BitVec w
 
   inductive Ty
-    | prim : Prim → Ty
     | stream : Prim → Ty
     | fn : Ty → Ty → Ty
   deriving DecidableEq
 
   infixr:25 " → " => Ty.fn
 
-  abbrev BitVecTy (w : Nat) := Ty.prim (Prim.bitVec w)
-
   @[reducible] def Ty.denote : Ty → Type
-    | prim p => p.denote
     | stream p => Stream' p.denote
     | fn α β => α.denote → β.denote
 
