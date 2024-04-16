@@ -33,13 +33,15 @@ def binOpConstRightGraph (α β γ : Step.Prim) (op : SimpleDataflow.BinaryOp α
   let fifo := .output outFifo
   let fifos := [
     .input ⟨α.toSDF, .head, 1, .head⟩,
-    .advancing ⟨β.toSDF, 0, 1, .head, .tail .head, by simp⟩,
+    .advancing ⟨β.toSDF, 0, 1, .head, .tail .head, _⟩,
     fifo
   ]
   let g : SimpleDataflow.DataflowMachine := ⟨inputs, outputs, 2, nodes, fifos⟩
   ⟨
     g,
-    
+    outFifo,
+    .tail (.tail .head),
+    by aesop
   ⟩
 
 def binaryOpGraph (op : SimpleDataflow.BinaryOp α β γ) : SimpleDataflow.DataflowMachine :=
