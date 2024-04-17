@@ -15,7 +15,7 @@ macro_rules
 inductive Member {α : Type u} : α → List α → Type u
   | head : Member a (a::as)
   | tail : Member a bs → Member a (b::bs)
-deriving DecidableEq
+deriving BEq, DecidableEq
 
 def List.replaceMember {α : Type u} {a : α} : (l : List α) → Member a l → α → List α
   | [], _, _ => []
