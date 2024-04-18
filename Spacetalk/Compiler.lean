@@ -2,6 +2,18 @@ import Spacetalk.SimpleDataflow
 import Spacetalk.Step
 import Spacetalk.Graph
 
+import Mathlib.Tactic.Linarith.Frontend
+import Mathlib.Data.Vector.Basic
+
+theorem Vector.get_append {xs : Vector α n} {ys : Vector α m} {i : Fin n}
+  : (xs.append ys).get ⟨i, by apply Nat.lt_add_right; exact i.isLt⟩ = xs.get i :=
+  match i with
+  | ⟨0, _⟩ => by
+    -- rw [Vector.get_zero xs]
+    -- apply Vector.get_append_cons_zero xs.tail ys
+    sorry
+  | ⟨i' + 1, _⟩ => sorry
+
 def SDFNode := Node SimpleDataflow.Ty SimpleDataflow.Ops
 
 def SDFNodeList := NodeList SimpleDataflow.Ty SimpleDataflow.Ops
@@ -92,22 +104,33 @@ def mergeGraphs (a : SDFOneOutput α) (b : SDFOneOutput β) (op : Step.BinaryOp 
   let inputs := a.g.inputs ++ b.g.inputs
   let outputs := [γ.toSDF]
   let newNode : SDFNode := ⟨[α.toSDF, β.toSDF], [γ.toSDF], [], []ₕ, op.compile⟩
-  let nodes := (a.g.nodes.append b.g.nodes).cons newNode
+  let nodes := newNode ::ᵥ (a.g.nodes.append b.g.nodes)
   let aFifos := a.g.fifos.filter (isOutputFifo a.fifo)
   let bFifos := b.g.fifos.filter (isOutputFifo b.fifo)
   let aFifosUpdated : List (FIFO inputs outputs nodes) :=
     aFifos.map (
       λ fifo ↦ match fifo with
-        | .input f => .input {f with consumer := (f.consumer + 1)}
+        | .input f =>
+          let newConsumer : Fin nodes.length := ⟨f.consumer + 1, by
+            have := f.consumer.isLt
+            linarith
+          ⟩
+          have h_eq : nodes.get newConsumer = a.g.nodes.get f.consumer := by
+            let consumerIdxApp : Fin (a.g.numNodes + b.g.numNodes) := ⟨f.consumer, by apply Nat.lt_add_right; exact f.consumer.isLt⟩
+            rw [←nodes.get_tail consumerIdxApp]
+            simp [nodes]
+            apply Vector.get_append
+          let fifo : InputFIFO inputs nodes := {
+            producer := f.producer.append,
+            consumer := newConsumer,
+            consumerPort := h_eq ▸ f.consumerPort
+          }
+          .input fifo
         | .output f => sorry
         | .advancing f => sorry
         | .initialized f => sorry
     )
   sorry
-
-def a : Vector Nat 3 := .cons 3 (.cons 2 (.cons 1 .nil))
-def b : Vector Nat 2 := .cons 5 (.cons 4 .nil)
-#eval (a.append b).cons 6
 
 def Step.Prog.compile {sty : Step.Ty} : Step.Prog sty → sty.toSDF
   | @Step.Prog.const α as => sorry

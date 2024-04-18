@@ -17,6 +17,10 @@ inductive Member {α : Type u} : α → List α → Type u
   | tail : Member a bs → Member a (b::bs)
 deriving BEq, DecidableEq
 
+def Member.append {l₁ : List α} {l₂ : List α} : Member a l₁ → Member a (l₁ ++ l₂)
+  | .head => .head
+  | .tail i' => .tail i'.append
+
 def List.replaceMember {α : Type u} {a : α} : (l : List α) → Member a l → α → List α
   | [], _, _ => []
   | _::t, .head, x => x :: t
