@@ -6,13 +6,8 @@ import Mathlib.Tactic.Linarith.Frontend
 import Mathlib.Data.Vector.Basic
 
 theorem Vector.get_append {xs : Vector α n} {ys : Vector α m} {i : Fin n}
-  : (xs.append ys).get ⟨i, by apply Nat.lt_add_right; exact i.isLt⟩ = xs.get i :=
-  match i with
-  | ⟨0, _⟩ => by
-    -- rw [Vector.get_zero xs]
-    -- apply Vector.get_append_cons_zero xs.tail ys
-    sorry
-  | ⟨i' + 1, _⟩ => sorry
+  : (xs.append ys).get ⟨i, by apply Nat.lt_add_right; exact i.isLt⟩ = xs.get i := by
+  apply List.get_append
 
 def SDFNode := Node SimpleDataflow.Ty SimpleDataflow.Ops
 
