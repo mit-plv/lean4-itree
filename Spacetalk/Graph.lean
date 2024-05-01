@@ -102,7 +102,8 @@ structure AdvancingFIFO {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType �
   consumer : Fin numNodes
   producerPort: Member t (nodes.get producer).outputs
   consumerPort: Member t (nodes.get consumer).inputs
-  adv : producer < consumer
+  /-- We put consumers earlier in the nodes list because `Vector.cons` puts new nodes in the front. -/
+  adv : producer > consumer
 
 structure InitializedFIFO {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F]
   (nodes : NodeList τ F numNodes) where
@@ -227,7 +228,7 @@ namespace DataflowGraph
   theorem advancing_fifo_lt {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {dfg : DataflowGraph τ F}
     {nid : Fin dfg.numNodes} {fin : Fin (dfg.nodes.get nid).inputs.length}
     {port : Member ((dfg.nodes.get nid).inputs.get fin) (dfg.nodes.get nid).inputs} {fifo : AdvancingFIFO dfg.nodes}
-    (h_is_node_input : dfg.isNodeInput port (.advancing fifo) = true) : fifo.producer < nid := by
+    (h_is_node_input : dfg.isNodeInput port (.advancing fifo) = true) : nid < fifo.producer := by
     have : fifo.consumer = nid := by
       simp [isNodeInput] at h_is_node_input
       have p : fifo.consumer = nid ∧ fifo.t = (dfg.nodes.get nid).inputs.get fin := by
@@ -288,7 +289,7 @@ namespace DataflowGraph
          | 0 => node.initialState
          | n' + 1 => (dfg.nthCycleState inputs n' nid).snd
       (NodeOps.eval node.ops) nodeInputs currState
-    termination_by _ _ n nid => (n, nid)
+    termination_by _ _ n nid => (n, dfg.numNodes - nid)
 
   def denote {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] (dfg : DataflowGraph τ F)
   (inputs : DenoStreamsList dfg.inputs) : DenoStreamsList (dfg.outputs) :=
