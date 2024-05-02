@@ -5,9 +5,23 @@ import Spacetalk.Graph
 import Mathlib.Tactic.Linarith.Frontend
 import Mathlib.Data.Vector.Basic
 
-theorem Vector.get_append {xs : Vector α n} {ys : Vector α m} {i : Fin n}
+theorem Vector.get_append_left {xs : Vector α n} {ys : Vector α m} {i : Fin n}
   : (xs.append ys).get ⟨i, by apply Nat.lt_add_right; exact i.isLt⟩ = xs.get i := by
-  apply List.get_append
+  apply List.get_append_left
+
+theorem Vector.get_append_right {xs : Vector α n} {ys : Vector α m} {i : Fin m}
+  : (xs.append ys).get ⟨i + n, by have := i.isLt; linarith⟩ = ys.get i := by
+  simp_rw [Vector.get_eq_get]
+  have := Vector.toList_append xs ys
+  rw [List.get_of_eq this]
+  simp [Fin.cast]
+  have := List.get_append_right xs.toList ys.toList (i := i + n)
+  have h_i_lt_append : ↑i + n < (xs.toList ++ ys.toList).length := by have := i.isLt; simp; linarith
+  have h_i_sub_xs_lt_ys : ↑i + n - xs.toList.length < ys.toList.length := by simp
+  have : List.get (xs.toList ++ ys.toList) ⟨↑i + n, h_i_lt_append⟩ = List.get ys.toList ⟨i + n - xs.toList.length, h_i_sub_xs_lt_ys⟩ := this (by rw [Vector.toList_length xs]; linarith)
+  have h_eq : (⟨↑i + n - xs.toList.length, h_i_sub_xs_lt_ys⟩ : Fin ys.toList.length) = ⟨↑i, Fin.cast.proof_1 (toList_length ys).symm i⟩ := by simp
+  rw [←h_eq]
+  exact this
 
 def SDFNode := Node SimpleDataflow.Ty SimpleDataflow.Ops
 
@@ -82,31 +96,44 @@ def Step.BinaryOp.compile : Step.BinaryOp α β γ → SimpleDataflow.Ops [α.to
   | .add => .binaryOp .add
   | .mul => .binaryOp .mul
 
-class IndexConverter {α : Type u} {n m : Nat} (xs : Vector α n) (ys : Vector α m) :=
+class IndexConverter {α : Type u} {n m : Nat} (h_m : 0 < m) (xs : Vector α n) (ys : Vector α m) :=
   conv : Fin n → Fin m
   conv_congr : ∀ {i}, xs.get i = ys.get (conv i)
   conv_lt : ∀ ⦃i j⦄, i < j → conv i < conv j
+  conv_gt_zero: ∀ {i}, ⟨0, h_m⟩ < conv i
 
-def consConverter : IndexConverter xs (x ::ᵥ xs.append ys) :=
+def consConverter : IndexConverter (Nat.zero_lt_succ _) xs (x ::ᵥ xs.append ys) :=
   let conv : Fin xs.length → Fin (x ::ᵥ xs.append ys).length := λ i ↦ ⟨i.val + 1, by have := i.isLt; linarith⟩
-  let conv_congr : ∀ {i}, xs.get i = (x ::ᵥ xs.append ys).get (conv i) := by
+  have conv_congr : ∀ {i}, xs.get i = (x ::ᵥ xs.append ys).get (conv i) := by
     intro i
     rw [←(x ::ᵥ xs.append ys).get_tail ⟨i, Nat.lt_add_right _ i.isLt⟩]
-    exact Vector.get_append.symm
-  let conv_lt : ∀ ⦃i j⦄, i < j → conv i < conv j := by simp [conv]
-  ⟨conv, conv_congr, conv_lt⟩
+    exact Vector.get_append_left.symm
+  have conv_lt : ∀ ⦃i j⦄, i < j → conv i < conv j := by simp [conv]
+  have conv_gt_zero: ∀ {i}, 0 < conv i := by
+    intro i
+    simp [conv]
+    apply Fin.mk_lt_mk.mpr
+    rw [Nat.zero_mod]
+    simp
+  ⟨conv, conv_congr, conv_lt, conv_gt_zero⟩
 
-theorem consConverter_gt_zero : ∀ {i}, 0 < (@consConverter α n xs x m ys).conv i := by
-  intro i
-  simp [consConverter]
-  apply Fin.mk_lt_mk.mpr
-  rw [Nat.zero_mod]
-  simp
+def consAppendConverter {xs : Vector α n} {ys : Vector α m} : IndexConverter (Nat.zero_lt_succ _) ys (x ::ᵥ xs.append ys) :=
+  let conv : Fin m → Fin (n + m + 1) := λ i ↦ ⟨i.val + n + 1, by have := i.isLt; linarith⟩
+  have conv_congr : ∀ {i}, ys.get i = (x ::ᵥ xs.append ys).get (conv i) := by
+    intro i
+    simp [conv]
+    rw [←(x ::ᵥ xs.append ys).get_tail ⟨i + n, by simp; have := i.isLt; linarith⟩]
+    simp
+    exact Vector.get_append_right.symm
+  have conv_lt : ∀ ⦃i j⦄, i < j → conv i < conv j := by sorry
+  have conv_gt_zero: ∀ {i}, 0 < conv i := by
+    sorry
+  ⟨conv, conv_congr, conv_lt, conv_gt_zero⟩
 
+/-- Assume new consumer has index 0. -/
 def convertFifos {inputs outputs : List SimpleDataflow.Ty} {numNodes : Nat} {nodes : SDFNodeList numNodes}
-  (a : SDFOneOutput α) (newConsumer : Fin numNodes) (newConsumerPort : Member α.toSDF (nodes.get newConsumer).inputs)
-  (idxConv : IndexConverter a.g.nodes nodes)
-  (h_consumer_lt : ∀ {i}, newConsumer < idxConv.conv i)
+  (h_len : 0 < numNodes) (a : SDFOneOutput α) (newConsumerPort : Member α.toSDF (nodes.get ⟨0, h_len⟩).inputs)
+  (idxConv : IndexConverter h_len a.g.nodes nodes)
   (memConv : {t : SimpleDataflow.Ty} → Member t a.g.inputs → Member t inputs)
   : List (FIFO inputs outputs nodes) :=
   a.g.fifos.attach.map (
@@ -133,10 +160,10 @@ def convertFifos {inputs outputs : List SimpleDataflow.Ty} {numNodes : Nat} {nod
         let fifo : AdvancingFIFO nodes := {
           t := f.t,
           producer := newProducer,
-          consumer := newConsumer,
+          consumer := ⟨0, h_len⟩,
           producerPort := idxConv.conv_congr ▸ f.producerPort,
           consumerPort := h_ty_eq ▸ newConsumerPort,
-          adv := h_consumer_lt,
+          adv := idxConv.conv_gt_zero,
         }
         .advancing fifo
       | .advancing f =>
@@ -175,7 +202,7 @@ def mergeGraphs (a : SDFOneOutput α) (b : SDFOneOutput β) (op : Step.BinaryOp 
   let newNode : SDFNode := ⟨[α.toSDF, β.toSDF], [γ.toSDF], [], []ₕ, op.compile⟩
   let nodes := newNode ::ᵥ (a.g.nodes.append b.g.nodes)
 
-  let aFifosUpdated : List (FIFO inputs outputs nodes) := convertFifos a 0 .head consConverter consConverter_gt_zero .append
+  let aFifosUpdated : List (FIFO inputs outputs nodes) := convertFifos _ a .head consConverter .append
   sorry
 
 def Step.Prog.compile {sty : Step.Ty} : Step.Prog sty → sty.toSDF
