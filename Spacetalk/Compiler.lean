@@ -200,6 +200,19 @@ def convertFifos {inputs outputs : List SimpleDataflow.Ty} {numNodes : Nat} {nod
         .initialized fifo
   )
 
+theorem convertFifos_no_output {inputs outputs : List SimpleDataflow.Ty} {numNodes : Nat} {nodes : SDFNodeList numNodes}
+  {h_len : 0 < numNodes} {a : SDFOneOutput α} {newConsumerPort : Member α.toSDF (nodes.get ⟨0, h_len⟩).inputs}
+  {idxConv : IndexConverter h_len a.g.nodes nodes}
+  {memConv : {t : SimpleDataflow.Ty} → Member t a.g.inputs → Member t inputs}
+ : (convertFifos h_len a newConsumerPort idxConv memConv).filter
+      (@FIFO.isOutput SimpleDataflow.Ty _ _ SimpleDataflow.Ops _ numNodes nodes inputs outputs)
+    = [] := by
+  apply List.filter_eq_nil.mpr
+  intro fifo h_mem
+  have h_map := List.mem_map.mp h_mem
+  let ⟨⟨fifo', _⟩, ⟨_, h_match⟩⟩ := h_map
+  cases fifo' <;> (simp at h_match; rw [←h_match]; simp)
+
 def mergeGraphs (a : SDFOneOutput α) (b : SDFOneOutput β) (op : Step.BinaryOp α β γ) : SDFOneOutput γ :=
   let inputs := a.g.inputs ++ b.g.inputs
   let outputs := [γ.toSDF]
@@ -224,8 +237,9 @@ def mergeGraphs (a : SDFOneOutput α) (b : SDFOneOutput β) (op : Step.BinaryOp 
     fifos := newFifos
   }
 
-  have one_output : newGraph.fifos.filter FIFO.isOutput = [.output newOutputFifo] :=
-    sorry
+  have one_output : newGraph.fifos.filter FIFO.isOutput = [.output newOutputFifo] := by
+    simp [newFifos]
+    apply And.intro convertFifos_no_output convertFifos_no_output
 
   {
     g := newGraph,

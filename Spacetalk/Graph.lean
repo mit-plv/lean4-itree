@@ -123,16 +123,19 @@ inductive FIFO {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeO
 
 namespace FIFO
 
-  @[simp] def t {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {numNodes : Nat} {nodes : NodeList τ F numNodes} {inputs outputs : List τ}
+  @[simp]
+  def t {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {numNodes : Nat} {nodes : NodeList τ F numNodes} {inputs outputs : List τ}
     : (fifo : FIFO inputs outputs nodes) → τ
     | .input f | .output f | .advancing f | .initialized f => f.t
 
-  @[simp] def isInput {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {numNodes : Nat} {nodes : NodeList τ F numNodes} {inputs outputs : List τ}
+  @[simp]
+  def isInput {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {numNodes : Nat} {nodes : NodeList τ F numNodes} {inputs outputs : List τ}
     : (fifo : FIFO inputs outputs nodes) → Bool
     | .input _ => true
     | _ => false
 
-  @[simp] def isOutput {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {numNodes : Nat} {nodes : NodeList τ F numNodes} {inputs outputs : List τ}
+  @[simp]
+  def isOutput {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {numNodes : Nat} {nodes : NodeList τ F numNodes} {inputs outputs : List τ}
     : (fifo : FIFO inputs outputs nodes) → Bool
     | .output _ => true
     | _ => false
