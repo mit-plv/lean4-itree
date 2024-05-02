@@ -208,7 +208,31 @@ def mergeGraphs (a : SDFOneOutput α) (b : SDFOneOutput β) (op : Step.BinaryOp 
 
   let aFifosUpdated : List (FIFO inputs outputs nodes) := convertFifos _ a .head consConverter .append_left
   let bFifosUpdated : List (FIFO inputs outputs nodes) := convertFifos _ b (.tail .head) consAppendConverter .append_right
-  sorry
+
+  let newOutputFifo : OutputFIFO outputs nodes := {
+    t := γ.toSDF,
+    producer := 0,
+    producerPort := .head,
+    consumer := .head
+  }
+  let newFifos := .output newOutputFifo :: (aFifosUpdated ++ bFifosUpdated)
+  let newGraph : SimpleDataflow.DataflowMachine := {
+    inputs := inputs,
+    outputs := outputs,
+    numNodes := nodes.length,
+    nodes := nodes,
+    fifos := newFifos
+  }
+
+  have one_output : newGraph.fifos.filter FIFO.isOutput = [.output newOutputFifo] :=
+    sorry
+
+  {
+    g := newGraph,
+    fifo := newOutputFifo,
+    one_output := one_output,
+    ty_eq := rfl
+  }
 
 def Step.Prog.compile {sty : Step.Ty} : Step.Prog sty → sty.toSDF
   | @Step.Prog.const α as => sorry
