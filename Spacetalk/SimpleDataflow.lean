@@ -81,9 +81,11 @@ namespace SimpleDataflow
     | eq => λ a b => if a == b then ⟨1, by simp⟩ else ⟨0, by simp⟩
 
   inductive UnaryOp : Ty → Ty → Type
+    | identity : UnaryOp α α
     | some : UnaryOp (.prim α) (.option α)
 
   def UnaryOp.eval : UnaryOp α β → (α.denote → β.denote)
+    | identity => id
     | some => Option.some
 
   inductive Pipeline : (inputs : List Ty) → (outputs : List Ty) → Type

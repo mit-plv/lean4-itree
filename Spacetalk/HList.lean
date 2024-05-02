@@ -41,7 +41,8 @@ namespace HList
     | []ₕ => 0
     | _ ::ₕ t => 1 + t.length
 
-  @[simp] def get : HList β is → Member i is → β i
+  @[simp]
+  def get : HList β is → Member i is → β i
     | a ::ₕ as, .head => a
     | _ ::ₕ as, .tail h => as.get h
 
@@ -49,7 +50,8 @@ namespace HList
     | h ::ₕ _, ⟨0, _⟩ => h
     | _ ::ₕ t, ⟨n + 1, _⟩ => t.getNth ⟨n, _⟩
 
-  def append : HList β is1 → HList β is2 → HList β (is1 ++ is2)
+  def append (hl₁ : HList β is1) (hl₂ : HList β is2) : HList β (is1 ++ is2) :=
+    match hl₁, hl₂ with
     | []ₕ, l => l
     | (h ::ₕ s), t => h ::ₕ s.append t
 
@@ -57,8 +59,6 @@ namespace HList
     | []ₕ, _, _ => []ₕ
     | _::ₕt, .head, x => x ::ₕ t
     | h::ₕt, .tail m, x => h ::ₕ t.replace m x
-
-  infixr:67 " ++ₕ " => HList.append
 
   def head : HList β (i::is) → β i
     | h ::ₕ _ => h
@@ -72,6 +72,8 @@ namespace HList
       | _::_ => let (l, r) := hl.tail.split; (hl.head ::ₕ l, r)
 
 end HList
+
+infixr:67 " ++ₕ " => HList.append
 
 -- Given a List α, a function f : α → β,
 -- return a HList with indices of type β and values of β-indexed type δ
