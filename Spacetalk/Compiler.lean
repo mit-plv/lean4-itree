@@ -125,9 +125,13 @@ def consAppendConverter {xs : Vector α n} {ys : Vector α m} : IndexConverter (
     rw [←(x ::ᵥ xs.append ys).get_tail ⟨i + n, by simp; have := i.isLt; linarith⟩]
     simp
     exact Vector.get_append_right.symm
-  have conv_lt : ∀ ⦃i j⦄, i < j → conv i < conv j := by sorry
+  have conv_lt : ∀ ⦃i j⦄, i < j → conv i < conv j := by simp [conv]
   have conv_gt_zero: ∀ {i}, 0 < conv i := by
-    sorry
+    intro i
+    simp [conv]
+    apply Fin.mk_lt_mk.mpr
+    rw [Nat.zero_mod]
+    simp
   ⟨conv, conv_congr, conv_lt, conv_gt_zero⟩
 
 /-- Assume new consumer has index 0. -/
@@ -202,7 +206,8 @@ def mergeGraphs (a : SDFOneOutput α) (b : SDFOneOutput β) (op : Step.BinaryOp 
   let newNode : SDFNode := ⟨[α.toSDF, β.toSDF], [γ.toSDF], [], []ₕ, op.compile⟩
   let nodes := newNode ::ᵥ (a.g.nodes.append b.g.nodes)
 
-  let aFifosUpdated : List (FIFO inputs outputs nodes) := convertFifos _ a .head consConverter .append
+  let aFifosUpdated : List (FIFO inputs outputs nodes) := convertFifos _ a .head consConverter .append_left
+  let bFifosUpdated : List (FIFO inputs outputs nodes) := convertFifos _ b (.tail .head) consAppendConverter .append_right
   sorry
 
 def Step.Prog.compile {sty : Step.Ty} : Step.Prog sty → sty.toSDF
