@@ -93,6 +93,8 @@ namespace SimpleDataflow
     | unaryOp : {α β : Ty} → UnaryOp α β → Pipeline [α] [β]
     | binaryOp : {α β γ : Ty} → BinaryOp α β γ → Pipeline [α, β] [γ]
     | mux : {α : Ty} → Pipeline [BoolTy, α, α] [α]
+    | dup : {α : Ty} → Pipeline [α] [α, α]
+    | comp : Pipeline β γ → Pipeline α β → Pipeline α γ
 
   def Pipeline.eval : Pipeline α β → (DenoList α → DenoList β)
     | const a => λ _ => [a]ₕ
@@ -101,6 +103,8 @@ namespace SimpleDataflow
     | mux => λ ([c, a, b]ₕ) =>
       have : DecidableEq (BitVecTy 1).denote := inferInstance
       if c = ⟨1, by simp⟩ then [a]ₕ else [b]ₕ
+    | dup => λ ([a]ₕ) => [a, a]ₕ
+    | comp f g => f.eval ∘ g.eval
 
   def Ops (inputs outputs state : List Ty) :=
     Pipeline (inputs ++ state) (outputs ++ state)

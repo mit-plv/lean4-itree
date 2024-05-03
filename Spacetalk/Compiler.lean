@@ -282,10 +282,9 @@ theorem SDFOneInputOneOutput.convertFifosDropInput_no_output {numNodes : Nat} {n
   have := of_decide_eq_true this
   split <;> simp [FIFO.isOutput]
 
-def mergeTwoGraphs (a : SDFOneOutput α) (op : Step.UnaryOp α β) : SDFOneOutput β :=
+def mergeTwoGraphs (a : SDFOneOutput α) (opGraph : SDFOneInputOneOutput α β) : SDFOneOutput β :=
   let inputs := a.g.inputs
   let outputs := [β.toSDF]
-  let opGraph := op.compile
   let nodes := opGraph.g.nodes.append a.g.nodes
   have h_len_app : 0 < opGraph.g.numNodes + a.g.numNodes := Nat.lt_add_right _ opGraph.nodes_len
   have h_nodes_eq : nodes.get ⟨0, h_len_app⟩ = opGraph.g.nodes.get ⟨0, opGraph.nodes_len⟩ := Vector.get_append_left (xs := opGraph.g.nodes) (ys := a.g.nodes) (i := ⟨0, opGraph.nodes_len⟩)
@@ -361,12 +360,23 @@ def mergeThreeGraphs (a : SDFOneOutput α) (b : SDFOneOutput β) (op : Step.Bina
     ty_eq := rfl
   }
 
-def reduceBlock {α β : Step.Prim} {inp : List Step.Ty}
-  (op : Step.BinaryOp α β α) (len : Nat) (init : α.denote) (bs : Step.Prog inp (Step.Ty.stream β))
+def reduceBlock {α β : Step.Prim}
+  (op : Step.BinaryOp α β α) (len : Nat) (init : α.denote) (bs : SDFOneOutput β)
   : SDFOneOutput α :=
+  -- Counter Logic
+  let ctrWidth := (Nat.log2 len) + 1
+  let ctrTy : SimpleDataflow.Ty := .prim (.bitVec ctrWidth)
+  let constOne : SDFNode := ⟨[], [ctrTy], [], []ₕ, .const 1⟩
+  let ctrUpdate : SDFNode := ⟨[ctrTy], [ctrTy], [ctrTy], [.zero ctrWidth]ₕ, .comp .dup (.binaryOp .add)⟩
+  let constLen : SDFNode := ⟨[], [ctrTy], [], []ₕ, .const len⟩
+  let ctrMod : SDFNode := ⟨[ctrTy, ctrTy], [ctrTy], [], []ₕ, .binaryOp .umod⟩
+
+
+
+  let nodes : SDFNodeList _ := ctrMod ::ᵥ constLen ::ᵥ ctrUpdate ::ᵥ constOne ::ᵥ .nil;
   sorry
 
-def Step.Prog.compile {inp : List Step.Ty} {out : Step.Ty} : Step.Prog inp out → out.toSDF
+def Step.Prog.compileAux {inp : List Step.Ty} {out : Step.Ty} : Step.Prog inp out → out.toSDF
   | .const α =>
     let inputs : List SimpleDataflow.Ty := [α.prim.toSDF]
     let outputs : List SimpleDataflow.Ty := [α.prim.toSDF]
@@ -406,8 +416,25 @@ def Step.Prog.compile {inp : List Step.Ty} {out : Step.Ty} : Step.Prog inp out �
       ty_eq := by simp [outputFifo]
     }
   | .zip op as bs =>
-    let asg := as.compile
-    let bsg := bs.compile
+    let asg := as.compileAux
+    let bsg := bs.compileAux
     mergeThreeGraphs asg bsg op
-  | Step.Prog.map op as => mergeTwoGraphs as.compile op
-  | .reduce op len init bs => reduceBlock op len init bs
+  | Step.Prog.map op as => mergeTwoGraphs as.compileAux op.compile
+  | .reduce op len init bs => reduceBlock op len init bs.compileAux
+
+def Step.Prog.compile (prog : Step.Prog inp out) : SimpleDataflow.DataflowMachine :=
+  prog.compileAux.g
+
+namespace Example
+  def bitVec32Stream : Step.Ty := .stream (.bitVec 32)
+  def f : Step.Prog [bitVec32Stream, bitVec32Stream] bitVec32Stream :=
+    .zip .mul
+      (.map (.addConst 1) (.const bitVec32Stream))
+      (.map (.addConst 2) (.const bitVec32Stream))
+
+  def fEval := f.denote
+  def fcEval := f.compile.denote
+
+  def inputs : HList id [Stream' (BitVec 32), Stream' (BitVec 32)] := [(·), (·)]ₕ
+  -- def a := fcEval inputs
+end Example
