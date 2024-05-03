@@ -134,7 +134,6 @@ namespace FIFO
     | .input _ => true
     | _ => false
 
-  @[simp]
   def isOutput {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {numNodes : Nat} {nodes : NodeList τ F numNodes} {inputs outputs : List τ}
     : (fifo : FIFO inputs outputs nodes) → Bool
     | .output _ => true
@@ -144,13 +143,13 @@ namespace FIFO
     {fifo : FIFO inputs outputs nodes}
     : fifo.isOutput = true → fifo.isInput = false := by
     intro h
-    cases h_match : fifo <;> repeat (first | simp | simp [h_match] at h)
+    cases h_match : fifo <;> repeat (first | simp | simp [h_match, FIFO.isOutput] at h)
 
   theorem inputNotOutput {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {numNodes : Nat} {nodes : NodeList τ F numNodes} {inputs outputs : List τ}
     {fifo : FIFO inputs outputs nodes}
     : fifo.isInput = true → fifo.isOutput = false := by
     intro h
-    cases h_match : fifo <;> repeat (first | simp | simp [h_match] at h)
+    cases h_match : fifo <;> repeat (first | simp [FIFO.isOutput] | simp [h_match] at h)
 
   def producer {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {numNodes : Nat} {nodes : NodeList τ F numNodes} {inputs outputs : List τ}
     : (fifo : FIFO inputs outputs nodes) → fifo.isInput = false → Fin numNodes

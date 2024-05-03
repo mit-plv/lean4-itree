@@ -21,8 +21,6 @@ inductive Ty
 def Ty.prim : Ty → Prim
   | stream p => p
 
-infixr:25 " → " => Ty.fn
-
 @[reducible]
 def Ty.denote : Ty → Type
   | stream p => Stream' p.denote
