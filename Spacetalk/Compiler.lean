@@ -27,19 +27,19 @@ def SDFNode := Node SimpleDataflow.Ty SimpleDataflow.Ops
 
 def SDFNodeList := NodeList SimpleDataflow.Ty SimpleDataflow.Ops
 
-def Step.Prim.toSDF : Step.Prim → SimpleDataflow.Ty
+def Step.Ty.toSDF : Step.Ty → SimpleDataflow.Ty
   | .bitVec w => .prim (.bitVec w)
 
-def Step.Prim.toSDFOpt : Step.Prim → SimpleDataflow.Ty
+def Step.Ty.toSDFOpt : Step.Ty → SimpleDataflow.Ty
   | .bitVec w => .option (.bitVec w)
 
-structure SDFOneOutput (p : Step.Prim) where
+structure SDFOneOutput (p : Step.Ty) where
   g : SimpleDataflow.DataflowMachine
   fifo : OutputFIFO g.outputs g.nodes
   one_output : g.fifos.filter FIFO.isOutput = [.output fifo]
   ty_eq : fifo.t = p.toSDF
 
-structure SDFOneInputOneOutput (α β : Step.Prim) where
+structure SDFOneInputOneOutput (α β : Step.Ty) where
   g : SimpleDataflow.DataflowMachine
   inpFifo : InputFIFO g.inputs g.nodes
   one_input : g.fifos.filter FIFO.isInput = [.input inpFifo]
@@ -52,14 +52,9 @@ structure SDFOneInputOneOutput (α β : Step.Prim) where
   consumerPort : Member α.toSDF (g.nodes.get ⟨0, nodes_len⟩).inputs
   output_eq : g.outputs = [β.toSDF]
 
-@[reducible]
-def Step.Ty.toSDF (sty : Step.Ty) :=
-  match sty with
-    | .stream p => SDFOneOutput p
-
 /-- The node doing the operation is the first, and its first input port is the external input. -/
 @[simp]
-def binOpConstRightGraph {α β γ : Step.Prim} (op : SimpleDataflow.BinaryOp α.toSDF β.toSDF γ.toSDF) (c : β.denote) : SDFOneInputOneOutput α γ :=
+def binOpConstRightGraph {α β γ : Step.Ty} (op : SimpleDataflow.BinaryOp α.toSDF β.toSDF γ.toSDF) (c : β.denote) : SDFOneInputOneOutput α γ :=
   let inputs := [α.toSDF]
   let outputs := [γ.toSDF]
   let constNode := ⟨[], [β.toSDF], [], []ₕ, .const c⟩
@@ -360,7 +355,7 @@ def mergeThreeGraphs (a : SDFOneOutput α) (b : SDFOneOutput β) (op : Step.Bina
     ty_eq := rfl
   }
 
-def reduceBlock {α β : Step.Prim}
+def reduceBlock {α β : Step.Ty}
   (op : Step.BinaryOp α β α) (len : Nat) (init : α.denote) (bs : SDFOneOutput β)
   : SDFOneOutput α :=
   -- Counter Logic
@@ -376,10 +371,10 @@ def reduceBlock {α β : Step.Prim}
   let nodes : SDFNodeList _ := ctrMod ::ᵥ constLen ::ᵥ ctrUpdate ::ᵥ constOne ::ᵥ .nil;
   sorry
 
-def Step.Prog.compileAux {inp : List Step.Ty} {out : Step.Ty} : Step.Prog inp out → out.toSDF
+def Step.Prog.compileAux {inp : List Step.Ty} {out : Step.Ty} : Step.Prog inp out → SDFOneOutput out
   | .const α =>
-    let inputs : List SimpleDataflow.Ty := [α.prim.toSDF]
-    let outputs : List SimpleDataflow.Ty := [α.prim.toSDF]
+    let inputs : List SimpleDataflow.Ty := [α.toSDF]
+    let outputs : List SimpleDataflow.Ty := [α.toSDF]
     let nodes : SDFNodeList 1 := {
       inputs := inputs,
       outputs := outputs,
@@ -388,13 +383,13 @@ def Step.Prog.compileAux {inp : List Step.Ty} {out : Step.Ty} : Step.Prog inp ou
       ops := .unaryOp .identity
     } ::ᵥ .nil
     let inputFifo := {
-      t := α.prim.toSDF,
+      t := α.toSDF,
       producer := .head,
       consumer := 0,
       consumerPort := .head
     }
     let outputFifo := {
-      t := α.prim.toSDF,
+      t := α.toSDF,
       producer := 0,
       producerPort := .head,
       consumer := .head,
@@ -425,8 +420,12 @@ def Step.Prog.compileAux {inp : List Step.Ty} {out : Step.Ty} : Step.Prog inp ou
 def Step.Prog.compile (prog : Step.Prog inp out) : SimpleDataflow.DataflowMachine :=
   prog.compileAux.g
 
+theorem compile_type_eq {prog : Step.Prog inp out}
+  : DenoStreamsList (prog.compile.inputs) = DenoStreamsList inp ∧ DenoStreamsList (prog.compile.outputs) = DenoStreamsList [out] := by
+  sorry
+
 namespace Example
-  def bitVec32Stream : Step.Ty := .stream (.bitVec 32)
+  def bitVec32Stream : Step.Ty := .bitVec 32
   def f : Step.Prog [bitVec32Stream, bitVec32Stream] bitVec32Stream :=
     .zip .mul
       (.map (.addConst 1) (.const bitVec32Stream))
