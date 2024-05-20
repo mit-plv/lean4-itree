@@ -1,92 +1,86 @@
 import Spacetalk.SimpleDataflow
 import Spacetalk.Step
 import Spacetalk.Graph
-
-import Mathlib.Tactic.Linarith.Frontend
-import Mathlib.Data.Vector.Basic
-
-theorem Vector.get_append_left {xs : Vector α n} {ys : Vector α m} {i : Fin n}
-  : (xs.append ys).get ⟨i, by apply Nat.lt_add_right; exact i.isLt⟩ = xs.get i := by
-  apply List.get_append_left
-
-theorem Vector.get_append_right {xs : Vector α n} {ys : Vector α m} {i : Fin m}
-  : (xs.append ys).get ⟨i + n, by have := i.isLt; linarith⟩ = ys.get i := by
-  simp_rw [Vector.get_eq_get]
-  have := Vector.toList_append xs ys
-  rw [List.get_of_eq this]
-  simp [Fin.cast]
-  have := List.get_append_right xs.toList ys.toList (i := i + n)
-  have h_i_lt_append : ↑i + n < (xs.toList ++ ys.toList).length := by have := i.isLt; simp; linarith
-  have h_i_sub_xs_lt_ys : ↑i + n - xs.toList.length < ys.toList.length := by simp
-  have : List.get (xs.toList ++ ys.toList) ⟨↑i + n, h_i_lt_append⟩ = List.get ys.toList ⟨i + n - xs.toList.length, h_i_sub_xs_lt_ys⟩ := this (by rw [Vector.toList_length xs]; linarith)
-  have h_eq : (⟨↑i + n - xs.toList.length, h_i_sub_xs_lt_ys⟩ : Fin ys.toList.length) = ⟨↑i, Fin.cast.proof_1 (toList_length ys).symm i⟩ := by simp
-  rw [←h_eq]
-  exact this
+import Spacetalk.Vector
 
 def SDFNode := Node SimpleDataflow.Ty SimpleDataflow.Ops
 
 def SDFNodeList := NodeList SimpleDataflow.Ty SimpleDataflow.Ops
 
+@[reducible]
 def Step.Ty.toSDF : Step.Ty → SimpleDataflow.Ty
-  | .bitVec w => .prim (.bitVec w)
+  | bitVec w => .option (.bitVec w)
 
-def Step.Ty.toSDFOpt : Step.Ty → SimpleDataflow.Ty
-  | .bitVec w => .option (.bitVec w)
+theorem ty_eq_option : ∀ sTy : Step.Ty, sTy.toSDF.denote = Option sTy.denote := by
+  intro sTy
+  simp
 
-structure SDFOneOutput (p : Step.Ty) where
+structure SDFConv (inputs : List Step.Ty) (output : Step.Ty) where
   g : SimpleDataflow.DataflowMachine
-  fifo : OutputFIFO g.outputs g.nodes
-  one_output : g.fifos.filter FIFO.isOutput = [.output fifo]
-  ty_eq : fifo.t = p.toSDF
 
-structure SDFOneInputOneOutput (α β : Step.Ty) where
-  g : SimpleDataflow.DataflowMachine
-  inpFifo : InputFIFO g.inputs g.nodes
-  one_input : g.fifos.filter FIFO.isInput = [.input inpFifo]
-  inp_ty_eq : inpFifo.t = α.toSDF
-  outFifo : OutputFIFO g.outputs g.nodes
-  one_output : g.fifos.filter FIFO.isOutput = [.output outFifo]
-  out_ty_eq : outFifo.t = β.toSDF
-  nodes_len : 0 < g.numNodes
-  out_producer : outFifo.producer = ⟨0, nodes_len⟩
-  consumerPort : Member α.toSDF (g.nodes.get ⟨0, nodes_len⟩).inputs
-  output_eq : g.outputs = [β.toSDF]
+  inputs_eq : g.inputs = inputs.map Step.Ty.toSDF
+  inputFifos : List (InputFIFO g.inputs g.nodes)
+  only_inputs : FIFO.getInputs g.fifos = inputFifos
 
-/-- The node doing the operation is the first, and its first input port is the external input. -/
-@[simp]
-def binOpConstRightGraph {α β γ : Step.Ty} (op : SimpleDataflow.BinaryOp α.toSDF β.toSDF γ.toSDF) (c : β.denote) : SDFOneInputOneOutput α γ :=
-  let inputs := [α.toSDF]
-  let outputs := [γ.toSDF]
-  let constNode := ⟨[], [β.toSDF], [], []ₕ, .const c⟩
-  let opNode := ⟨[α.toSDF, β.toSDF], [γ.toSDF], [], []ₕ, .binaryOp op⟩
-  let nodes : SDFNodeList 2 := .cons opNode (.cons constNode .nil)
-  have h_in_eq : (nodes.get 0).inputs = [α.toSDF, β.toSDF] := by aesop
-  have h_out_eq : (nodes.get 0).outputs = [γ.toSDF] := by aesop
-  let inpFifo : InputFIFO inputs nodes := ⟨α.toSDF, .head, 0, h_in_eq ▸ .head⟩
-  let outFifo : OutputFIFO outputs nodes := ⟨γ.toSDF, 0, h_out_eq ▸ .head, .head⟩
-  let fifos := [
-    .input inpFifo,
-    .advancing ⟨β.toSDF, 1, 0, .head, .tail .head, by simp⟩,
-    .output outFifo
-  ]
-  let g : SimpleDataflow.DataflowMachine := ⟨inputs, outputs, 2, nodes, fifos⟩
-  ⟨
-    g,
-    inpFifo,
-    by simp [fifos],
-    by simp,
-    outFifo,
-    by simp [fifos, FIFO.isOutput],
-    by simp,
-    by simp,
-    rfl,
-    .head,
-    rfl
-  ⟩
+  output_eq : g.outputs = [output.toSDF]
+  outputFifo : OutputFIFO g.outputs g.nodes
+  only_output : FIFO.getOutputs g.fifos= [outputFifo]
 
-def Step.UnaryOp.compile : Step.UnaryOp α β → SDFOneInputOneOutput α β
-  | .addConst c => binOpConstRightGraph .add c
-  | .mulConst c => binOpConstRightGraph .mul c
+
+-- structure SDFOneOutput (p : Ty) where
+--   g : SimpleDataflow.DataflowMachine
+--   fifo : OutputFIFO g.outputs g.nodes
+--   one_output : g.fifos.filter FIFO.isOutput = [.output fifo]
+--   ty_eq : fifo.t = p
+
+-- structure SDFOneInputOneOutput (α β : Ty) where
+--   g : SimpleDataflow.DataflowMachine
+--   inpFifo : InputFIFO g.inputs g.nodes
+--   one_input : g.fifos.filter FIFO.isInput = [.input inpFifo]
+--   inp_ty_eq : inpFifo.t = α
+--   outFifo : OutputFIFO g.outputs g.nodes
+--   one_output : g.fifos.filter FIFO.isOutput = [.output outFifo]
+--   out_ty_eq : outFifo.t = β
+--   nodes_len : 0 < g.numNodes
+--   out_producer : outFifo.producer = ⟨0, nodes_len⟩
+--   consumerPort : Member α (g.nodes.get ⟨0, nodes_len⟩).inputs
+--   output_eq : g.outputs = [β]
+
+-- /-- The node doing the operation is the first, and its first input port is the external input. -/
+-- @[simp]
+-- def binOpConstRightGraph {α β γ : Ty} (op : SimpleDataflow.BinaryOp α β γ) (c : β.denote) : SDFOneInputOneOutput α γ :=
+--   let inputs := [α]
+--   let outputs := [γ]
+--   let constNode := ⟨[], [β], [], []ₕ, .const c⟩
+--   let opNode := ⟨[α, β], [γ], [], []ₕ, .binaryOp op⟩
+--   let nodes : SDFNodeList 2 := .cons opNode (.cons constNode .nil)
+--   have h_in_eq : (nodes.get 0).inputs = [α, β] := by aesop
+--   have h_out_eq : (nodes.get 0).outputs = [γ] := by aesop
+--   let inpFifo : InputFIFO inputs nodes := ⟨α, .head, 0, h_in_eq ▸ .head⟩
+--   let outFifo : OutputFIFO outputs nodes := ⟨γ, 0, h_out_eq ▸ .head, .head⟩
+--   let fifos := [
+--     .input inpFifo,
+--     .advancing ⟨β, 1, 0, .head, .tail .head, by simp⟩,
+--     .output outFifo
+--   ]
+--   let g : SimpleDataflow.DataflowMachine := ⟨inputs, outputs, 2, nodes, fifos⟩
+--   ⟨
+--     g,
+--     inpFifo,
+--     by simp [fifos],
+--     by simp,
+--     outFifo,
+--     by simp [fifos, FIFO.isOutput],
+--     by simp,
+--     by simp,
+--     rfl,
+--     .head,
+--     rfl
+--   ⟩
+
+-- def Step.UnaryOp.compile : Step.UnaryOp α β → SDFOneInputOneOutput α β
+--   | .addConst c => binOpConstRightGraph .add c
+--   | .mulConst c => binOpConstRightGraph .mul c
 
 def Step.BinaryOp.compile : Step.BinaryOp α β γ → SimpleDataflow.Ops [α.toSDF, β.toSDF] [γ.toSDF] []
   | .add => .binaryOp .add
@@ -156,12 +150,12 @@ def appendConverter {xs : Vector α n} {ys : Vector α m} (h_n : 0 < n) : IndexC
 
 /-- Assume new consumer has index 0. -/
 def convertFifosOutput {inputs outputs : List SimpleDataflow.Ty} {numNodes : Nat} {nodes : SDFNodeList numNodes}
-  (h_len : 0 < numNodes) (a : SDFOneOutput α) (newConsumerPort : Member α.toSDF (nodes.get ⟨0, h_len⟩).inputs)
+  (h_len : 0 < numNodes) (a : SDFConv aInp α) (newConsumerPort : Member α.toSDF (nodes.get ⟨0, h_len⟩).inputs)
   (idxConv : IndexConverterGtZero a.g.nodes nodes)
   (memConv : {t : SimpleDataflow.Ty} → Member t a.g.inputs → Member t inputs)
   : List (FIFO inputs outputs nodes) :=
   a.g.fifos.attach.map (
-    λ ⟨fifo, h_mem⟩ ↦ match fifo with
+    λ ⟨fifo, _⟩ ↦ match fifo with
       | .input f =>
         let newConsumer := idxConv.conv f.consumer
         let fifo : InputFIFO inputs nodes := {
@@ -173,14 +167,16 @@ def convertFifosOutput {inputs outputs : List SimpleDataflow.Ty} {numNodes : Nat
         .input fifo
       | .output f =>
         let newProducer := idxConv.conv f.producer
-        have h_ty_eq : f.t = α.toSDF := by
-          have : FIFO.output f = .output a.fifo := by
+        have h_ty_eq : α.toSDF = f.t := by
+          have : FIFO.output f = .output a.outputFifo := by
             apply List.mem_singleton.mp
-            rw [←a.one_output]
-            apply List.mem_filter.mpr (And.intro h_mem (by rfl))
+            rw [←List.map_singleton, ←a.only_output]
+            aesop
           simp [FIFO.output.inj] at this
           rw [this]
-          apply a.ty_eq
+          have h_output_in_output : a.outputFifo.t ∈ a.g.outputs := a.outputFifo.consumer.to_mem
+          simp [a.output_eq] at h_output_in_output
+          exact h_output_in_output.symm
         let fifo : AdvancingFIFO nodes := {
           t := f.t,
           producer := newProducer,
@@ -214,22 +210,22 @@ def convertFifosOutput {inputs outputs : List SimpleDataflow.Ty} {numNodes : Nat
         .initialized fifo
   )
 
-theorem convertFifos_no_output {inputs outputs : List SimpleDataflow.Ty} {numNodes : Nat} {nodes : SDFNodeList numNodes}
-  {h_len : 0 < numNodes} {a : SDFOneOutput α} {newConsumerPort : Member α.toSDF (nodes.get ⟨0, h_len⟩).inputs}
+theorem convertFifos_no_output
+  {a : SDFConv aInp α}
+  {h_len : 0 < numNodes}
+  {newConsumerPort : Member α.toSDF (nodes.get ⟨0, h_len⟩).inputs}
   {idxConv : IndexConverterGtZero a.g.nodes nodes}
   {memConv : {t : SimpleDataflow.Ty} → Member t a.g.inputs → Member t inputs}
- : (convertFifosOutput h_len a newConsumerPort idxConv memConv).filter
-      (@FIFO.isOutput SimpleDataflow.Ty _ _ SimpleDataflow.Ops _ numNodes nodes inputs outputs)
-    = [] := by
-  apply List.filter_eq_nil.mpr
-  intro fifo h_mem
+  : FIFO.getOutputs (convertFifosOutput h_len a newConsumerPort idxConv memConv) (outputs := outputs) = [] := by
+  simp [List.eq_nil_iff_forall_not_mem, List.mem_filterMap]
+  intro _ fifo h_mem
   have h_map := List.mem_map.mp h_mem
   let ⟨⟨fifo', _⟩, ⟨_, h_match⟩⟩ := h_map
   cases fifo' <;> (simp at h_match; rw [←h_match]; simp [FIFO.isOutput])
 
-def SDFOneInputOneOutput.convertFifosDropInput {numNodes : Nat} {nodes : SDFNodeList numNodes} {inputs : List SimpleDataflow.Ty}
+def SDFOneInputOneOutput.convertFifosDropInput {numNodes : Nat} {nodes : SDFNodeList numNodes} {inputs : List Ty}
   (a : SDFOneInputOneOutput α β) (idxConv : IndexConverter a.g.nodes nodes)
-  : List (FIFO inputs [β.toSDF] nodes) :=
+  : List (FIFO inputs [β] nodes) :=
   let filtered := a.g.fifos.filter (λ fifo ↦ (fifo.isInput = false) && (fifo.isOutput = false))
   filtered.attach.map (
     λ ⟨fifo, h_mem⟩ ↦
@@ -258,7 +254,7 @@ def SDFOneInputOneOutput.convertFifosDropInput {numNodes : Nat} {nodes : SDFNode
         }
   )
 
-theorem SDFOneInputOneOutput.convertFifosDropInput_no_output {numNodes : Nat} {nodes : SDFNodeList numNodes} {inputs : List SimpleDataflow.Ty}
+theorem SDFOneInputOneOutput.convertFifosDropInput_no_output {numNodes : Nat} {nodes : SDFNodeList numNodes} {inputs : List Ty}
   {a : SDFOneInputOneOutput α β} {idxConv : IndexConverter a.g.nodes nodes}
   : (@SDFOneInputOneOutput.convertFifosDropInput α β numNodes nodes inputs a idxConv).filter FIFO.isOutput = [] := by
   simp only [SDFOneInputOneOutput.convertFifosDropInput]
@@ -279,7 +275,7 @@ theorem SDFOneInputOneOutput.convertFifosDropInput_no_output {numNodes : Nat} {n
 
 def mergeTwoGraphs (a : SDFOneOutput α) (opGraph : SDFOneInputOneOutput α β) : SDFOneOutput β :=
   let inputs := a.g.inputs
-  let outputs := [β.toSDF]
+  let outputs := [β]
   let nodes := opGraph.g.nodes.append a.g.nodes
   have h_len_app : 0 < opGraph.g.numNodes + a.g.numNodes := Nat.lt_add_right _ opGraph.nodes_len
   have h_nodes_eq : nodes.get ⟨0, h_len_app⟩ = opGraph.g.nodes.get ⟨0, opGraph.nodes_len⟩ := Vector.get_append_left (xs := opGraph.g.nodes) (ys := a.g.nodes) (i := ⟨0, opGraph.nodes_len⟩)
@@ -290,10 +286,12 @@ def mergeTwoGraphs (a : SDFOneOutput α) (opGraph : SDFOneInputOneOutput α β) 
   have h_producer_eq : opGraph.g.nodes.get opGraph.outFifo.producer = nodes.get outIdx := by
     rw [opGraph.out_producer]
     apply Vector.get_append_left.symm
+  have h_prod_eq : Member β (nodes.get outIdx).outputs = Member opGraph.outFifo.t (opGraph.g.nodes.get opGraph.outFifo.producer).outputs := by
+    rw [h_producer_eq, opGraph.out_ty_eq]
   let newOutFifo : OutputFIFO outputs nodes := {
-    t := β.toSDF,
+    t := β,
     producer := outIdx,
-    producerPort := opGraph.out_ty_eq ▸ h_producer_eq ▸ opGraph.outFifo.producerPort,
+    producerPort := h_prod_eq ▸ opGraph.outFifo.producerPort,
     consumer := .head
   }
 
@@ -322,15 +320,15 @@ def mergeTwoGraphs (a : SDFOneOutput α) (opGraph : SDFOneInputOneOutput α β) 
 
 def mergeThreeGraphs (a : SDFOneOutput α) (b : SDFOneOutput β) (op : Step.BinaryOp α β γ) : SDFOneOutput γ :=
   let inputs := a.g.inputs ++ b.g.inputs
-  let outputs := [γ.toSDF]
-  let newNode : SDFNode := ⟨[α.toSDF, β.toSDF], outputs, [], []ₕ, op.compile⟩
+  let outputs := [γ]
+  let newNode : SDFNode := ⟨[α, β], outputs, [], []ₕ, op.compile⟩
   let nodes := newNode ::ᵥ (a.g.nodes.append b.g.nodes)
 
   let aFifosUpdated : List (FIFO inputs outputs nodes) := convertFifosOutput (Nat.zero_lt_succ _) a .head consConverter .append_left
   let bFifosUpdated : List (FIFO inputs outputs nodes) := convertFifosOutput (Nat.zero_lt_succ _) b (.tail .head) consAppendConverter .append_right
 
   let newOutputFifo : OutputFIFO outputs nodes := {
-    t := γ.toSDF,
+    t := γ,
     producer := 0,
     producerPort := .head,
     consumer := .head
@@ -355,85 +353,90 @@ def mergeThreeGraphs (a : SDFOneOutput α) (b : SDFOneOutput β) (op : Step.Bina
     ty_eq := rfl
   }
 
-def reduceBlock {α β : Step.Ty}
-  (op : Step.BinaryOp α β α) (len : Nat) (init : α.denote) (bs : SDFOneOutput β)
-  : SDFOneOutput α :=
-  -- Counter Logic
-  let ctrWidth := (Nat.log2 len) + 1
-  let ctrTy : SimpleDataflow.Ty := .prim (.bitVec ctrWidth)
-  let constOne : SDFNode := ⟨[], [ctrTy], [], []ₕ, .const 1⟩
-  let ctrUpdate : SDFNode := ⟨[ctrTy], [ctrTy], [ctrTy], [.zero ctrWidth]ₕ, .comp .dup (.binaryOp .add)⟩
-  let constLen : SDFNode := ⟨[], [ctrTy], [], []ₕ, .const len⟩
-  let ctrMod : SDFNode := ⟨[ctrTy, ctrTy], [ctrTy], [], []ₕ, .binaryOp .umod⟩
+def constGraph (α : Step.Ty) : SDFConv [α] α :=
+  let inputs : List SimpleDataflow.Ty := [α.toSDF]
+  let outputs : List SimpleDataflow.Ty := [α.toSDF]
+  let nodes : SDFNodeList 1 := ⟨inputs, outputs, [], []ₕ, .unaryOp .identity⟩ ::ᵥ .nil
+  let inputFifo : InputFIFO inputs nodes := ⟨α.toSDF, .head, 0, .head⟩
+  let outputFifo : OutputFIFO outputs nodes := ⟨α.toSDF, 0, .head, .head⟩
+  let fifos := [.input inputFifo, .output outputFifo]
+  let graph : SimpleDataflow.DataflowMachine := ⟨inputs, outputs, 1, nodes, fifos⟩
+  {
+    g := graph,
+    inputs_eq := rfl,
+    inputFifos := [inputFifo],
+    only_inputs := by simp [List.filterMap],
+    output_eq := rfl,
+    outputFifo := outputFifo,
+    only_output := by simp [List.filterMap]
+  }
 
+def zipGraph (op : Step.BinaryOp α β γ) (a : SDFConv aInp α) (b : SDFConv bInp β) : SDFConv (aInp ++ bInp) γ :=
+  let inputs := a.g.inputs ++ b.g.inputs
+  let outputs := [γ.toSDF]
+  let opNode : SDFNode := ⟨[α.toSDF, β.toSDF], outputs, [], []ₕ, op.compile⟩
+  let nodes := opNode ::ᵥ (a.g.nodes.append b.g.nodes)
 
+  let aFifosConverted : List (FIFO inputs outputs nodes) := convertFifosOutput (Nat.zero_lt_succ _) a .head consConverter .append_left
+  let bFifosConverted : List (FIFO inputs outputs nodes) := convertFifosOutput (Nat.zero_lt_succ _) b (.tail .head) consAppendConverter .append_right
 
-  let nodes : SDFNodeList _ := ctrMod ::ᵥ constLen ::ᵥ ctrUpdate ::ᵥ constOne ::ᵥ .nil;
+  let newOutputFifo : OutputFIFO outputs nodes := ⟨γ.toSDF, 0, .head, .head⟩
+  let newFifos := .output newOutputFifo :: (aFifosConverted ++ bFifosConverted)
+  let newGraph : SimpleDataflow.DataflowMachine := ⟨inputs, outputs, nodes.length, nodes, newFifos⟩
+
+  have one_output : FIFO.getOutputs newFifos = [newOutputFifo] := by
+    simp [newFifos, FIFO.isOutput, List.filterMap_append]
+    apply And.intro convertFifos_no_output convertFifos_no_output
+
+  let inputFifos := (FIFO.getInputs aFifosConverted) ++ (FIFO.getInputs bFifosConverted)
+
+  have only_inputs : FIFO.getInputs newFifos = inputFifos := by
+    simp [inputFifos, newFifos, List.filterMap_append]
+
+  {
+    g := newGraph,
+
+    inputs_eq := by simp; rw [←a.inputs_eq, ←b.inputs_eq],
+    inputFifos := inputFifos,
+    only_inputs := only_inputs,
+
+    output_eq := rfl,
+    outputFifo := newOutputFifo,
+    only_output := one_output,
+  }
+
+def mapGraph (op : Step.UnaryOp α β) (as : SDFConv inp α) : SDFConv inp β :=
+  -- mergeTwoGraphs as.compileAux op.compile
   sorry
 
-def Step.Prog.compileAux {inp : List Step.Ty} {out : Step.Ty} : Step.Prog inp out → SDFOneOutput out
-  | .const α =>
-    let inputs : List SimpleDataflow.Ty := [α.toSDF]
-    let outputs : List SimpleDataflow.Ty := [α.toSDF]
-    let nodes : SDFNodeList 1 := {
-      inputs := inputs,
-      outputs := outputs,
-      state := [],
-      initialState := []ₕ,
-      ops := .unaryOp .identity
-    } ::ᵥ .nil
-    let inputFifo := {
-      t := α.toSDF,
-      producer := .head,
-      consumer := 0,
-      consumerPort := .head
-    }
-    let outputFifo := {
-      t := α.toSDF,
-      producer := 0,
-      producerPort := .head,
-      consumer := .head,
-    }
-    let graph : SimpleDataflow.DataflowMachine := {
-      inputs := inputs,
-      outputs := outputs,
-      numNodes := 1,
-      nodes := nodes,
-      fifos := [
-        .input inputFifo,
-        .output outputFifo
-      ]
-    }
-    {
-      g := graph,
-      fifo := outputFifo,
-      one_output := by simp [FIFO.isOutput],
-      ty_eq := by simp [outputFifo]
-    }
-  | .zip op as bs =>
-    let asg := as.compileAux
-    let bsg := bs.compileAux
-    mergeThreeGraphs asg bsg op
-  | Step.Prog.map op as => mergeTwoGraphs as.compileAux op.compile
+def reduceBlock {α β : Step.Ty}
+  (op : Step.BinaryOp α β α) (len : Nat) (init : α.denote) (bs : SDFConv inp β)
+  : SDFConv inp α :=
+  -- Counter Logic
+  -- let ctrWidth := (Nat.log2 len) + 1
+  -- let ctrTy : Ty := BitVecTy ctrWidth
+  -- let constOne : SDFNode := ⟨[], [ctrTy], [], []ₕ, .const 1⟩
+  -- let constZero : SDFNode := ⟨[], [ctrTy], [], []ₕ, .const 0⟩
+  -- let ctrUpdate : SDFNode := ⟨[ctrTy, ctrTy], [ctrTy], [], []ₕ, .binaryOp .add⟩
+  -- let constLen : SDFNode := ⟨[], [ctrTy], [], []ₕ, .const len⟩
+  -- let ctrMod : SDFNode := ⟨[ctrTy, ctrTy], [ctrTy], [], []ₕ, .binaryOp .umod⟩
+  -- let ctrComp : SDFNode := ⟨[ctrTy, ctrTy], [BoolTy], [], []ₕ, .binaryOp .eq⟩
+
+  -- let redux : SDFNode := ⟨[α, β], [α], [], []ₕ, op.compile⟩
+  -- let someWrap : SDFNode := ⟨[α], [α.toOption], [], []ₕ, .unaryOp .some⟩
+  -- let constNone : SDFNode := ⟨[], [α.toOption], [], []ₕ, .const none⟩
+
+  -- let outputMux : SDFNode := ⟨[BoolTy, α.toOption, α.toOption], [α.toOption], [], []ₕ, .mux⟩
+  -- let accMux : SDFNode := ⟨[BoolTy, α, α], [α], [], []ₕ, .mux⟩
+
+  -- let nodes : SDFNodeList _ := ctrMod ::ᵥ constLen ::ᵥ ctrUpdate ::ᵥ constOne ::ᵥ .nil;
+  sorry
+
+def Step.Prog.compileAux {inp : List Ty} {out : Ty} : Step.Prog inp out → SDFConv inp out
+  | .const α => constGraph α
+  | .zip op as bs => zipGraph op as.compileAux bs.compileAux
+  | .map op as => mapGraph op as.compileAux
   | .reduce op len init bs => reduceBlock op len init bs.compileAux
 
 def Step.Prog.compile (prog : Step.Prog inp out) : SimpleDataflow.DataflowMachine :=
   prog.compileAux.g
-
-theorem compile_type_eq {prog : Step.Prog inp out}
-  : DenoStreamsList (prog.compile.inputs) = DenoStreamsList inp ∧ DenoStreamsList (prog.compile.outputs) = DenoStreamsList [out] := by
-  sorry
-
-namespace Example
-  def bitVec32Stream : Step.Ty := .bitVec 32
-  def f : Step.Prog [bitVec32Stream, bitVec32Stream] bitVec32Stream :=
-    .zip .mul
-      (.map (.addConst 1) (.const bitVec32Stream))
-      (.map (.addConst 2) (.const bitVec32Stream))
-
-  def fEval := f.denote
-  def fcEval := f.compile.denote
-
-  def inputs : HList id [Stream' (BitVec 32), Stream' (BitVec 32)] := [(·), (·)]ₕ
-  -- def a := fcEval inputs
-end Example

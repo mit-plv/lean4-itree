@@ -1,47 +1,38 @@
 import Spacetalk.Stream
-import Spacetalk.HList
 import Spacetalk.Graph
 
 -- Source Lang
 namespace Step
 
------------------- Syntax ------------------
+------------------ Types ------------------
+
 inductive Ty
   | bitVec : Nat → Ty
-  deriving DecidableEq
+deriving DecidableEq
 
 @[reducible]
 def Ty.denote : Ty → Type
   | bitVec w => BitVec w
 
-def Ty.default : (ty : Ty) → ty.denote
+def Ty.default : (t : Ty) → t.denote
   | bitVec _ => 0
 
 instance : Denote Ty where
   denote := Ty.denote
   default := Ty.default
 
--- inductive Ty
---   | stream : Prim → Ty
---   deriving DecidableEq
+abbrev BitVecTy (w : Nat) := Ty.bitVec w
+abbrev BoolTy := BitVecTy 1
 
--- @[simp]
--- def Ty.prim : Ty → Prim
---   | stream p => p
-
--- @[reducible]
--- def Ty.denote : Ty → Type
-  -- | stream p => Stream' p.denote
-
--- abbrev TysInput (tys : List Ty) := HList Ty.denote tys
+------------------ Syntax ------------------
 
 inductive BinaryOp : Ty → Ty → Ty → Type
-  | add : {w : Nat} → BinaryOp (.bitVec w) (.bitVec w) (.bitVec w)
-  | mul : {w : Nat} → BinaryOp (.bitVec w) (.bitVec w) (.bitVec w)
+  | add : {w : Nat} → BinaryOp (BitVecTy w) (BitVecTy w) (BitVecTy w)
+  | mul : {w : Nat} → BinaryOp (BitVecTy w) (BitVecTy w) (BitVecTy w)
 
 inductive UnaryOp : Ty → Ty → Type
-  | addConst : {w : Nat} → BitVec w → UnaryOp (.bitVec w) (.bitVec w)
-  | mulConst : {w : Nat} → BitVec w → UnaryOp (.bitVec w) (.bitVec w)
+  | addConst : {w : Nat} → BitVec w → UnaryOp (BitVecTy w) (BitVecTy w)
+  | mulConst : {w : Nat} → BitVec w → UnaryOp (BitVecTy w) (BitVecTy w)
 
 inductive Prog : List Ty → Ty → Type
   | const : (α : Ty) → Prog [α] α
@@ -63,4 +54,5 @@ def Prog.denote {inputs : List Ty} {α : Ty} : Prog inputs α → (DenoStreamsLi
   | .zip op as bs => λ inp ↦ let (aInp, bInp) := inp.split; [Stream'.zip op.denote (as.denote aInp).head (bs.denote bInp).head]ₕ
   | .map op as => λ inp ↦ [Stream'.map op.denote (as.denote inp).head]ₕ
   | .reduce op n init bs => λ inp ↦ [Stream'.reduce op.denote n init (bs.denote inp).head]ₕ
+
 end Step

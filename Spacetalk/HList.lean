@@ -1,3 +1,6 @@
+import Aesop
+import Mathlib.Data.List.Basic
+import Mathlib.Data.List.Infix
 
 inductive HList {α : Type v} (β : α → Type u) : List α → Type (max u v)
   | nil : HList β []
@@ -16,6 +19,10 @@ inductive Member {α : Type u} : α → List α → Type u
   | head : Member a (a::as)
   | tail : Member a bs → Member a (b::bs)
 deriving BEq, DecidableEq
+
+theorem Member.to_mem : Member a l → a ∈ l
+  | .head => List.mem_of_mem_head? rfl
+  | .tail i => List.mem_of_mem_tail i.to_mem
 
 def Member.append_left {l₁ : List α} {l₂ : List α} : Member a l₁ → Member a (l₁ ++ l₂)
   | .head => .head

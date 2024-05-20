@@ -134,6 +134,7 @@ namespace FIFO
     | .input _ => true
     | _ => false
 
+  @[simp]
   def isOutput {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {numNodes : Nat} {nodes : NodeList τ F numNodes} {inputs outputs : List τ}
     : (fifo : FIFO inputs outputs nodes) → Bool
     | .output _ => true
@@ -166,6 +167,28 @@ namespace FIFO
   def consumerPort {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {numNodes : Nat} {nodes : NodeList τ F numNodes} {inputs outputs : List τ}
     : (fifo : FIFO inputs outputs nodes) → (h : fifo.isOutput = false) → Member fifo.t (nodes.get (fifo.consumer h)).inputs
     | .initialized f, _ | .advancing f, _ | .input f, _ => f.consumerPort
+
+  @[simp]
+  def getInput {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {numNodes : Nat} {nodes : NodeList τ F numNodes} {inputs outputs : List τ}
+    : (fifo : FIFO inputs outputs nodes) → Option (InputFIFO inputs nodes)
+    | input f => some f
+    | _ => none
+
+  @[simp]
+  def getInputs {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {numNodes : Nat} {nodes : NodeList τ F numNodes} {inputs outputs : List τ}
+    (fifos : List (FIFO inputs outputs nodes)) : List (InputFIFO inputs nodes) :=
+    fifos.filterMap getInput
+
+  @[simp]
+  def getOutput {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {numNodes : Nat} {nodes : NodeList τ F numNodes} {inputs outputs : List τ}
+    : (fifo : FIFO inputs outputs nodes) → Option (OutputFIFO outputs nodes)
+    | output f => some f
+    | _ => none
+
+  @[simp]
+  def getOutputs {τ : Type} [DecidableEq τ] [Denote τ] {F : NodeType τ} [NodeOps F] {numNodes : Nat} {nodes : NodeList τ F numNodes} {inputs outputs : List τ}
+    (fifos : List (FIFO inputs outputs nodes)) : List (OutputFIFO outputs nodes) :=
+    fifos.filterMap getOutput
 
 end FIFO
 
