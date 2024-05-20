@@ -18,3 +18,7 @@ theorem Vector.get_append_right {xs : Vector α n} {ys : Vector α m} {i : Fin m
   have h_eq : (⟨↑i + n - xs.toList.length, h_i_sub_xs_lt_ys⟩ : Fin ys.toList.length) = ⟨↑i, Fin.cast.proof_1 (toList_length ys).symm i⟩ := by simp
   rw [←h_eq]
   exact this
+
+-- @[simp]
+-- theorem Vector.length_append (as : Vector α n) (bs : Vector α m) : (as.append bs).length = n + m := by
+--   simp

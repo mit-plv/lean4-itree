@@ -93,6 +93,7 @@ inductive Pipeline : (inputs : List Ty) → (outputs : List Ty) → Type
   | unaryOp : {α β : Prim} → UnaryOp α β → Pipeline [α.toTy] [β.toTy]
   | binaryOp : {α β γ : Prim} → BinaryOp α β γ → Pipeline [α.toTy, β.toTy] [γ.toTy]
   | guard : {α : Ty} → Pipeline [BoolTy, α] [α]
+  | mux : {α : Ty} → Pipeline [BoolTy, α, α] [α]
 
 def Pipeline.eval : Pipeline α β → (DenoList α → DenoList β)
   | const a => Function.const _ [a]ₕ
@@ -104,6 +105,14 @@ def Pipeline.eval : Pipeline α β → (DenoList α → DenoList β)
       pure (op.eval aVal bVal)
     [res]ₕ
   | @Pipeline.guard α => λ ([g, a]ₕ) => [g >>= (Function.const _ a)]ₕ
+  | mux => λ ([cond, a, b]ₕ) =>
+    let res := do
+      let condVal ← cond
+      if condVal == 1 then
+        a
+      else
+        b
+    [res]ₕ
 
 def Ops (inputs outputs state : List Ty) :=
   Pipeline (inputs ++ state) (outputs ++ state)
