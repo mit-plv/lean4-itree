@@ -238,6 +238,8 @@ def mapGraph (op : Step.UnaryOp α β) (a : SDFConv inp α) : SDFConv inp β :=
   | .addConst c => zipGraph .add (constValueGraph c) a
   | .mulConst c => zipGraph .mul (constValueGraph c) a
 
+theorem Fin.gt_of_val_gt {a b : Fin n} : a.val > b.val → a > b := by intro h; exact h
+
 set_option maxHeartbeats 900000
 def reduceBlock {α β : Step.Ty}
   (op : Step.BinaryOp α β α) (len : Nat) (init : α.denote) (b : SDFConv inp β)
@@ -268,38 +270,38 @@ def reduceBlock {α β : Step.Ty}
   let nodes : SDFNodeList (11 + b.g.nodes.length) := newNodes.append b.g.nodes
   have h_lt {i : Nat} (h : i < 11) : i < nodes.length := Nat.lt_add_right b.g.nodes.length h
 
-  let outputGuardIdx : Fin nodes.length := ⟨0, h_lt (by simp)⟩
-  let accMuxIdx : Fin nodes.length := ⟨1, h_lt (by simp)⟩
-  let reduxIdx : Fin nodes.length := ⟨2, h_lt (by simp)⟩
-  let ctrMuxIdx : Fin nodes.length := ⟨3, h_lt (by simp)⟩
-  let ctrCompIdx : Fin nodes.length := ⟨4, h_lt (by simp)⟩
-  let ctrModIdx : Fin nodes.length := ⟨5, h_lt (by simp)⟩
-  let ctrUpdateIdx : Fin nodes.length := ⟨6, h_lt (by simp)⟩
-  let constLenIdx : Fin nodes.length := ⟨7, h_lt (by simp)⟩
-  let constOneIdx : Fin nodes.length := ⟨8, h_lt (by simp)⟩
-  let constZeroIdx : Fin nodes.length := ⟨9, h_lt (by simp)⟩
-  let constInitIdx : Fin nodes.length := ⟨10, h_lt (by simp)⟩
+  let outputGuardIdx : Fin nodes.length := ⟨0, h_lt (by linarith)⟩
+  let accMuxIdx : Fin nodes.length := ⟨1, h_lt (by linarith)⟩
+  let reduxIdx : Fin nodes.length := ⟨2, h_lt (by linarith)⟩
+  let ctrMuxIdx : Fin nodes.length := ⟨3, h_lt (by linarith)⟩
+  let ctrCompIdx : Fin nodes.length := ⟨4, h_lt (by linarith)⟩
+  let ctrModIdx : Fin nodes.length := ⟨5, h_lt (by linarith)⟩
+  let ctrUpdateIdx : Fin nodes.length := ⟨6, h_lt (by linarith)⟩
+  let constLenIdx : Fin nodes.length := ⟨7, h_lt (by linarith)⟩
+  let constOneIdx : Fin nodes.length := ⟨8, h_lt (by linarith)⟩
+  let constZeroIdx : Fin nodes.length := ⟨9, h_lt (by linarith)⟩
+  let constInitIdx : Fin nodes.length := ⟨10, h_lt (by linarith)⟩
 
   let inputs := b.g.inputs
   let outputs := [α.toSDF]
 
-  let bFifosConverted : List (FIFO inputs outputs nodes) := convertFifosOutput (by simp) b (appendConverter reduxIdx) (.tail .head) id
+  let bFifosConverted : List (FIFO inputs outputs nodes) := convertFifosOutput (by linarith) b (appendConverter reduxIdx) (.tail .head) id
 
   let newFifos : List (FIFO inputs outputs nodes) := [
     .initialized ⟨α.toSDF, some init, accMuxIdx, reduxIdx, .head, .head⟩, -- accumulated value
-    .advancing ⟨α.toSDF, reduxIdx, accMuxIdx, .head, .tail .head, by simp [reduxIdx, accMuxIdx]⟩, -- redux output
-    .advancing ⟨α.toSDF, constInitIdx, accMuxIdx, .head, .tail (.tail .head), by simp [constInitIdx, accMuxIdx]⟩, -- redux initial value
-    .advancing ⟨SimpleDataflow.BoolTy, ctrCompIdx, accMuxIdx, .head, .head, by simp [ctrCompIdx, accMuxIdx]⟩, -- accum mux condition
-    .advancing ⟨SimpleDataflow.BoolTy, ctrCompIdx, outputGuardIdx, .head, .head, by simp [ctrCompIdx, outputGuardIdx]⟩,
-    .advancing ⟨α.toSDF, reduxIdx, outputGuardIdx, .head, .tail .head, by simp [reduxIdx, outputGuardIdx]⟩,
+    .advancing ⟨α.toSDF, reduxIdx, accMuxIdx, .head, .tail .head, Fin.gt_of_val_gt (by linarith)⟩, -- redux output
+    .advancing ⟨α.toSDF, constInitIdx, accMuxIdx, .head, .tail (.tail .head), Fin.gt_of_val_gt (by linarith)⟩, -- redux initial value
+    .advancing ⟨SimpleDataflow.BoolTy, ctrCompIdx, accMuxIdx, .head, .head, Fin.gt_of_val_gt (by linarith)⟩, -- accum mux condition
+    .advancing ⟨SimpleDataflow.BoolTy, ctrCompIdx, outputGuardIdx, .head, .head, Fin.gt_of_val_gt (by linarith)⟩,
+    .advancing ⟨α.toSDF, reduxIdx, outputGuardIdx, .head, .tail .head, Fin.gt_of_val_gt (by linarith)⟩,
     .output ⟨α.toSDF, outputGuardIdx, .head, .head⟩,
 
     .initialized ⟨ctrTy, some 0, ctrModIdx, ctrUpdateIdx, .head, .head⟩, -- ctr + 1 - left arg
-    .advancing ⟨ctrTy, constOneIdx, ctrUpdateIdx, .head, .tail .head, by simp [constOneIdx, ctrUpdateIdx]⟩, -- ctr + 1 - right arg
-    .advancing ⟨ctrTy, ctrUpdateIdx, ctrModIdx, .head, .head, by simp [ctrUpdateIdx, ctrModIdx]⟩, -- ctr % len - left arg
-    .advancing ⟨ctrTy, constLenIdx, ctrModIdx, .head, .tail .head, by simp [constLenIdx, ctrModIdx]⟩, -- ctr % len - right arg
-    .advancing ⟨ctrTy, ctrModIdx, ctrCompIdx, .head, .head, by simp [ctrModIdx, ctrCompIdx]⟩, -- ctr == 0 - left arg
-    .advancing ⟨ctrTy, constZeroIdx, ctrCompIdx, .head, .tail .head, by simp [constZeroIdx, ctrCompIdx]⟩, -- ctr == 0 - right arg
+    .advancing ⟨ctrTy, constOneIdx, ctrUpdateIdx, .head, .tail .head, Fin.gt_of_val_gt (by linarith)⟩, -- ctr + 1 - right arg
+    .advancing ⟨ctrTy, ctrUpdateIdx, ctrModIdx, .head, .head, Fin.gt_of_val_gt (by linarith)⟩, -- ctr % len - left arg
+    .advancing ⟨ctrTy, constLenIdx, ctrModIdx, .head, .tail .head, Fin.gt_of_val_gt (by linarith)⟩, -- ctr % len - right arg
+    .advancing ⟨ctrTy, ctrModIdx, ctrCompIdx, .head, .head, Fin.gt_of_val_gt (by linarith)⟩, -- ctr == 0 - left arg
+    .advancing ⟨ctrTy, constZeroIdx, ctrCompIdx, .head, .tail .head, Fin.gt_of_val_gt (by linarith)⟩, -- ctr == 0 - right arg
   ]
   sorry
 
