@@ -38,15 +38,6 @@ class IndexConverter {α : Type u} {n m : Nat} (xs : Vector α n) (ys : Vector �
   conv_lt : ∀ ⦃i j⦄, i < j → conv i < conv j
   conv_gt_consumer : ∀ {i}, newConsumer < conv i
 
--- def appendIdConverter : IndexConverter xs (xs.append ys) :=
---   let conv : Fin xs.length → Fin (xs.append ys).length := λ i ↦ ⟨i.val, by have := i.isLt; linarith⟩
---   have conv_congr : ∀ {i}, xs.get i = (xs.append ys).get (conv i) := by
---     intro i
---     simp [conv]
---     apply Vector.get_append_left.symm
---   have conv_lt : ∀ ⦃i j⦄, i < j → conv i < conv j := by intro i j; simp [conv]
---   ⟨conv, conv_congr, conv_lt⟩
-
 -- Assume new consumer is appended to the front
 def consConverter : IndexConverter xs (x ::ᵥ xs.append ys) :=
   let conv : Fin xs.length → Fin (x ::ᵥ xs.append ys).length := λ i ↦ ⟨i.val + 1, by have := i.isLt; linarith⟩
