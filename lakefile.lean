@@ -9,4 +9,4 @@ require mathlib from
 
 @[default_target]
 lean_lib «CTree» where
-  -- add any library configuration options here
+  globs := #[.submodules `CTree]

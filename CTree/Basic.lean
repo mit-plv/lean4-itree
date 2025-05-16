@@ -157,7 +157,7 @@ namespace CTree
   /- Vector3 utilities -/
   theorem elim0_lift {P : Prop} (z : ULift (Fin2 0)) : P :=
     @z.down.elim0 λ _ => P
- 
+
   theorem _fin1Const_fin0 : _fin1Const (c _fin0) = c := by
     funext i
     match i with
