@@ -1,15 +1,37 @@
 import Mathlib.Data.QPF.Univariate.Basic
 import Mathlib.Data.Vector3
 
-/-
+/--
+Coinductive Choice Tree defined with `PFunctor.M`.
+```
 coinductive CTree (ε : Type → Type) (ρ : Type)
   | ret (v : ρ)
   | tau (t : CTree ε ρ)
   | vis {α} (e : ε α) (k : α → CTree ε ρ)
   | zero
   | choice : CTree ε ρ → CTree ε ρ → CTree ε ρ
+```
 -/
 
+inductive CTree.shape (ε : Type → Type) (ρ : Type) : Type 1
+| ret (v : ρ)
+| tau
+| vis (α : Type) (e : ε α)
+| zero
+| choice
+
+def CTree.children {ε : Type → Type} {ρ : Type} : CTree.shape ε ρ → Type 1
+| .ret _ => ULift (Fin2 0)
+| .tau => ULift (Fin2 1)
+| .vis α _ => ULift α
+| .zero => ULift (Fin2 0)
+| .choice => ULift (Fin2 2)
+
+def CTree.P (ε : Type → Type) (ρ : Type) : PFunctor.{1} := ⟨CTree.shape ε ρ, CTree.children⟩
+
+def CTree (ε : Type → Type) (ρ : Type) := (CTree.P ε ρ).M
+
+/- PFunctor utilities -/
 theorem PFunctor.M.map_dest {P : PFunctor.{u}} {f : P.M → P.M} {x : P.M}
   : P.map f x.dest = ⟨x.dest.fst, f ∘ x.dest.snd⟩ := by
   match x.dest with
@@ -38,24 +60,6 @@ theorem corec_inl_eq_id {P : PFunctor.{u}} {F : P.M ⊕ β → P (P.M ⊕ β)} {
       apply And.intro _ rfl
       simp only [Function.comp_apply, PFunctor.M.corec_def, PFunctor.map, hF]
   · exists g
-
-inductive CTree.shape (ε : Type → Type) (ρ : Type) : Type 1
-| ret (v : ρ)
-| tau
-| vis (α : Type) (e : ε α)
-| zero
-| choice
-
-def CTree.children {ε : Type → Type} {ρ : Type} : CTree.shape ε ρ → Type 1
-| .ret _ => ULift (Fin2 0)
-| .tau => ULift (Fin2 1)
-| .vis α _ => ULift α
-| .zero => ULift (Fin2 0)
-| .choice => ULift (Fin2 2)
-
-def CTree.P (ε : Type → Type) (ρ : Type) : PFunctor.{1} := ⟨CTree.shape ε ρ, CTree.children⟩
-
-def CTree (ε : Type → Type) (ρ : Type) := (CTree.P ε ρ).M
 
 namespace CTree
   /- Utilities -/
