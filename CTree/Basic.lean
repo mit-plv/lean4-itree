@@ -154,6 +154,10 @@ namespace CTree
 
   abbrev corec' {α : Type 1} := PFunctor.M.corec' (P := P ε ρ) (α := α)
 
+  /- Vector3 utilities -/
+  theorem elim0_lift {P : Prop} (z : ULift (Fin2 0)) : P :=
+    @z.down.elim0 λ _ => P
+ 
   theorem _fin1Const_fin0 : _fin1Const (c _fin0) = c := by
     funext i
     match i with
@@ -170,6 +174,7 @@ namespace CTree
       simp only [_fin1Const, Fin2.ofNat', _fin0]
       rfl
 
+  /-- Custom dependent match function for CTrees -/
   def dMatchOn {motive : CTree ε ρ → Sort u} (x : CTree ε ρ)
     (ret : (v : ρ) → x = ret v → motive x)
     (tau : (c : CTree ε ρ) → x = tau c → motive x)
@@ -215,9 +220,7 @@ namespace CTree
         simp only [PFunctor.M.mk_dest]
       )
 
-  theorem tau_eq (h : c1 = c2) : tau c1 = tau c2 := by
-    congr
-
+  /- Destructor utilities -/
   theorem dest_ret : PFunctor.M.dest (F := P ε ρ) (ret v) = ⟨.ret v, _elim0⟩ :=
     rfl
 
@@ -304,9 +307,6 @@ namespace CTree
       simp only [_fin2Const, Nat.reduceAdd, Fin2.ofNat', Function.comp_apply, Vector3.cons_fz,
         PFunctor.M.corec_def]
       rfl
-
-  theorem elim0_lift {P : Prop} (z : ULift (Fin2 0)) : P :=
-    @z.down.elim0 λ _ => P
 
   /- Monad Instance -/
   def bind {σ} (t : CTree ε ρ) (f : ρ → CTree ε σ) : CTree ε σ :=
