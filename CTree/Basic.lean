@@ -603,6 +603,71 @@ namespace CTree
     pure_bind := pure_bind
     bind_assoc := bind_assoc
 
+  /- Weak Equivalence -/
+
+  def eutt (r : ρ → σ → Prop) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
+    (∃ x y, t1 = ret x ∧ t2 = ret y ∧ r x y) ∨
+    (∃ (α : Type) (e : ε α) (k1 : α → CTree ε ρ) (k2 : α → CTree ε σ),
+      t1 = vis e k1 ∧ t2 = vis e k2 ∧
+        ∀ (a : α), eutt r (k1 a) (k2 a)) ∨
+    (∃ t1' t2', t1 = tau t1' ∧ t2 = tau t2' ∧ eutt r t1' t2') ∨
+    (∃ t1', t1 = tau t1' ∧ eutt r t1' t2) ∨
+    (∃ t2', t2 = tau t2' ∧ eutt r t1 t2') ∨
+    (t1 = zero ∧ t2 = zero) ∨
+    (∃ t11 t12 t21 t22, (t1 = choice t11 t12) ∧ (t2 = choice t21 t22) ∧
+      ((eutt r t11 t21 ∧ eutt r t12 t22) ∨
+       (eutt r t11 t22 ∧ eutt r t12 t21)))
+    greatest_fixpoint monotonicity by
+      simp only [Lean.Order.monotone, Lean.Order.PartialOrder.rel]
+      simp only [Lean.Order.ReverseImplicationOrder, Lean.Order.CompleteLattice.toPartialOrder]
+      simp only [Lean.Order.ReverseImplicationOrder.instCompleteLattice]
+      simp only [Lean.Order.ReverseImplicationOrder.instOrder]
+      intro r1 r2 hr x y h
+      match h with
+      | .inl h =>
+        exact Or.inl h
+      | .inr h =>
+        match h with
+        | .inl ⟨α, e, k1, k2, hx, hy, x⟩ =>
+          apply Or.inr (Or.inl _)
+          exists α, e, k1, k2
+          apply And.intro hx (And.intro hy _)
+          intro a
+          exact hr _ _ (x a)
+        | .inr h =>
+          match h with
+          | .inl ⟨t1, t2, hx, hy, h⟩ =>
+            apply Or.inr (Or.inr (Or.inl _))
+            exists t1, t2
+            exact And.intro hx (And.intro hy (hr _ _ h))
+          | .inr h =>
+            apply h.elim3
+            · intro h
+              have ⟨t1, hx, hy⟩ := h
+              apply Or.inr (Or.inr (Or.inr (Or.inl _)))
+              exists t1
+              exact And.intro hx (hr _ _ hy)
+            · intro h
+              have ⟨t2, hy, hx⟩ := h
+              apply Or.inr (Or.inr (Or.inr (Or.inr (Or.inl _))))
+              exists t2
+              exact And.intro hy (hr _ _ hx)
+            · intro h
+              match h with
+              | .inl h =>
+                exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h)))))
+              | .inr ⟨t11, t12, t21, t22, hx, hy, h⟩ =>
+                apply Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr _)))))
+                exists t11, t12, t21, t22
+                apply And.intro hx (And.intro hy _)
+                match h with
+                | .inl ⟨hx, hy⟩ =>
+                  apply Or.inl
+                  exact And.intro (hr _ _ hx) (hr _ _ hy)
+                | .inr ⟨hx, hy⟩ =>
+                  apply Or.inr
+                  exact And.intro (hr _ _ hx) (hr _ _ hy)
+
   end
 end CTree
 
