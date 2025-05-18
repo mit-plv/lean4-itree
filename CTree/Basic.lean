@@ -137,6 +137,7 @@ namespace CTree
   @[match_pattern, simp]
   def choice (t1 t2 : CTree ε ρ) : CTree ε ρ :=
     .mk <| choice' t1 t2
+  infixr:70 " ⊕ " => CTree.choice
 
   def trigger {α : Type} (e : ε α) : CTree ε α :=
     vis e (λ x => ret x)
@@ -173,6 +174,25 @@ namespace CTree
     | .up (.ofNat' 1) =>
       simp only [_fin1Const, Fin2.ofNat', _fin0]
       rfl
+
+  def matchOn {motive : Sort u} (x : CTree ε ρ)
+    (ret : (v : ρ) → motive)
+    (tau : (c : CTree ε ρ) → motive)
+    (vis : {α : Type} → (e : ε α) → (k : α → CTree ε ρ) → motive)
+    (zero : motive)
+    (choice : (c1 c2 : CTree ε ρ) → motive)
+    : motive :=
+    match x.dest with
+    | ⟨.ret v, _⟩ =>
+      ret v
+    | ⟨.tau, c⟩ =>
+      tau (c _fin0)
+    | ⟨.vis _ e, k⟩ =>
+      vis e (k ∘ .up)
+    | ⟨.zero, _⟩ =>
+      zero
+    | ⟨.choice, cs⟩ =>
+      choice (cs _fin0) (cs _fin1)
 
   /-- Custom dependent match function for CTrees -/
   def dMatchOn {motive : CTree ε ρ → Sort u} (x : CTree ε ρ)
@@ -605,73 +625,100 @@ namespace CTree
 
   /- Weak Equivalence -/
 
-  def eutt (r : ρ → σ → Prop) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
-    (∃ x y, t1 = ret x ∧ t2 = ret y ∧ r x y) ∨
-    (∃ (α : Type) (e : ε α) (k1 : α → CTree ε ρ) (k2 : α → CTree ε σ),
-      t1 = vis e k1 ∧ t2 = vis e k2 ∧
-        ∀ (a : α), eutt r (k1 a) (k2 a)) ∨
-    (∃ t1' t2', t1 = tau t1' ∧ t2 = tau t2' ∧ eutt r t1' t2') ∨
-    (∃ t1', t1 = tau t1' ∧ eutt r t1' t2) ∨
-    (∃ t2', t2 = tau t2' ∧ eutt r t1 t2') ∨
-    (t1 = zero ∧ t2 = zero) ∨
-    (∃ t11 t12 t21 t22, (t1 = choice t11 t12) ∧ (t2 = choice t21 t22) ∧
-      ((eutt r t11 t21 ∧ eutt r t12 t22) ∨
-       (eutt r t11 t22 ∧ eutt r t12 t21)))
-    greatest_fixpoint monotonicity by
-      simp only [Lean.Order.monotone, Lean.Order.PartialOrder.rel]
-      simp only [Lean.Order.ReverseImplicationOrder, Lean.Order.CompleteLattice.toPartialOrder]
-      simp only [Lean.Order.ReverseImplicationOrder.instCompleteLattice]
-      simp only [Lean.Order.ReverseImplicationOrder.instOrder]
-      intro r1 r2 hr x y h
-      match h with
-      | .inl h =>
-        exact Or.inl h
-      | .inr h =>
-        match h with
-        | .inl ⟨α, e, k1, k2, hx, hy, x⟩ =>
-          apply Or.inr (Or.inl _)
-          exists α, e, k1, k2
-          apply And.intro hx (And.intro hy _)
-          intro a
-          exact hr _ _ (x a)
-        | .inr h =>
-          match h with
-          | .inl ⟨t1, t2, hx, hy, h⟩ =>
-            apply Or.inr (Or.inr (Or.inl _))
-            exists t1, t2
-            exact And.intro hx (And.intro hy (hr _ _ h))
-          | .inr h =>
-            apply h.elim3
-            · intro h
-              have ⟨t1, hx, hy⟩ := h
-              apply Or.inr (Or.inr (Or.inr (Or.inl _)))
-              exists t1
-              exact And.intro hx (hr _ _ hy)
-            · intro h
-              have ⟨t2, hy, hx⟩ := h
-              apply Or.inr (Or.inr (Or.inr (Or.inr (Or.inl _))))
-              exists t2
-              exact And.intro hy (hr _ _ hx)
-            · intro h
-              match h with
-              | .inl h =>
-                exact Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inl h)))))
-              | .inr ⟨t11, t12, t21, t22, hx, hy, h⟩ =>
-                apply Or.inr (Or.inr (Or.inr (Or.inr (Or.inr (Or.inr _)))))
-                exists t11, t12, t21, t22
-                apply And.intro hx (And.intro hy _)
-                match h with
-                | .inl ⟨hx, hy⟩ =>
-                  apply Or.inl
-                  exact And.intro (hr _ _ hx) (hr _ _ hy)
-                | .inr ⟨hx, hy⟩ =>
-                  apply Or.inr
-                  exact And.intro (hr _ _ hx) (hr _ _ hy)
+  inductive EuttF (r : ρ → σ → Prop) (sim : CTree ε ρ → CTree ε σ → Prop) : CTree ε ρ → CTree ε σ → Prop
+  | ret x y (h : r x y) : EuttF r sim (ret x) (ret y)
+  -- Why can't the vis case be defined coinductively?
+  -- I.e., why is applying `h` to get a sub-proof not considering decreasing?
+  | vis {α} (e : ε α) k1 k2 (h : ∀ a, sim (k1 a) (k2 a)) : EuttF r sim (vis e k1) (vis e k2)
+  -- Shouldn't this be the only coinductive case?
+  | tau t1 t2 (h : sim t1 t2) : EuttF r sim (tau t1) (tau t2)
+  | tauL t1' t2 (h : EuttF r sim t1' t2) : EuttF r sim (tau t1') t2
+  | tauR t1 t2' (h : EuttF r sim t1 t2') : EuttF r sim t1 (tau t2')
+  -- Should these cases be inductive or coinductive?
+  -- Are these the minimal set of "axioms" to derive all intended behavior?
+  | choice t1 t2 t1' t2' (h1 : EuttF r sim t1 t1') (h2 : EuttF r sim t2 t2') : EuttF r sim (t1 ⊕ t2) (t1' ⊕ t2')
+  -- Can we remove these type casts without having to index `EuttF` with `ρ` and `σ`
+  | choiceCom t1 t2 (h : ρ = σ) : EuttF r sim (t1 ⊕ t2) (h ▸ (t2 ⊕ t1))
+  | idemp t (h : ρ = σ) : EuttF r sim (t ⊕ t) (h ▸ t)
+  | symm t1 t2 t3 (h : EuttF r sim (t1 ⊕ t2) t3) (heq : ρ = σ) : EuttF r sim (heq ▸ t3) (heq ▸ (t1 ⊕ t2))
+  | choiceId t (h : ρ = σ) : EuttF r sim (zero ⊕ t) (h ▸ t)
+  | choiceAssoc t1 t2 t3 (h : ρ = σ) : EuttF r sim ((t1 ⊕ t2) ⊕ t3) (h ▸ (t1 ⊕ (t2 ⊕ t3)))
+
+
+  namespace EuttF
+    open Lean
+
+    instance instOrder : Order.PartialOrder (CTree ε ρ → CTree ε σ → Prop) :=
+      @Order.instOrderPi _ _ λ _ => @Order.instOrderPi _ _ λ _ => Order.ReverseImplicationOrder.instOrder
+
+    instance instCompleteLattice : Order.CompleteLattice (CTree ε ρ → CTree ε σ → Prop) :=
+      @Order.instCompleteLatticePi _ _ λ _ => @Order.instCompleteLatticePi _ _ λ _ => Order.ReverseImplicationOrder.instCompleteLattice
+
+    theorem monotone {r : ρ → σ → Prop} : @Lean.Order.monotone (CTree ε ρ → CTree ε σ → Prop) instOrder (CTree ε ρ → CTree ε σ → Prop) instOrder (EuttF r) :=
+      λ _ _ hsim _ _ ht =>
+        match ht with
+        | ret _ _ h => .ret _ _ h
+        | vis _ k1 k2 h => .vis _ _ _ λ a => hsim _ _ <| h a
+        | tau _ _ h => .tau _ _ <| hsim _ _ h
+        | tauL _ _ h => .tauL _ _ <| monotone _ _ hsim _ _ h
+        | tauR _ _ h => .tauR _ _ <| monotone _ _ hsim _ _ h
+        | choice _ _ _ _ h1 h2 => .choice _ _ _ _ (monotone _ _ hsim _ _ h1) (monotone _ _ hsim _ _ h2)
+        | choiceCom _ _ h => .choiceCom _ _ h
+        | idemp _ h => .idemp _ h
+        | symm _ _ _ h heq => .symm _ _ _ (monotone _ _ hsim _ _ h) heq
+        | choiceId _ h => .choiceId _ h
+        | choiceAssoc _ _ _ h => .choiceAssoc _ _ _ h
+
+    def lfp (r : ρ → σ → Prop) :=
+      @Order.lfp (CTree ε ρ → CTree ε σ → Prop) instCompleteLattice (EuttF r)
+
+    theorem lfp_fix {r : ρ → σ → Prop} : lfp (ε := ε) r = (EuttF r) (lfp r) :=
+      Order.lfp_fix monotone
+
+  end EuttF
+
+  def Eutt (r : ρ → σ → Prop) : CTree ε ρ → CTree ε σ → Prop :=
+    EuttF.lfp r
+
+  instance : HasEquiv (CTree ε ρ) where
+    Equiv := Eutt Eq
+
+  @[refl]
+  theorem Eutt.refl {r : ρ → ρ → Prop} [IsRefl _ r] (t : CTree ε ρ) : Eutt r t t := by
+    sorry
+
+  @[symm]
+  theorem Eutt.symm {r : ρ → ρ → Prop} [IsSymm _ r] (t1 t2 : CTree ε ρ) : Eutt r t1 t2 → Eutt r t2 t1 := by
+    sorry
+
+  @[trans]
+  theorem Eutt.trans {r : ρ → ρ → Prop} [IsTrans _ r] (t1 t2 t3 : CTree ε ρ) : Eutt r t1 t2 → Eutt r t2 t3 → Eutt r t1 t3 := by
+    sorry
+
+  instance [IsEquiv _ r] : IsEquiv (CTree ε ρ) (Eutt r) where
+     refl := Eutt.refl
+     symm := Eutt.symm
+     trans := Eutt.trans
+
+  -- TODO: this is wrong
+  def par (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
+    corec' (λ rec (t1, t2) =>
+      match t1.dest, t2.dest with
+      | ⟨.ret a, _⟩, ⟨.ret b, _⟩ => .inl <| ret (a, b)
+      | ⟨.tau, c⟩, _ => .inr <| tau' <| rec (c _fin0, t2)
+      | _, ⟨.tau, c⟩ => .inr <| tau' <| rec (t1, c _fin0)
+      | ⟨.choice, cts⟩, _ => .inr <| choice' (rec ⟨cts _fin0, t2⟩) (rec (cts _fin1, t2))
+      | _, ⟨.choice, cts⟩ => .inr <| choice' (rec ⟨t1, cts _fin0⟩) (rec (t1, cts _fin1))
+      | _, _ => .inl zero
+    ) (t1, t2)
+  infixr:60 " || " => par
+
+  def parR (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε β :=
+    Prod.snd <$> (t1 || t2)
+  infixr:60 " ||→ " => parR
 
   end
 end CTree
-
-infixr:60 " ⊕ " => CTree.choice
 
 def parametricFun (E : Type → Type) (F : Type → Type) :=
   ∀ α : Type, E α → F α
