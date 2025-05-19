@@ -644,7 +644,6 @@ namespace CTree
   | choiceId t (h : ρ = σ) : EuttF r sim (zero ⊕ t) (h ▸ t)
   | choiceAssoc t1 t2 t3 (h : ρ = σ) : EuttF r sim ((t1 ⊕ t2) ⊕ t3) (h ▸ (t1 ⊕ (t2 ⊕ t3)))
 
-
   namespace EuttF
     open Lean
 
@@ -680,12 +679,70 @@ namespace CTree
   def Eutt (r : ρ → σ → Prop) : CTree ε ρ → CTree ε σ → Prop :=
     EuttF.lfp r
 
+  theorem Eutt.ret (h : r v v) : Eutt (ε := ε) r (CTree.ret v) (CTree.ret v) := by
+    rw [Eutt, EuttF.lfp_fix]
+    exact EuttF.ret _ _ h
+
+  theorem Eutt.vis (h : ∀ a, Eutt r (k1 a) (k2 a)) : Eutt r (CTree.vis e k1) (CTree.vis e k2) := by
+    rw [Eutt, EuttF.lfp_fix]
+    exact EuttF.vis _ _ _ h
+
+  theorem Eutt.tau (h : Eutt r t1 t2) : Eutt r (CTree.tau t1) (CTree.tau t2) := by
+    rw [Eutt, EuttF.lfp_fix]
+    exact EuttF.tau _ _ h
+
+  theorem Eutt.tauL (h : EuttF r (EuttF.lfp r) t1 t2) : Eutt r (CTree.tau t1) t2 := by
+    rw [Eutt, EuttF.lfp_fix]
+    exact EuttF.tauL _ _ h
+
+  theorem Eutt.tauR (h : EuttF r (EuttF.lfp r) t1 t2) : Eutt r t1 (CTree.tau t2) := by
+    rw [Eutt, EuttF.lfp_fix]
+    exact EuttF.tauR _ _ h
+
+  theorem Eutt.choice (h1 : EuttF r (EuttF.lfp r) t1 t1') (h2 : EuttF r (EuttF.lfp r) t2 t2') : Eutt r (t1 ⊕ t2) (t1' ⊕ t2') := by
+    rw [Eutt, EuttF.lfp_fix]
+    exact EuttF.choice _ _ _ _ h1 h2
+
+  theorem Eutt.choiceCom : Eutt r (t1 ⊕ t2) (t2 ⊕ t1) := by
+    rw [Eutt, EuttF.lfp_fix]
+    exact EuttF.choiceCom _ _ rfl
+
+  theorem idemp : Eutt r (t ⊕ t) t := by
+    rw [Eutt, EuttF.lfp_fix]
+    exact EuttF.idemp _ rfl
+
+  theorem symm (h : EuttF r (EuttF.lfp r) (t1 ⊕ t2) t3) : Eutt r t3 (t1 ⊕ t2) := by
+    rw [Eutt, EuttF.lfp_fix]
+    exact EuttF.symm _ _ _ h rfl
+
+  theorem choiceId : Eutt r (zero ⊕ t) t := by
+    rw [Eutt, EuttF.lfp_fix]
+    exact EuttF.choiceId _ rfl
+
+  theorem choiceAssoc : Eutt r ((t1 ⊕ t2) ⊕ t3) (t1 ⊕ (t2 ⊕ t3)) := by
+    rw [Eutt, EuttF.lfp_fix]
+    exact EuttF.choiceAssoc _ _ _ rfl
+
+  -- theorem Eutt.fix_induct_on {motive : CTree ε ρ → CTree ε σ → Prop} (R : CTree ε ρ → CTree ε σ → Prop)
+  --   (h : R x y) ()
+  --   : motive x y := sorry
+
   instance : HasEquiv (CTree ε ρ) where
     Equiv := Eutt Eq
 
   @[refl]
   theorem Eutt.refl {r : ρ → ρ → Prop} [IsRefl _ r] (t : CTree ε ρ) : Eutt r t t := by
-    sorry
+    -- apply Lean.Order.fix_induct
+    apply dMatchOn t
+    · intro v h
+      rw [h]
+      exact Eutt.ret (IsRefl.refl v)
+    · intro c h
+      rw [h]
+      sorry
+    · sorry
+    · sorry
+    · sorry
 
   @[symm]
   theorem Eutt.symm {r : ρ → ρ → Prop} [IsSymm _ r] (t1 t2 : CTree ε ρ) : Eutt r t1 t2 → Eutt r t2 t1 := by
