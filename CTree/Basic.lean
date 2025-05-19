@@ -623,146 +623,81 @@ namespace CTree
     pure_bind := pure_bind
     bind_assoc := bind_assoc
 
-  /- Weak Equivalence -/
+  /- Refinement -/
 
-  inductive EuttF (r : ρ → σ → Prop) (sim : CTree ε ρ → CTree ε σ → Prop) : CTree ε ρ → CTree ε σ → Prop
-  | ret x y (h : r x y) : EuttF r sim (ret x) (ret y)
-  -- Why can't the vis case be defined coinductively?
-  -- I.e., why is applying `h` to get a sub-proof not considering decreasing?
-  | vis {α} (e : ε α) k1 k2 (h : ∀ a, sim (k1 a) (k2 a)) : EuttF r sim (vis e k1) (vis e k2)
-  -- Shouldn't this be the only coinductive case?
-  | tau t1 t2 (h : sim t1 t2) : EuttF r sim (tau t1) (tau t2)
-  | tauL t1' t2 (h : EuttF r sim t1' t2) : EuttF r sim (tau t1') t2
-  | tauR t1 t2' (h : EuttF r sim t1 t2') : EuttF r sim t1 (tau t2')
-  -- Should these cases be inductive or coinductive?
-  -- Are these the minimal set of "axioms" to derive all intended behavior?
-  | zero : EuttF r sim zero zero
-  -- This case doesn't seem provable if we define it inductively. Why?
-  | choice t1 t2 t1' t2' (h1 : sim t1 t1') (h2 : sim t2 t2') : EuttF r sim (t1 ⊕ t2) (t1' ⊕ t2')
-  -- Can we remove these type casts without having to index `EuttF` with `ρ` and `σ`
-  | choiceCom t1 t2 (h : ρ = σ) : EuttF r sim (t1 ⊕ t2) (h ▸ (t2 ⊕ t1))
-  | idemp t (h : ρ = σ) : EuttF r sim (t ⊕ t) (h ▸ t)
-  | symm t1 t2 t3 (h : EuttF r sim (t1 ⊕ t2) t3) (heq : ρ = σ) : EuttF r sim (heq ▸ t3) (heq ▸ (t1 ⊕ t2))
-  | choiceId t (h : ρ = σ) : EuttF r sim (zero ⊕ t) (h ▸ t)
-  | choiceAssoc t1 t2 t3 (h : ρ = σ) : EuttF r sim ((t1 ⊕ t2) ⊕ t3) (h ▸ (t1 ⊕ (t2 ⊕ t3)))
+  inductive RefineF (r : ρ → σ → Prop) (sim : CTree ε ρ → CTree ε σ → Prop) : CTree ε ρ → CTree ε σ → Prop
+  | zero {t : CTree ε σ} : RefineF r sim zero t
+  | ret {x : ρ} {y : σ} (h : r x y) : RefineF r sim (ret x) (ret y)
+  | vis {α : Type} {e : ε α} {k1} {k2} (h : ∀ a, sim (k1 a) (k2 a)) : RefineF r sim (vis e k1) (vis e k2)
+  | tau {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim t1 t2) : RefineF r sim (tau t1) (tau t2)
+  | tauL {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : RefineF r sim t1 t2) : RefineF r sim (tau t1) t2
+  | tauR {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : RefineF r sim t1 t2) : RefineF r sim t1 (tau t2)
+  | choiceL (h : sim t1 t2) : RefineF r sim t1 (t2 ⊕ t3)
+  | choiceR (h : sim t1 t3) : RefineF r sim t (t2 ⊕ t3)
+  | choiceIdemp (h1 : sim t1 t3) (h2 : sim t2 t3) : RefineF r sim (t1 ⊕ t2) t3
 
-  namespace EuttF
-    open Lean
+  def Refine (r : ρ → σ → Prop) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
+    RefineF r (Refine r) t1 t2
+    greatest_fixpoint monotonicity by
+      intro _ _ hsim _ _ h
+      induction h with
+      | zero => exact RefineF.zero
+      | ret h => exact RefineF.ret h
+      | vis h => exact RefineF.vis λ a => hsim _ _ <| h a
+      | tau h => exact RefineF.tau (hsim _ _ h)
+      | tauL _ ih => exact RefineF.tauL ih
+      | tauR _ ih => exact RefineF.tauR ih
+      | choiceL h => exact RefineF.choiceL (hsim _ _ h)
+      | choiceR h => exact RefineF.choiceR (hsim _ _ h)
+      | choiceIdemp h1 h2 => exact RefineF.choiceIdemp (hsim _ _ h1) (hsim _ _ h2)
 
-    instance instOrder : Order.PartialOrder (CTree ε ρ → CTree ε σ → Prop) :=
-      @Order.instOrderPi _ _ λ _ => @Order.instOrderPi _ _ λ _ => Order.ReverseImplicationOrder.instOrder
+  -- `t1 r⊑ t2` looks better, but somehow clases with multi-line class instance definition
+  notation:60 t1:61 " ⊑"r:61"⊑ " t2:61 => Refine r t1 t2
 
-    instance instCompleteLattice : Order.CompleteLattice (CTree ε ρ → CTree ε σ → Prop) :=
-      @Order.instCompleteLatticePi _ _ λ _ => @Order.instCompleteLatticePi _ _ λ _ => Order.ReverseImplicationOrder.instCompleteLattice
+  namespace Refine
+    theorem zero : zero (ε := ε) ⊑r⊑ zero := by
+      rw [Refine]
+      exact RefineF.zero
 
-    theorem monotone {r : ρ → σ → Prop} : @Lean.Order.monotone (CTree ε ρ → CTree ε σ → Prop) instOrder (CTree ε ρ → CTree ε σ → Prop) instOrder (EuttF r) :=
-      λ _ _ hsim _ _ ht =>
-        match ht with
-        | ret _ _ h => .ret _ _ h
-        | vis _ k1 k2 h => .vis _ _ _ λ a => hsim _ _ <| h a
-        | tau _ _ h => .tau _ _ <| hsim _ _ h
-        | tauL _ _ h => .tauL _ _ <| monotone _ _ hsim _ _ h
-        | tauR _ _ h => .tauR _ _ <| monotone _ _ hsim _ _ h
-        | zero => .zero
-        | choice _ _ _ _ h1 h2 => .choice _ _ _ _ (hsim _ _ h1) (hsim _ _ h2)
-        | choiceCom _ _ h => .choiceCom _ _ h
-        | idemp _ h => .idemp _ h
-        | symm _ _ _ h heq => .symm _ _ _ (monotone _ _ hsim _ _ h) heq
-        | choiceId _ h => .choiceId _ h
-        | choiceAssoc _ _ _ h => .choiceAssoc _ _ _ h
+    theorem ret (h : r x y) : ret x (ε := ε) ⊑r⊑ ret y := by
+      rw [Refine]
+      exact RefineF.ret h
 
-    def lfp (r : ρ → σ → Prop) :=
-      @Order.lfp_monotone (CTree ε ρ → CTree ε σ → Prop) instCompleteLattice (EuttF r) monotone
+    theorem vis (h : ∀ a, k1 a ⊑r⊑ k2 a) : vis e k1 ⊑r⊑ vis e k2 := by
+      rw [Refine]
+      exact RefineF.vis h
 
-    theorem lfp_fix {r : ρ → σ → Prop} : lfp (ε := ε) r = (EuttF r) (lfp r) :=
-      Order.lfp_monotone_fix
+    theorem tau (h : t1 ⊑r⊑ t2) : t1.tau ⊑r⊑ t2.tau := by
+      rw [Refine]
+      exact RefineF.tau h
 
-  end EuttF
+    theorem tauL (h : RefineF r (Refine r) t1 t2) : t1.tau ⊑r⊑ t2 := by
+      rw [Refine]
+      exact RefineF.tauL h
 
-  def Eutt (r : ρ → σ → Prop) : CTree ε ρ → CTree ε σ → Prop :=
-    EuttF.lfp r
+    theorem tauR (h : RefineF r (Refine r) t1 t2) : t1 ⊑r⊑ t2.tau := by
+      rw [Refine]
+      exact RefineF.tauR h
 
-  theorem Eutt.ret (h : r v v) : Eutt (ε := ε) r (CTree.ret v) (CTree.ret v) := by
-    rw [Eutt, EuttF.lfp_fix]
-    exact EuttF.ret _ _ h
+    theorem choiceL (h : t1 ⊑r⊑ t2) : t1 ⊑r⊑ (t2 ⊕ t3) := by
+      rw [Refine]
+      exact RefineF.choiceL h
 
-  theorem Eutt.vis (h : ∀ a, Eutt r (k1 a) (k2 a)) : Eutt r (CTree.vis e k1) (CTree.vis e k2) := by
-    rw [Eutt, EuttF.lfp_fix]
-    exact EuttF.vis _ _ _ h
+    theorem choiceR (h : t1 ⊑r⊑ t3) : t1 ⊑r⊑ t2 ⊕ t3 := by
+      rw [Refine]
+      exact RefineF.choiceR h
 
-  theorem Eutt.tau (h : Eutt r t1 t2) : Eutt r (CTree.tau t1) (CTree.tau t2) := by
-    rw [Eutt, EuttF.lfp_fix]
-    exact EuttF.tau _ _ h
+    theorem choiceIdemp (h1 : t1 ⊑r⊑ t3) (h2 : t2 ⊑r⊑ t3) : (t1 ⊕ t2) ⊑r⊑ t3 := by
+      rw [Refine]
+      exact RefineF.choiceIdemp h1 h2
+  end Refine
 
-  theorem Eutt.tauL (h : EuttF r (EuttF.lfp r) t1 t2) : Eutt r (CTree.tau t1) t2 := by
-    rw [Eutt, EuttF.lfp_fix]
-    exact EuttF.tauL _ _ h
-
-  theorem Eutt.tauR (h : EuttF r (EuttF.lfp r) t1 t2) : Eutt r t1 (CTree.tau t2) := by
-    rw [Eutt, EuttF.lfp_fix]
-    exact EuttF.tauR _ _ h
-
-  theorem Eutt.zero : Eutt (ε := ε) r CTree.zero CTree.zero := by
-    rw [Eutt, EuttF.lfp_fix]
-    exact EuttF.zero
-
-  theorem Eutt.choice (h1 : Eutt r t1 t1') (h2 : Eutt r t2 t2') : Eutt r (t1 ⊕ t2) (t1' ⊕ t2') := by
-    rw [Eutt, EuttF.lfp_fix]
-    exact EuttF.choice _ _ _ _ h1 h2
-
-  theorem Eutt.choiceCom : Eutt r (t1 ⊕ t2) (t2 ⊕ t1) := by
-    rw [Eutt, EuttF.lfp_fix]
-    exact EuttF.choiceCom _ _ rfl
-
-  theorem idemp : Eutt r (t ⊕ t) t := by
-    rw [Eutt, EuttF.lfp_fix]
-    exact EuttF.idemp _ rfl
-
-  theorem symm (h : EuttF r (EuttF.lfp r) (t1 ⊕ t2) t3) : Eutt r t3 (t1 ⊕ t2) := by
-    rw [Eutt, EuttF.lfp_fix]
-    exact EuttF.symm _ _ _ h rfl
-
-  theorem choiceId : Eutt r (zero ⊕ t) t := by
-    rw [Eutt, EuttF.lfp_fix]
-    exact EuttF.choiceId _ rfl
-
-  theorem choiceAssoc : Eutt r ((t1 ⊕ t2) ⊕ t3) (t1 ⊕ (t2 ⊕ t3)) := by
-    rw [Eutt, EuttF.lfp_fix]
-    exact EuttF.choiceAssoc _ _ _ rfl
-
-  theorem Eutt.fix_induct (R : CTree ε ρ → CTree ε σ → Prop) (hR : ∀ x y, R x y → EuttF r R x y)
-    (x : CTree ε ρ) (y : CTree ε σ) (h : R x y) : Eutt r x y := by
-    rw [Eutt, EuttF.lfp]
-    apply Lean.Order.lfp_le_of_le_monotone (EuttF r) R
-    · intro x y h
-      exact hR x y h
-    · exact h
-
-  instance : HasEquiv (CTree ε ρ) where
-    Equiv := Eutt Eq
+  def Eutt (r : ρ → σ → Prop) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
+    (t1 ⊑r⊑ t2) ∧ (t2 ⊑(flip r)⊑ t1)
 
   @[refl]
   theorem Eutt.refl {r : ρ → ρ → Prop} [IsRefl _ r] (t : CTree ε ρ) : Eutt r t t := by
-    apply Eutt.fix_induct (λ x y => x = y) _
-    · rfl
-    · intro x y h
-      rw [h]
-      apply dMatchOn y
-      · intro v h
-        rw [h]
-        exact EuttF.ret _ _ (IsRefl.refl v)
-      · intro c h
-        rw [h]
-        exact EuttF.tau _ _ rfl
-      · intro _ e k h
-        rw [h]
-        exact EuttF.vis e _ _ λ _ => rfl
-      · intro h
-        rw [h]
-        exact EuttF.zero
-      · intro c1 c2 h
-        rw [h]
-        exact EuttF.choice _ _ _ _ rfl rfl
+    sorry
 
   @[symm]
   theorem Eutt.symm {r : ρ → ρ → Prop} [IsSymm _ r] (t1 t2 : CTree ε ρ) : Eutt r t1 t2 → Eutt r t2 t1 := by
@@ -774,8 +709,11 @@ namespace CTree
 
   instance [IsEquiv _ r] : IsEquiv (CTree ε ρ) (Eutt r) where
      refl := Eutt.refl
-     symm := Eutt.symm
      trans := Eutt.trans
+     symm := Eutt.symm
+
+  instance : HasEquiv (CTree ε ρ) where
+    Equiv := Eutt Eq
 
   -- TODO: this is wrong
   def par (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
