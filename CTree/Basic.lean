@@ -636,7 +636,9 @@ namespace CTree
   | tauR t1 t2' (h : EuttF r sim t1 t2') : EuttF r sim t1 (tau t2')
   -- Should these cases be inductive or coinductive?
   -- Are these the minimal set of "axioms" to derive all intended behavior?
-  | choice t1 t2 t1' t2' (h1 : EuttF r sim t1 t1') (h2 : EuttF r sim t2 t2') : EuttF r sim (t1 ⊕ t2) (t1' ⊕ t2')
+  | zero : EuttF r sim zero zero
+  -- This case doesn't seem provable if we define it inductively. Why?
+  | choice t1 t2 t1' t2' (h1 : sim t1 t1') (h2 : sim t2 t2') : EuttF r sim (t1 ⊕ t2) (t1' ⊕ t2')
   -- Can we remove these type casts without having to index `EuttF` with `ρ` and `σ`
   | choiceCom t1 t2 (h : ρ = σ) : EuttF r sim (t1 ⊕ t2) (h ▸ (t2 ⊕ t1))
   | idemp t (h : ρ = σ) : EuttF r sim (t ⊕ t) (h ▸ t)
@@ -661,7 +663,8 @@ namespace CTree
         | tau _ _ h => .tau _ _ <| hsim _ _ h
         | tauL _ _ h => .tauL _ _ <| monotone _ _ hsim _ _ h
         | tauR _ _ h => .tauR _ _ <| monotone _ _ hsim _ _ h
-        | choice _ _ _ _ h1 h2 => .choice _ _ _ _ (monotone _ _ hsim _ _ h1) (monotone _ _ hsim _ _ h2)
+        | zero => .zero
+        | choice _ _ _ _ h1 h2 => .choice _ _ _ _ (hsim _ _ h1) (hsim _ _ h2)
         | choiceCom _ _ h => .choiceCom _ _ h
         | idemp _ h => .idemp _ h
         | symm _ _ _ h heq => .symm _ _ _ (monotone _ _ hsim _ _ h) heq
@@ -699,7 +702,11 @@ namespace CTree
     rw [Eutt, EuttF.lfp_fix]
     exact EuttF.tauR _ _ h
 
-  theorem Eutt.choice (h1 : EuttF r (EuttF.lfp r) t1 t1') (h2 : EuttF r (EuttF.lfp r) t2 t2') : Eutt r (t1 ⊕ t2) (t1' ⊕ t2') := by
+  theorem Eutt.zero : Eutt (ε := ε) r CTree.zero CTree.zero := by
+    rw [Eutt, EuttF.lfp_fix]
+    exact EuttF.zero
+
+  theorem Eutt.choice (h1 : Eutt r t1 t1') (h2 : Eutt r t2 t2') : Eutt r (t1 ⊕ t2) (t1' ⊕ t2') := by
     rw [Eutt, EuttF.lfp_fix]
     exact EuttF.choice _ _ _ _ h1 h2
 
@@ -736,17 +743,26 @@ namespace CTree
 
   @[refl]
   theorem Eutt.refl {r : ρ → ρ → Prop} [IsRefl _ r] (t : CTree ε ρ) : Eutt r t t := by
-    -- apply Lean.Order.fix_induct
-    apply dMatchOn t
-    · intro v h
+    apply Eutt.fix_induct (λ x y => x = y) _
+    · rfl
+    · intro x y h
       rw [h]
-      exact Eutt.ret (IsRefl.refl v)
-    · intro c h
-      rw [h]
-      sorry
-    · sorry
-    · sorry
-    · sorry
+      apply dMatchOn y
+      · intro v h
+        rw [h]
+        exact EuttF.ret _ _ (IsRefl.refl v)
+      · intro c h
+        rw [h]
+        exact EuttF.tau _ _ rfl
+      · intro _ e k h
+        rw [h]
+        exact EuttF.vis e _ _ λ _ => rfl
+      · intro h
+        rw [h]
+        exact EuttF.zero
+      · intro c1 c2 h
+        rw [h]
+        exact EuttF.choice _ _ _ _ rfl rfl
 
   @[symm]
   theorem Eutt.symm {r : ρ → ρ → Prop} [IsSymm _ r] (t1 t2 : CTree ε ρ) : Eutt r t1 t2 → Eutt r t2 t1 := by
