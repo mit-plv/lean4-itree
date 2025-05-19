@@ -669,10 +669,10 @@ namespace CTree
         | choiceAssoc _ _ _ h => .choiceAssoc _ _ _ h
 
     def lfp (r : ρ → σ → Prop) :=
-      @Order.lfp (CTree ε ρ → CTree ε σ → Prop) instCompleteLattice (EuttF r)
+      @Order.lfp_monotone (CTree ε ρ → CTree ε σ → Prop) instCompleteLattice (EuttF r) monotone
 
     theorem lfp_fix {r : ρ → σ → Prop} : lfp (ε := ε) r = (EuttF r) (lfp r) :=
-      Order.lfp_fix monotone
+      Order.lfp_monotone_fix
 
   end EuttF
 
@@ -723,9 +723,13 @@ namespace CTree
     rw [Eutt, EuttF.lfp_fix]
     exact EuttF.choiceAssoc _ _ _ rfl
 
-  -- theorem Eutt.fix_induct_on {motive : CTree ε ρ → CTree ε σ → Prop} (R : CTree ε ρ → CTree ε σ → Prop)
-  --   (h : R x y) ()
-  --   : motive x y := sorry
+  theorem Eutt.fix_induct (R : CTree ε ρ → CTree ε σ → Prop) (hR : ∀ x y, R x y → EuttF r R x y)
+    (x : CTree ε ρ) (y : CTree ε σ) (h : R x y) : Eutt r x y := by
+    rw [Eutt, EuttF.lfp]
+    apply Lean.Order.lfp_le_of_le_monotone (EuttF r) R
+    · intro x y h
+      exact hR x y h
+    · exact h
 
   instance : HasEquiv (CTree ε ρ) where
     Equiv := Eutt Eq
