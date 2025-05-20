@@ -630,31 +630,44 @@ namespace CTree
   | ret {x : ρ} {y : σ} (h : r x y) : RefineF r sim (ret x) (ret y)
   | vis {α : Type} {e : ε α} {k1} {k2} (h : ∀ a, sim (k1 a) (k2 a)) : RefineF r sim (vis e k1) (vis e k2)
   | tau {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim t1 t2) : RefineF r sim (tau t1) (tau t2)
-  | tauL {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : RefineF r sim t1 t2) : RefineF r sim (tau t1) t2
-  | tauR {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : RefineF r sim t1 t2) : RefineF r sim t1 (tau t2)
-  | choiceL (h : sim t1 t2) : RefineF r sim t1 (t2 ⊕ t3)
-  | choiceR (h : sim t1 t3) : RefineF r sim t (t2 ⊕ t3)
-  | choiceIdemp (h1 : sim t1 t3) (h2 : sim t2 t3) : RefineF r sim (t1 ⊕ t2) t3
+  | tau_left {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : RefineF r sim t1 t2) : RefineF r sim (tau t1) t2
+  | tau_right {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : RefineF r sim t1 t2) : RefineF r sim t1 (tau t2)
+  | choice_left (h : sim t1 t2) : RefineF r sim t1 (t2 ⊕ t3)
+  | choice_right (h : sim t1 t3) : RefineF r sim t1 (t2 ⊕ t3)
+  | choice_idemp (h1 : sim t1 t3) (h2 : sim t2 t3) : RefineF r sim (t1 ⊕ t2) t3
+
+  namespace RefineF
+    theorem choice_choice (h1 : sim t1 t1') (h2 : sim t2 t2') : RefineF r sim (t1 ⊕ t2) (t1' ⊕ t2') := by
+      apply choice_idemp
+      ·
+        -- exact choice_left h1
+        sorry
+      · sorry
+  end RefineF
 
   def Refine (r : ρ → σ → Prop) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
-    RefineF r (Refine r) t1 t2
-    greatest_fixpoint monotonicity by
-      intro _ _ hsim _ _ h
-      induction h with
-      | zero => exact RefineF.zero
-      | ret h => exact RefineF.ret h
-      | vis h => exact RefineF.vis λ a => hsim _ _ <| h a
-      | tau h => exact RefineF.tau (hsim _ _ h)
-      | tauL _ ih => exact RefineF.tauL ih
-      | tauR _ ih => exact RefineF.tauR ih
-      | choiceL h => exact RefineF.choiceL (hsim _ _ h)
-      | choiceR h => exact RefineF.choiceR (hsim _ _ h)
-      | choiceIdemp h1 h2 => exact RefineF.choiceIdemp (hsim _ _ h1) (hsim _ _ h2)
+  RefineF r (Refine r) t1 t2
+  greatest_fixpoint monotonicity by
+    intro _ _ hsim _ _ h
+    induction h with
+    | zero => exact .zero
+    | ret h => exact .ret h
+    | vis h => exact .vis λ a => hsim _ _ <| h a
+    | tau h => exact .tau (hsim _ _ h)
+    | tau_left _ ih => exact RefineF.tau_left ih
+    | tau_right _ ih => exact RefineF.tau_right ih
+    | choice_left h => exact .choice_left (hsim _ _ h)
+    | choice_right h => exact .choice_right (hsim _ _ h)
+    | choice_idemp h1 h2 => exact .choice_idemp (hsim _ _ h1) (hsim _ _ h2)
 
-  -- `t1 r⊑ t2` looks better, but somehow clases with multi-line class instance definition
+  -- `t1 r⊑ t2` looks better, but somehow clashes with multi-line class instance definition
   notation:60 t1:61 " ⊑"r:61"⊑ " t2:61 => Refine r t1 t2
 
   namespace Refine
+    theorem Refine.coind (sim : CTree ε ρ → CTree ε σ → Prop) (adm : ∀ t1 t2, sim t1 t2 → RefineF r sim t1 t2)
+      {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim t1 t2) : t1 ⊑r⊑ t2 :=
+      Refine.fixpoint_induct r sim adm _ _ h
+
     theorem zero : zero (ε := ε) ⊑r⊑ zero := by
       rw [Refine]
       exact RefineF.zero
@@ -671,41 +684,128 @@ namespace CTree
       rw [Refine]
       exact RefineF.tau h
 
-    theorem tauL (h : RefineF r (Refine r) t1 t2) : t1.tau ⊑r⊑ t2 := by
+    theorem tau_left (h : RefineF r (Refine r) t1 t2) : t1.tau ⊑r⊑ t2 := by
       rw [Refine]
-      exact RefineF.tauL h
+      exact .tau_left h
 
-    theorem tauR (h : RefineF r (Refine r) t1 t2) : t1 ⊑r⊑ t2.tau := by
+    theorem tau_right (h : RefineF r (Refine r) t1 t2) : t1 ⊑r⊑ t2.tau := by
       rw [Refine]
-      exact RefineF.tauR h
+      exact .tau_right h
 
-    theorem choiceL (h : t1 ⊑r⊑ t2) : t1 ⊑r⊑ (t2 ⊕ t3) := by
+    theorem choice_left (h : t1 ⊑r⊑ t2) : t1 ⊑r⊑ (t2 ⊕ t3) := by
       rw [Refine]
-      exact RefineF.choiceL h
+      exact .choice_left h
 
-    theorem choiceR (h : t1 ⊑r⊑ t3) : t1 ⊑r⊑ t2 ⊕ t3 := by
+    theorem choice_right (h : t1 ⊑r⊑ t3) : t1 ⊑r⊑ t2 ⊕ t3 := by
       rw [Refine]
-      exact RefineF.choiceR h
+      exact .choice_right h
 
-    theorem choiceIdemp (h1 : t1 ⊑r⊑ t3) (h2 : t2 ⊑r⊑ t3) : (t1 ⊕ t2) ⊑r⊑ t3 := by
+    theorem choice_idemp (h1 : t1 ⊑r⊑ t3) (h2 : t2 ⊑r⊑ t3) : (t1 ⊕ t2) ⊑r⊑ t3 := by
       rw [Refine]
-      exact RefineF.choiceIdemp h1 h2
+      exact .choice_idemp h1 h2
+
+    @[refl]
+    theorem refl {r : ρ → ρ → Prop} [IsRefl ρ r] (t : CTree ε ρ) : t ⊑r⊑ t := by
+      apply Refine.coind (λ t1 t2 => t1 = t2 ∨ (∃ t3, t2 = t1 ⊕ t3) ∨ (∃ t3, t2 = t3 ⊕ t1)) _ (Or.inl rfl)
+      intro t1 t2 h
+      match h with
+      | .inl h =>
+        rw [h]
+        apply dMatchOn t2
+        · intro v h
+          rw [h]
+          exact RefineF.ret (IsRefl.refl v)
+        · intro c h
+          rw [h]
+          exact RefineF.tau <| .inl rfl
+        · intro _ e k h
+          rw [h]
+          exact RefineF.vis λ _ => .inl rfl
+        · intro h
+          rw [h]
+          exact RefineF.zero
+        · intro c1 c2 h
+          rw [h]
+          apply RefineF.choice_idemp (t1 := c1) (t2 := c2)
+          · apply Or.inr <| Or.inl _
+            exists c2
+          · apply Or.inr <| Or.inr _
+            exists c1
+      | .inr h =>
+        match h with
+        | .inl ⟨t3, h⟩ =>
+          rw [h]
+          apply RefineF.choice_left
+          exact Or.inl rfl
+        | .inr ⟨t3, h⟩ =>
+          rw [h]
+          apply RefineF.choice_right
+          exact Or.inl rfl
+
+    @[trans]
+    theorem trans {r : ρ → ρ → Prop} [IsTrans ρ r] (t1 t2 t3 : CTree ε ρ) : t1 ⊑r⊑ t2 → t2 ⊑r⊑ t3 → t1 ⊑r⊑ t3 := by
+      intro h1 h2
+      apply Refine.coind (λ t1 t3 => ∃ t2, t1 ⊑r⊑ t2 ∧ t2 ⊑r⊑ t3) _
+      · exists t2
+      · intro t1 t3 h
+        have ⟨t2, ⟨h1, h2⟩⟩ := h
+        rw [Refine] at *
+        induction h1 with
+        | zero => exact RefineF.zero
+        | vis =>
+          -- need dependent elimination
+
+          sorry
+        | ret => sorry
+        | tau => sorry
+        | tau_left => sorry
+        | tau_right => sorry
+        | choice_left => sorry
+        | choice_right => sorry
+        | choice_idemp => sorry
+
+    instance {r : ρ → ρ → Prop} [IsRefl ρ r] : IsRefl (CTree ε ρ) (Refine r) where
+      refl := refl
+
+    instance {r : ρ → ρ → Prop} [IsTrans ρ r] : IsTrans (CTree ε ρ) (Refine r) where
+      trans := trans
+
+    def instPreorder (r : ρ → ρ → Prop) [IsRefl ρ r] [IsTrans ρ r] : Preorder (CTree ε ρ) :=
+    {
+      le := Refine r,
+      le_refl := refl,
+      le_trans := trans
+    }
+
   end Refine
 
   def Eutt (r : ρ → σ → Prop) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
-    (t1 ⊑r⊑ t2) ∧ (t2 ⊑(flip r)⊑ t1)
+    t1 ⊑r⊑ t2 ∧ t2 ⊑(flip r)⊑ t1
 
-  @[refl]
-  theorem Eutt.refl {r : ρ → ρ → Prop} [IsRefl _ r] (t : CTree ε ρ) : Eutt r t t := by
-    sorry
+  instance {r : α → α → Prop} [IsRefl α r] : IsRefl α (flip r) where
+    refl a := by
+      simp only [flip]
+      exact IsRefl.refl a
 
-  @[symm]
-  theorem Eutt.symm {r : ρ → ρ → Prop} [IsSymm _ r] (t1 t2 : CTree ε ρ) : Eutt r t1 t2 → Eutt r t2 t1 := by
-    sorry
+  instance {r : α → α → Prop} [IsTrans α r] : IsTrans α (flip r) where
+    trans a b c := by
+      intro h1 h2
+      simp only [flip] at *
+      exact IsTrans.trans _ _ _ h2 h1
 
-  @[trans]
-  theorem Eutt.trans {r : ρ → ρ → Prop} [IsTrans _ r] (t1 t2 t3 : CTree ε ρ) : Eutt r t1 t2 → Eutt r t2 t3 → Eutt r t1 t3 := by
-    sorry
+  namespace Eutt
+    @[refl]
+    theorem refl {r : ρ → ρ → Prop} [IsRefl _ r] (t : CTree ε ρ) : Eutt r t t :=
+      ⟨.refl _, .refl _⟩
+
+    @[symm]
+    theorem symm {r : ρ → ρ → Prop} [IsSymm _ r] (t1 t2 : CTree ε ρ) : Eutt r t1 t2 → Eutt r t2 t1 := by
+      sorry
+
+    @[trans]
+    theorem trans {r : ρ → ρ → Prop} [IsTrans _ r] (t1 t2 t3 : CTree ε ρ) (h1 : Eutt r t1 t2) (h2 : Eutt r t2 t3) : Eutt r t1 t3 :=
+      ⟨.trans _ _ _ h1.left h2.left, .trans _ _ _ h2.right h1.right⟩
+  end Eutt
 
   instance [IsEquiv _ r] : IsEquiv (CTree ε ρ) (Eutt r) where
      refl := Eutt.refl
