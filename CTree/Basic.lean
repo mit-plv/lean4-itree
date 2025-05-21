@@ -726,6 +726,26 @@ namespace CTree
       rw [←tau_inj heq] at h
       exact h
 
+  theorem DEutt.dest_tau (h : DEutt r t1.tau t2.tau) : DEutt r t1 t2 := by
+    rw [DEutt] at *
+    generalize heq1 : t1.tau = t1t at *
+    generalize heq2 : t2.tau = t2t at *
+    cases h
+    <;> ctree_elim heq1
+    case tau h =>
+      rw [←tau_inj heq1, ←tau_inj heq2, DEutt] at h
+      exact h
+    case tau_left h =>
+      rw [←tau_inj heq1, ←heq2] at h
+      have := DEutt.dest_tau_right (by rw [DEutt]; exact h)
+      rw [DEutt] at this
+      exact this
+    case tau_right h =>
+      rw [←tau_inj heq2, ←heq1] at h
+      have := DEutt.dest_tau_left (by rw [DEutt]; exact h)
+      rw [DEutt] at this
+      exact this
+
   theorem DEutt.trans {t1 : CTree ε α} {t2 : CTree ε β} {t3 : CTree ε γ}
     (h1 : DEutt r1 t1 t2) (h2 : DEutt r2 t2 t3) : DEutt (r1.comp r2) t1 t3 := by
     apply DEutt.coind (λ t1 t3 => ∃ t2, DEutt r1 t1 t2 ∧ DEutt r2 t2 t3) _
