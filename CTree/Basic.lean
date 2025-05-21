@@ -142,6 +142,16 @@ namespace CTree
   def trigger {α : Type} (e : ε α) : CTree ε α :=
     vis e (λ x => ret x)
 
+  theorem _fin1Const_inj (h : _fin1Const x = _fin1Const y) : x = y := by
+    have := congr (a₁ := _fin0) h rfl
+    simp only [_fin1Const, _fin0, Fin2.ofNat'] at this
+    exact this
+
+  def tau_inj (h : tau t1 = tau t2) : t1 = t2 := by
+    simp only [tau, mk, tau'] at h
+    have := eq_of_heq (Sigma.mk.inj (PFunctor.M.mk_inj h)).right
+    exact _fin1Const_inj this
+
   /- Specialized utilitie functions from Mathlib -/
   abbrev dest : CTree ε ρ → P ε ρ (CTree ε ρ) := PFunctor.M.dest (F := P ε ρ)
 
@@ -624,6 +634,7 @@ namespace CTree
     bind_assoc := bind_assoc
 
   /- Refinement -/
+  macro "ctree_elim " h:term : tactic => `(tactic| try (have := (Sigma.mk.inj (PFunctor.M.mk_inj $h)).left; contradiction))
 
   inductive RefineF (r : ρ → σ → Prop) (sim : CTree ε ρ → CTree ε σ → Prop) : CTree ε ρ → CTree ε σ → Prop
   | zero {t : CTree ε σ} : RefineF r sim zero t
@@ -635,15 +646,6 @@ namespace CTree
   | choice_left (h : sim t1 t2) : RefineF r sim t1 (t2 ⊕ t3)
   | choice_right (h : sim t1 t3) : RefineF r sim t1 (t2 ⊕ t3)
   | choice_idemp (h1 : sim t1 t3) (h2 : sim t2 t3) : RefineF r sim (t1 ⊕ t2) t3
-
-  namespace RefineF
-    theorem choice_choice (h1 : sim t1 t1') (h2 : sim t2 t2') : RefineF r sim (t1 ⊕ t2) (t1' ⊕ t2') := by
-      apply choice_idemp
-      ·
-        -- exact choice_left h1
-        sorry
-      · sorry
-  end RefineF
 
   def Refine (r : ρ → σ → Prop) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
   RefineF r (Refine r) t1 t2
@@ -664,7 +666,7 @@ namespace CTree
   notation:60 t1:61 " ⊑"r:61"⊑ " t2:61 => Refine r t1 t2
 
   namespace Refine
-    theorem Refine.coind (sim : CTree ε ρ → CTree ε σ → Prop) (adm : ∀ t1 t2, sim t1 t2 → RefineF r sim t1 t2)
+    theorem coind (sim : CTree ε ρ → CTree ε σ → Prop) (adm : ∀ t1 t2, sim t1 t2 → RefineF r sim t1 t2)
       {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim t1 t2) : t1 ⊑r⊑ t2 :=
       Refine.fixpoint_induct r sim adm _ _ h
 
@@ -703,6 +705,61 @@ namespace CTree
     theorem choice_idemp (h1 : t1 ⊑r⊑ t3) (h2 : t2 ⊑r⊑ t3) : (t1 ⊕ t2) ⊑r⊑ t3 := by
       rw [Refine]
       exact .choice_idemp h1 h2
+
+    theorem dest_tau_left (h : t1.tau ⊑r⊑ t2) : t1 ⊑r⊑ t2 := by
+      sorry
+
+    theorem dest_tau_right (h : t1 ⊑r⊑ t2.tau) : t1 ⊑r⊑ t2 := by
+      generalize heq : t2.tau = t2t at *
+      rw [Refine] at *
+      induction h
+      <;> try (have ⟨heq_shape, heq_child⟩ := (Sigma.mk.inj (PFunctor.M.mk_inj heq)))
+      <;> try contradiction
+      case zero => exact RefineF.zero
+      case tau h =>
+        apply RefineF.tau_left
+        rw [tau_inj heq]
+        rw [Refine] at h
+        exact h
+      case tau_left h ih =>
+        have ih := ih heq
+        apply RefineF.tau_left
+        exact ih
+      case tau_right h _ =>
+        rw [tau_inj heq]
+        exact h
+      case choice_idemp h1 h2 =>
+        rw [←heq] at h1
+        rw [←heq] at h2
+        apply RefineF.choice_idemp
+        · 
+          sorry
+        · sorry
+
+    theorem dest_tau (h : t1.tau ⊑r⊑ t2.tau) : t1 ⊑r⊑ t2 := by
+      rw [Refine] at *
+      generalize heq1 : t1.tau = t1t at *
+      generalize heq2 : t2.tau = t2t at *
+      cases h
+      <;> ctree_elim heq1
+      <;> ctree_elim heq2
+      case tau h =>
+        rw [tau_inj heq1] at *
+        rw [tau_inj heq2] at *
+        rw [Refine] at h
+        exact h
+      case tau_left h =>
+        rw [←heq2] at h
+        rw [←tau_inj heq1] at h
+        have := dest_tau_right (by rw [Refine]; exact h)
+        rw [Refine] at this
+        exact this
+      case tau_right h =>
+        rw [←heq1] at h
+        rw [←tau_inj heq2] at h
+        have := dest_tau_left (by rw [Refine]; exact h)
+        rw [Refine] at this
+        exact this
 
     @[refl]
     theorem refl {r : ρ → ρ → Prop} [IsRefl ρ r] (t : CTree ε ρ) : t ⊑r⊑ t := by
@@ -753,9 +810,38 @@ namespace CTree
         induction h1 with
         | zero => exact RefineF.zero
         | vis =>
-          -- need dependent elimination
-
-          sorry
+          rename_i e k1 k2 hk1
+          generalize heq : (CTree.vis e k2) = t2 at *
+          induction h2
+          <;> try (have ⟨heq_shape, heq_child⟩ := (Sigma.mk.inj (PFunctor.M.mk_inj heq)))
+          <;> try contradiction
+          case vis h =>
+            have ⟨ha, he⟩ := CTree.shape.vis.inj heq_shape
+            subst ha
+            have he := eq_of_heq he
+            subst he
+            apply RefineF.vis
+            intro a
+            exists k2 a
+            apply And.intro (hk1 a)
+            have heq_child := eq_of_heq heq_child
+            have := congr (a₁ := ULift.up a) heq_child rfl
+            simp only at this
+            rw [this]
+            rename_i hk _
+            exact hk a
+          case tau_right h ih =>
+            have ⟨t2, ⟨h1, h2⟩⟩ := h
+            apply RefineF.tau_right
+            apply ih
+            · exists t2
+              apply And.intro h1
+              exact dest_tau_right h2
+            · exact heq
+          case choice_left =>
+            sorry
+          case choice_right =>
+            sorry
         | ret => sorry
         | tau => sorry
         | tau_left => sorry
