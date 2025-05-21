@@ -2,6 +2,78 @@ import Mathlib.Data.QPF.Univariate.Basic
 import Mathlib.Data.Vector3
 import Mathlib.Data.Rel
 
+@[reducible]
+def Function.exp {α : Sort u} (f : α → α) (n : Nat) : α → α :=
+  match n with
+  | 0 => id
+  | n + 1 => f ∘ (Function.exp f n)
+
+def SumF (P1 P2 : PFunctor.{u}) : PFunctor.{u} :=
+  ⟨Sum P1.A P2.A, λ a => match a with | .inl a => P1.B a | .inr a => P2.B a⟩
+
+def PFunctor.exp (P : PFunctor.{u}) : Nat → PFunctor.{u}
+| 0 => P
+| n + 1 => PFunctor.comp P (P.exp n)
+
+def Pn (P : PFunctor.{u}) : Nat → PFunctor.{u}
+| 0 => P
+| n + 1 => SumF (P.exp (n + 1)) (Pn P n)
+infixl:70 " ^ " => Pn
+
+def SumF.inl {P1 P2 : PFunctor.{u}} : P1.M → (SumF P1 P2).M  := sorry
+
+def SumF.inr {P1 P2 : PFunctor.{u}} : P2.M → (SumF P1 P2).M  := sorry
+
+def SumF.case : (SumF P1 P2).M → P1 (SumF P1 P2).M ⊕ P2 (SumF P1 P2).M := sorry
+
+def SumF.destL : P1 (SumF P1 P2).M → (SumF P1 P2).M := sorry
+
+def SumF.destR : P2 (SumF P1 P2).M → (SumF P1 P2).M := sorry
+
+def PFunctor.fold {P : PFunctor.{u}} (x : P.M) : (n : Nat) → (P ^ n).M
+| 0 => x
+| n + 1 =>
+  let x' := P.fold x n
+  SumF.inr x'
+
+/-
+
+P1 => P'
+P2 => P'
+------------
+(SumF P1 P2) => P'
+
+P => P'
+---------
+P.M → P'.M
+
+P => P' := P P'.M → P'.M
+
+P.comp P => P
+
+-/
+
+def PFunctor.unfold {P : PFunctor.{u}} : (n : Nat) → (x : (P ^ n).M) → P.M
+| 0 => id
+| 1 => λ x => by
+  rw [Pn, PFunctor.exp] at x
+  rw [Pn, PFunctor.exp] at x
+  sorry
+| n + 1 => λ x =>
+  match SumF.case x with
+  | .inl x =>
+    sorry
+  | .inr x => sorry--(.mk (P.unfold n x))
+
+def corecN {P : PFunctor.{u}} {α : Type u} (n : Nat)
+  (F : ∀ {X : Type u}, (α → X) → α → P.M ⊕ (P ^ n) X) (x : α) : P.M :=
+  let y : (P ^ n).M := PFunctor.M.corec' (λ rec y =>
+    match F rec y with
+    | .inl y => .inl <| PFunctor.fold y n
+    | .inr y => .inr y
+  ) x
+  PFunctor.unfold n y
+
 theorem Rel.comp_self {r : Rel α α} [IsRefl α r] [IsTrans α r] : r.comp r = r := by
   funext x y
   simp only [Rel.comp]
@@ -13,7 +85,6 @@ theorem Rel.comp_self {r : Rel α α} [IsRefl α r] [IsTrans α r] : r.comp r = 
   · intro h
     exists x
     exact And.intro (IsRefl.refl x) h
-
 
 /--
 Coinductive Choice Tree defined with `PFunctor.M`.
@@ -746,6 +817,8 @@ namespace CTree
       rw [DEutt] at this
       exact this
 
+  #check DEuttF.rec
+
   theorem DEutt.trans {t1 : CTree ε α} {t2 : CTree ε β} {t3 : CTree ε γ}
     (h1 : DEutt r1 t1 t2) (h2 : DEutt r2 t2 t3) : DEutt (r1.comp r2) t1 t3 := by
     apply DEutt.coind (λ t1 t3 => ∃ t2, DEutt r1 t1 t2 ∧ DEutt r2 t2 t3) _
@@ -753,6 +826,7 @@ namespace CTree
     · intro t1 t3 h
       have ⟨t2, ⟨h1, h2⟩⟩ := h
       rw [DEutt] at *
+      -- apply DEuttF.rec
       induction h1 with
       | ret =>
         rename_i x y _
@@ -1158,23 +1232,42 @@ namespace CTree
   instance : HasEquiv (CTree ε ρ) where
     Equiv := Eutt Eq
 
+  def vis_left {α β} (par : CTree ε α → CTree ε β → CTree ε (α × β))
+    (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
+    sorry
+
+  def bothRet (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
+    sorry
+
   -- TODO: How to do the case with two events?
-  def par (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
-    corec' (λ {X} rec (t1, t2) =>
-      match t1.dest, t2.dest with
-      | ⟨.ret a, _⟩, ⟨.ret b, _⟩ => .inl <| ret (a, b)
-      | ⟨.tau, c⟩, _ => .inr <| tau' <| rec (c _fin0, t2)
-      | _, ⟨.tau, c⟩ => .inr <| tau' <| rec (t1, c _fin0)
-      | ⟨.choice, cts⟩, _ => .inr <| choice' (rec ⟨cts _fin0, t2⟩) (rec (cts _fin1, t2))
-      | _, ⟨.choice, cts⟩ => .inr <| choice' (rec ⟨t1, cts _fin0⟩) (rec (t1, cts _fin1))
-      | ⟨.vis α1 e1, k1⟩, ⟨.vis α2 e2, k2⟩ =>
-        let left : P ε (α × β) X := vis' e1 λ a => rec ⟨k1 (.up a), t2⟩
-        let right : P ε (α × β) X := vis' e2 λ a => rec ⟨t1, k2 (.up a)⟩
-        .inr <| choice' sorry sorry
-      | ⟨.vis α' e, k⟩, _ => .inr <| vis' e λ a => rec ⟨k (.up a), t2⟩
-      | _, ⟨.vis α' e, k⟩ => .inr <| vis' e λ a => rec ⟨t1, k (.up a)⟩
-      | _, _ => .inl zero
+  def biasedEffect (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
+    corec' (λ rec (t1, t2) =>
+      match t1.dest with
+      | ⟨.ret a, _⟩ => .inl <| zero
+      | ⟨.tau, c⟩ => .inr <| tau' <| rec (c _fin0, t2)
+      | ⟨.zero, _⟩ => .inl <| zero
+      | ⟨.choice, cts⟩ => .inr <| choice' (rec ⟨cts _fin0, t2⟩) (rec (cts _fin1, t2))
+      | ⟨.vis α e, k⟩ =>
+        .inr <| vis' e λ a =>
+          let k := k (.up a)
+          choice' (rec ⟨k, t2⟩) (bothRet k t2)
     ) (t1, t2)
+    -- corec (α := sorry) (λ state => sorry) sorry
+    -- corec' (λ {X} rec (t1, t2) =>
+    --   match t1.dest, t2.dest with
+    --   | ⟨.ret a, _⟩, ⟨.ret b, _⟩ => .inl <| ret (a, b)
+    --   | ⟨.tau, c⟩, _ => .inr <| tau' <| rec (c _fin0, t2)
+    --   | _, ⟨.tau, c⟩ => .inr <| tau' <| rec (t1, c _fin0)
+    --   | ⟨.choice, cts⟩, _ => .inr <| choice' (rec ⟨cts _fin0, t2⟩) (rec (cts _fin1, t2))
+    --   | _, ⟨.choice, cts⟩ => .inr <| choice' (rec ⟨t1, cts _fin0⟩) (rec (t1, cts _fin1))
+    --   | ⟨.vis α1 e1, k1⟩, ⟨.vis α2 e2, k2⟩ =>
+    --     let left : P ε (α × β) X := vis' e1 λ a => rec ⟨k1 (.up a), t2⟩
+    --     let right : P ε (α × β) X := vis' e2 λ a => rec ⟨t1, k2 (.up a)⟩
+    --     .inr <| choice' sorry sorry
+    --   | ⟨.vis α' e, k⟩, _ => .inr <| vis' e λ a => rec ⟨k (.up a), t2⟩
+    --   | _, ⟨.vis α' e, k⟩ => .inr <| vis' e λ a => rec ⟨t1, k (.up a)⟩
+    --   | _, _ => .inl zero
+    -- ) (t1, t2)
   infixr:60 " || " => par
 
   def parR (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε β :=
