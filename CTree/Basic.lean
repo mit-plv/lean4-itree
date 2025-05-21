@@ -1,5 +1,19 @@
 import Mathlib.Data.QPF.Univariate.Basic
 import Mathlib.Data.Vector3
+import Mathlib.Data.Rel
+
+theorem Rel.comp_self {r : Rel α α} [IsRefl α r] [IsTrans α r] : r.comp r = r := by
+  funext x y
+  simp only [Rel.comp]
+  apply propext
+  apply Iff.intro
+  · intro h
+    have ⟨z, ⟨h1, h2⟩⟩ := h
+    exact IsTrans.trans _ _ _ h1 h2
+  · intro h
+    exists x
+    exact And.intro (IsRefl.refl x) h
+
 
 /--
 Coinductive Choice Tree defined with `PFunctor.M`.
@@ -641,7 +655,7 @@ namespace CTree
   /- Refinement -/
   macro "ctree_elim " h:term : tactic => `(tactic| try (have := (Sigma.mk.inj (PFunctor.M.mk_inj $h)).left; contradiction))
 
-  inductive RefineF (r : ρ → σ → Prop) (sim : CTree ε ρ → CTree ε σ → Prop) : CTree ε ρ → CTree ε σ → Prop
+  inductive RefineF (r : Rel ρ σ) (sim : CTree ε ρ → CTree ε σ → Prop) : CTree ε ρ → CTree ε σ → Prop
   | zero {t : CTree ε σ} : RefineF r sim zero t
   | ret {x : ρ} {y : σ} (h : r x y) : RefineF r sim (ret x) (ret y)
   | vis {α : Type} {e : ε α} {k1} {k2} (h : ∀ a, sim (k1 a) (k2 a)) : RefineF r sim (vis e k1) (vis e k2)
@@ -652,7 +666,7 @@ namespace CTree
   | choice_right (h : sim t1 t3) : RefineF r sim t1 (t2 ⊕ t3)
   | choice_idemp (h1 : sim t1 t3) (h2 : sim t2 t3) : RefineF r sim (t1 ⊕ t2) t3
 
-  def Refine (r : ρ → σ → Prop) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
+  def Refine (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
   RefineF r (Refine r) t1 t2
   greatest_fixpoint monotonicity by
     intro _ _ hsim _ _ h
@@ -731,7 +745,7 @@ namespace CTree
         case tau h =>
           match h with
           | .inl h =>
-
+            
             sorry
           | .inr h =>
             sorry
@@ -772,7 +786,7 @@ namespace CTree
         exact this
 
     @[refl]
-    theorem refl {r : ρ → ρ → Prop} [IsRefl ρ r] (t : CTree ε ρ) : t ⊑r⊑ t := by
+    theorem refl {r : Rel ρ ρ} [IsRefl ρ r] (t : CTree ε ρ) : t ⊑r⊑ t := by
       apply Refine.coind (λ t1 t2 => t1 = t2 ∨ (∃ t3, t2 = t1 ⊕ t3) ∨ (∃ t3, t2 = t3 ⊕ t1)) _ (Or.inl rfl)
       intro t1 t2 h
       match h with
@@ -810,9 +824,10 @@ namespace CTree
           exact Or.inl rfl
 
     @[trans]
-    theorem trans {r : ρ → ρ → Prop} [IsTrans ρ r] (t1 t2 t3 : CTree ε ρ) : t1 ⊑r⊑ t2 → t2 ⊑r⊑ t3 → t1 ⊑r⊑ t3 := by
+    theorem trans {r1 : Rel α β} {r2 : Rel β γ} {t1 : CTree ε α} {t2 : CTree ε β} {t3 : CTree ε γ}
+      : t1 ⊑r1⊑ t2 → t2 ⊑r2⊑ t3 → t1 ⊑(r1.comp r2)⊑ t3 := by
       intro h1 h2
-      apply Refine.coind (λ t1 t3 => ∃ t2, t1 ⊑r⊑ t2 ∧ t2 ⊑r⊑ t3) _
+      apply Refine.coind (λ t1 t3 => ∃ t2, t1 ⊑r1⊑ t2 ∧ t2 ⊑r2⊑ t3) _
       · exists t2
       · intro t1 t3 h
         have ⟨t2, ⟨h1, h2⟩⟩ := h
@@ -874,7 +889,8 @@ namespace CTree
             have := ret_inj heq
             rw [←this] at hxy'
             apply RefineF.ret
-            exact IsTrans.trans _ _ _ hxy hxy'
+            simp only [Rel.comp]
+            exists y
           case tau_right ih =>
             apply RefineF.tau_right
             apply ih _ heq
@@ -901,37 +917,60 @@ namespace CTree
               apply RefineF.ret
               assumption
             · assumption
-        | tau => sorry
+        | tau =>
+          rename_i t2 _
+          generalize heq : t2.tau = t2t at *
+          induction h2
+          <;> ctree_elim heq
+          case tau =>
+            apply RefineF.tau
+            have ⟨t2, h⟩ := h
+            exists t2
+            exact And.intro (dest_tau_left h.left) (dest_tau_right h.right)
+          case tau_left =>
+            apply RefineF.tau_left
+            rename_i h1 _ _ _ _
+            sorry
+          all_goals sorry
         | tau_left => sorry
         | tau_right => sorry
         | choice_left => sorry
         | choice_right => sorry
         | choice_idemp => sorry
 
-    instance {r : ρ → ρ → Prop} [IsRefl ρ r] : IsRefl (CTree ε ρ) (Refine r) where
+    instance {r : Rel ρ ρ} [IsRefl ρ r] : IsRefl (CTree ε ρ) (Refine r) where
       refl := refl
 
-    instance {r : ρ → ρ → Prop} [IsTrans ρ r] : IsTrans (CTree ε ρ) (Refine r) where
-      trans := trans
+    -- TODO: Does `r` have to be refl and trans?
+    instance {r : Rel ρ ρ} [IsRefl ρ r] [IsTrans ρ r] : IsTrans (CTree ε ρ) (Refine r) where
+      trans := by
+        intro a b c h1 h2
+        have := trans h1 h2
+        rw [Rel.comp_self (r := r)] at this
+        exact this
 
-    def instPreorder (r : ρ → ρ → Prop) [IsRefl ρ r] [IsTrans ρ r] : Preorder (CTree ε ρ) :=
+    def instPreorder (r : Rel ρ ρ) [IsRefl ρ r] [IsTrans ρ r] : Preorder (CTree ε ρ) :=
     {
       le := Refine r,
       le_refl := refl,
-      le_trans := trans
+      le_trans := by
+        intro a b c h1 h2
+        have := trans h1 h2
+        rw [Rel.comp_self (r := r)] at this
+        exact this
     }
 
   end Refine
 
-  def Eutt (r : ρ → σ → Prop) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
+  def Eutt (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
     t1 ⊑r⊑ t2 ∧ t2 ⊑(flip r)⊑ t1
 
-  instance {r : α → α → Prop} [IsRefl α r] : IsRefl α (flip r) where
+  instance {r : Rel α α} [IsRefl α r] : IsRefl α (flip r) where
     refl a := by
       simp only [flip]
       exact IsRefl.refl a
 
-  instance {r : α → α → Prop} [IsTrans α r] : IsTrans α (flip r) where
+  instance {r : Rel α α} [IsTrans α r] : IsTrans α (flip r) where
     trans a b c := by
       intro h1 h2
       simp only [flip] at *
@@ -939,16 +978,16 @@ namespace CTree
 
   namespace Eutt
     @[refl]
-    theorem refl {r : ρ → ρ → Prop} [IsRefl _ r] (t : CTree ε ρ) : Eutt r t t :=
+    theorem refl {r : Rel ρ ρ} [IsRefl _ r] (t : CTree ε ρ) : Eutt r t t :=
       ⟨.refl _, .refl _⟩
 
     @[symm]
-    theorem symm {r : ρ → ρ → Prop} [IsSymm _ r] (t1 t2 : CTree ε ρ) : Eutt r t1 t2 → Eutt r t2 t1 := by
+    theorem symm {r : Rel ρ ρ} [IsSymm _ r] (t1 t2 : CTree ε ρ) : Eutt r t1 t2 → Eutt r t2 t1 := by
       sorry
 
     @[trans]
-    theorem trans {r : ρ → ρ → Prop} [IsTrans _ r] (t1 t2 t3 : CTree ε ρ) (h1 : Eutt r t1 t2) (h2 : Eutt r t2 t3) : Eutt r t1 t3 :=
-      ⟨.trans _ _ _ h1.left h2.left, .trans _ _ _ h2.right h1.right⟩
+    theorem trans {r : Rel ρ ρ} [IsRefl _ r] [IsTrans _ r] (t1 t2 t3 : CTree ε ρ) (h1 : Eutt r t1 t2) (h2 : Eutt r t2 t3) : Eutt r t1 t3 :=
+      ⟨(Rel.comp_self (r := r)) ▸ .trans h1.left h2.left, (Rel.comp_self (r := flip r)) ▸ .trans h2.right h1.right⟩
   end Eutt
 
   instance [IsEquiv _ r] : IsEquiv (CTree ε ρ) (Eutt r) where
