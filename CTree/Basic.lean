@@ -147,7 +147,12 @@ namespace CTree
     simp only [_fin1Const, _fin0, Fin2.ofNat'] at this
     exact this
 
-  def tau_inj (h : tau t1 = tau t2) : t1 = t2 := by
+  theorem ret_inj (h : @ret ε ρ x = ret y) : x = y := by
+    simp only [ret, mk, ret'] at h
+    have := (Sigma.mk.inj (PFunctor.M.mk_inj h)).left
+    exact shape.ret.inj this
+
+  theorem tau_inj (h : tau t1 = tau t2) : t1 = t2 := by
     simp only [tau, mk, tau'] at h
     have := eq_of_heq (Sigma.mk.inj (PFunctor.M.mk_inj h)).right
     exact _fin1Const_inj this
@@ -710,31 +715,36 @@ namespace CTree
       sorry
 
     theorem dest_tau_right (h : t1 ⊑r⊑ t2.tau) : t1 ⊑r⊑ t2 := by
-      generalize heq : t2.tau = t2t at *
-      rw [Refine] at *
-      induction h
-      <;> try (have ⟨heq_shape, heq_child⟩ := (Sigma.mk.inj (PFunctor.M.mk_inj heq)))
-      <;> try contradiction
-      case zero => exact RefineF.zero
-      case tau h =>
-        apply RefineF.tau_left
-        rw [tau_inj heq]
-        rw [Refine] at h
-        exact h
-      case tau_left h ih =>
-        have ih := ih heq
-        apply RefineF.tau_left
-        exact ih
-      case tau_right h _ =>
-        rw [tau_inj heq]
-        exact h
-      case choice_idemp h1 h2 =>
-        rw [←heq] at h1
-        rw [←heq] at h2
-        apply RefineF.choice_idemp
-        · 
+      apply coind (λ t1 t2 => t1 ⊑r⊑ t2 ∨ t1 ⊑r⊑ t2.tau) _ (.inr h)
+      intro t1 t2 h
+      match h with
+      | .inl h =>
+
+        sorry
+      | .inr h =>
+        generalize heq : t2.tau = t2t at *
+        rw [Refine] at *
+        induction h
+        <;> try (have ⟨heq_shape, heq_child⟩ := (Sigma.mk.inj (PFunctor.M.mk_inj heq)))
+        <;> try contradiction
+        case zero => exact RefineF.zero
+        case tau h =>
+          match h with
+          | .inl h =>
+
+            sorry
+          | .inr h =>
+            sorry
+        case tau_left h ih =>
           sorry
-        · sorry
+        case tau_right h _ =>
+          sorry
+        case choice_idemp h1 h2 =>
+          rw [←heq] at h1
+          rw [←heq] at h2
+          apply RefineF.choice_idemp
+          · exact .inr h1
+          · exact .inr h2
 
     theorem dest_tau (h : t1.tau ⊑r⊑ t2.tau) : t1 ⊑r⊑ t2 := by
       rw [Refine] at *
@@ -839,10 +849,58 @@ namespace CTree
               exact dest_tau_right h2
             · exact heq
           case choice_left =>
-            sorry
+            apply RefineF.choice_left
+            rename_i h'
+            rw [←heq] at h'
+            exists .vis e k2
+            apply And.intro
+            · exact vis hk1
+            · exact h'
           case choice_right =>
-            sorry
-        | ret => sorry
+            apply RefineF.choice_right
+            rename_i h'
+            rw [←heq] at h'
+            exists .vis e k2
+            apply And.intro
+            · exact vis hk1
+            · exact h'
+        | ret =>
+          rename_i x y _
+          generalize heq : CTree.ret y = t2 at *
+          induction h2
+          <;> ctree_elim heq
+          case ret =>
+            rename_i hxy _ _ hxy'
+            have := ret_inj heq
+            rw [←this] at hxy'
+            apply RefineF.ret
+            exact IsTrans.trans _ _ _ hxy hxy'
+          case tau_right ih =>
+            apply RefineF.tau_right
+            apply ih _ heq
+            have ⟨t2, h⟩ := h
+            exists t2
+            exact And.intro h.left (dest_tau_right h.right)
+          case choice_left =>
+            apply RefineF.choice_left
+            rename_i t1' _ _ _
+            exists t1'
+            apply And.intro
+            · rw [←heq]
+              rw [Refine]
+              apply RefineF.ret
+              assumption
+            · assumption
+          case choice_right =>
+            apply RefineF.choice_right
+            rename_i t1' _ _ _
+            exists t1'
+            apply And.intro
+            · rw [←heq]
+              rw [Refine]
+              apply RefineF.ret
+              assumption
+            · assumption
         | tau => sorry
         | tau_left => sorry
         | tau_right => sorry
@@ -901,15 +959,21 @@ namespace CTree
   instance : HasEquiv (CTree ε ρ) where
     Equiv := Eutt Eq
 
-  -- TODO: this is wrong
+  -- TODO: How to do the case with two events?
   def par (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
-    corec' (λ rec (t1, t2) =>
+    corec' (λ {X} rec (t1, t2) =>
       match t1.dest, t2.dest with
       | ⟨.ret a, _⟩, ⟨.ret b, _⟩ => .inl <| ret (a, b)
       | ⟨.tau, c⟩, _ => .inr <| tau' <| rec (c _fin0, t2)
       | _, ⟨.tau, c⟩ => .inr <| tau' <| rec (t1, c _fin0)
       | ⟨.choice, cts⟩, _ => .inr <| choice' (rec ⟨cts _fin0, t2⟩) (rec (cts _fin1, t2))
       | _, ⟨.choice, cts⟩ => .inr <| choice' (rec ⟨t1, cts _fin0⟩) (rec (t1, cts _fin1))
+      | ⟨.vis α1 e1, k1⟩, ⟨.vis α2 e2, k2⟩ =>
+        let left : P ε (α × β) X := vis' e1 λ a => rec ⟨k1 (.up a), t2⟩
+        let right : P ε (α × β) X := vis' e2 λ a => rec ⟨t1, k2 (.up a)⟩
+        .inr <| choice' sorry sorry
+      | ⟨.vis α' e, k⟩, _ => .inr <| vis' e λ a => rec ⟨k (.up a), t2⟩
+      | _, ⟨.vis α' e, k⟩ => .inr <| vis' e λ a => rec ⟨t1, k (.up a)⟩
       | _, _ => .inl zero
     ) (t1, t2)
   infixr:60 " || " => par
