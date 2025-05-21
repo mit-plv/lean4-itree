@@ -166,6 +166,22 @@ namespace CTree
     have := (Sigma.mk.inj (PFunctor.M.mk_inj h)).left
     exact shape.ret.inj this
 
+  theorem vis_inj_α {e1 : ε α1} {e2 : ε α2} (h : vis e1 k1 = vis e2 k2) : α1 = α2 := by
+    simp only [vis, mk, vis'] at h
+    have := (Sigma.mk.inj (PFunctor.M.mk_inj h)).left
+    exact (shape.vis.inj this).left
+
+  theorem vis_inj (h : vis e1 k1 = vis e2 k2) : e1 = e2 ∧ k1 = k2 := by
+    simp only [vis, mk, vis'] at h
+    have := Sigma.mk.inj (PFunctor.M.mk_inj h)
+    apply And.intro
+    · exact eq_of_heq (shape.vis.inj this.left).right
+    · have := eq_of_heq this.right
+      funext x
+      have := congr (a₁ := .up x) this rfl
+      simp only at this
+      exact this
+
   theorem tau_inj (h : tau t1 = tau t2) : t1 = t2 := by
     simp only [tau, mk, tau'] at h
     have := eq_of_heq (Sigma.mk.inj (PFunctor.M.mk_inj h)).right
@@ -652,8 +668,132 @@ namespace CTree
     pure_bind := pure_bind
     bind_assoc := bind_assoc
 
-  /- Refinement -/
   macro "ctree_elim " h:term : tactic => `(tactic| try (have := (Sigma.mk.inj (PFunctor.M.mk_inj $h)).left; contradiction))
+
+  /- Deterministic Equivalence up to Tau -/
+  inductive DEuttF (r : Rel ρ σ) (sim : Rel (CTree ε ρ) (CTree ε σ)) : Rel (CTree ε ρ) (CTree ε σ)
+  | ret (h : r x y) : DEuttF r sim (ret x) (ret y)
+  | vis {α : Type} {e : ε α} {k1 : α → CTree ε ρ} {k2 : α → CTree ε σ}
+        (h : ∀ a : α, sim (k1 a) (k2 a)) : DEuttF r sim (vis e k1) (vis e k2)
+  | tau (h : sim t1 t2) : DEuttF r sim t1.tau t2.tau
+  | tau_left (h : DEuttF r sim t1 t2) : DEuttF r sim t1.tau t2
+  | tau_right (h : DEuttF r sim t1 t2) : DEuttF r sim t1 t2.tau
+
+  def DEutt (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
+    DEuttF r (DEutt r) t1 t2
+    greatest_fixpoint monotonicity by
+      intro _ _ hsim _ _ h
+      induction h with
+      | ret h => exact .ret h
+      | vis h => exact .vis λ a => hsim _ _ <| h a
+      | tau h => exact .tau (hsim _ _ h)
+      | tau_left _ ih => exact DEuttF.tau_left ih
+      | tau_right _ ih => exact DEuttF.tau_right ih
+
+  theorem DEutt.coind (sim : Rel (CTree ε ρ) (CTree ε σ)) (adm : ∀ t1 t2, sim t1 t2 → DEuttF r sim t1 t2)
+    {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim t1 t2) : DEutt r t1 t2 :=
+    DEutt.fixpoint_induct r sim adm _ _ h
+
+  theorem DEutt.dest_tau_left (h : DEutt r t1.tau t2) : DEutt r t1 t2 := by
+    rw [DEutt] at *
+    generalize heq : t1.tau = t1t at *
+    induction h
+    <;> ctree_elim heq
+    case tau h =>
+      apply DEuttF.tau_right
+      rw [←tau_inj heq, DEutt] at h
+      exact h
+    case tau_left h _ =>
+      rw [←tau_inj heq] at h
+      exact h
+    case tau_right ih =>
+      apply DEuttF.tau_right
+      exact ih heq
+
+  theorem DEutt.dest_tau_right (h : DEutt r t1 t2.tau) : DEutt r t1 t2 := by
+    rw [DEutt] at *
+    generalize heq : t2.tau = t2t at *
+    induction h
+    <;> ctree_elim heq
+    case tau h =>
+      apply DEuttF.tau_left
+      rw [←tau_inj heq, DEutt] at h
+      exact h
+    case tau_left ih =>
+      apply DEuttF.tau_left
+      exact ih heq
+    case tau_right h _ =>
+      rw [←tau_inj heq] at h
+      exact h
+
+  theorem DEutt.trans {t1 : CTree ε α} {t2 : CTree ε β} {t3 : CTree ε γ}
+    (h1 : DEutt r1 t1 t2) (h2 : DEutt r2 t2 t3) : DEutt (r1.comp r2) t1 t3 := by
+    apply DEutt.coind (λ t1 t3 => ∃ t2, DEutt r1 t1 t2 ∧ DEutt r2 t2 t3) _
+    · exists t2
+    · intro t1 t3 h
+      have ⟨t2, ⟨h1, h2⟩⟩ := h
+      rw [DEutt] at *
+      induction h1 with
+      | ret =>
+        rename_i x y _
+        generalize heq : ret y = t2 at *
+        induction h2
+        <;> ctree_elim heq
+        case ret =>
+          apply DEuttF.ret
+          rename_i h'
+          rw [←ret_inj heq] at h'
+          exists y
+        case tau_right ih =>
+          apply DEuttF.tau_right
+          apply ih _ heq
+          have ⟨t2, h⟩ := h
+          exists t2
+          exact And.intro h.left (dest_tau_right h.right)
+      | vis hk1 =>
+        rename_i α e k1 k2
+        generalize heq : vis e k2 = t2 at *
+        induction h2
+        <;> ctree_elim heq
+        case vis =>
+          have := vis_inj_α heq
+          subst this
+          have := (vis_inj heq)
+          rw [this.left]
+          apply DEuttF.vis
+          intro a
+          rw [this.right] at hk1
+          rename_i k2 k3 hk2
+          exists k2 a
+          exact And.intro (hk1 a) (hk2 a)
+        case tau_right ih =>
+          apply DEuttF.tau_right
+          apply ih _ heq
+          have ⟨t2, h⟩ := h
+          exists t2
+          exact And.intro h.left h.right.dest_tau_right
+      | tau h1 =>
+        rename_i t1 t2
+        generalize heq : t2.tau = t2t at *
+        induction h2
+        <;> ctree_elim heq
+        case tau =>
+          apply DEuttF.tau
+          have ⟨t2, h⟩ := h
+          exists t2
+          exact And.intro h.left.dest_tau_left h.right.dest_tau_right
+        case tau_left h2 ih =>
+          rename_i t3
+          rw [←tau_inj heq] at h2
+          clear *- h1 h2 ih
+          apply DEuttF.tau_left
+
+          sorry
+        sorry
+      | tau_left h ih => sorry
+      | tau_right h ih => sorry
+
+  /- Refinement -/
 
   inductive RefineF (r : Rel ρ σ) (sim : CTree ε ρ → CTree ε σ → Prop) : CTree ε ρ → CTree ε σ → Prop
   | zero {t : CTree ε σ} : RefineF r sim zero t
@@ -745,7 +885,7 @@ namespace CTree
         case tau h =>
           match h with
           | .inl h =>
-            
+
             sorry
           | .inr h =>
             sorry
