@@ -857,6 +857,37 @@ namespace CTree
       apply DEuttF.tau_left
       exact ih
 
+  theorem DEuttF.tauN_right (h : DEuttF r sim t1 t2) : ∀ n, DEuttF r sim t1 (tauN n t2) := by
+    intro n
+    induction n with
+    | zero =>
+      simp only [tauN]
+      exact h
+    | succ _ ih =>
+      simp only [tauN]
+      apply DEuttF.tau_right
+      exact ih
+
+  theorem DEutt.dest_ret_left {t2 : CTree ε σ} (h : DEutt r (ret x) t2) : ∃ (n : Nat) (y : σ), r x y ∧ t2 = tauN n (ret y) := by
+    generalize ht1 : ret x = t1 at *
+    rw [DEutt] at *
+    induction h
+    <;> ctree_elim ht1
+    case ret =>
+      rw [ret_inj ht1]
+      rename_i y _
+      exists 0, y
+    case tau_right ih =>
+      have ⟨n, x, ⟨hr, ht1⟩⟩ := ih ht1
+      exists n + 1, x
+      apply And.intro hr
+      rw [ht1]
+      simp only [tauN]
+
+  theorem DEuttF.dest_ret_left {t2 : CTree ε σ} (h : DEuttF r (DEutt r) (CTree.ret x) t2) : ∃ (n : Nat) (y : σ), r x y ∧ t2 = tauN n (CTree.ret y) := by
+    have := DEutt.dest_ret_left (by rw [DEutt]; exact h)
+    exact this
+
   theorem DEutt.dest_ret_right (h : DEutt r t1 (ret y)) : ∃ (n : Nat) (x : ρ), r x y ∧ t1 = tauN n (ret x) := by
     generalize ht2 : ret y = t2 at *
     rw [DEutt] at *
@@ -866,6 +897,53 @@ namespace CTree
       rw [ret_inj ht2]
       rename_i x _ _
       exists 0, x
+    case tau_left ih =>
+      have ⟨n, x, ⟨hr, ht1⟩⟩ := ih ht2
+      exists n + 1, x
+      apply And.intro hr
+      rw [ht1]
+      simp only [tauN]
+
+  theorem DEutt.dest_vis_left {α} {e : ε α} {k1 : α → CTree ε ρ} {t2 : CTree ε σ} (h : DEutt r (vis e k1) t2)
+    : ∃ (n : Nat) (k2 : α → CTree ε σ), (∀ a : α, DEutt r (k1 a) (k2 a)) ∧ t2 = tauN n (vis e k2) := by
+    generalize ht1 : vis e k1 = t1 at *
+    rw [DEutt] at *
+    induction h
+    <;> ctree_elim ht1
+    case vis h =>
+      rename_i k2
+      have ha := vis_inj_α ht1
+      subst ha
+      have ⟨he, hk⟩ := vis_inj ht1
+      subst he
+      subst hk
+      exists 0, k2
+    case tau_right ih =>
+      have ⟨n, x, ⟨hr, ht1⟩⟩ := ih ht1
+      exists n + 1, x
+      apply And.intro hr
+      rw [ht1]
+      simp only [tauN]
+
+  theorem DEuttF.dest_vis_left {α} {e : ε α} {k1 : α → CTree ε ρ} {t2 : CTree ε σ} (h : DEuttF r (DEutt r) (CTree.vis e k1) t2)
+    : ∃ (n : Nat) (k2 : α → CTree ε σ), (∀ a : α, DEutt r (k1 a) (k2 a)) ∧ t2 = tauN n (CTree.vis e k2) := by
+    have := DEutt.dest_vis_left (by rw [DEutt]; exact h)
+    exact this
+
+  theorem DEutt.dest_vis_right {α} {e : ε α} {k2 : α → CTree ε σ} (h : DEutt r t1 (vis e k2))
+    : ∃ (n : Nat) (k1 : α → CTree ε ρ), (∀ a : α, DEutt r (k1 a) (k2 a)) ∧ t1 = tauN n (vis e k1) := by
+    generalize ht2 : vis e k2 = t2 at *
+    rw [DEutt] at *
+    induction h
+    <;> ctree_elim ht2
+    case vis h =>
+      rename_i k1 _
+      have ha := vis_inj_α ht2
+      subst ha
+      have ⟨he, hk⟩ := vis_inj ht2
+      subst he
+      subst hk
+      exists 0, k1
     case tau_left ih =>
       have ⟨n, x, ⟨hr, ht1⟩⟩ := ih ht2
       exists n + 1, x
@@ -888,25 +966,20 @@ namespace CTree
       induction h1 with
       | ret hxy =>
         rename_i x y
-        generalize ht2 : ret y = t2 at *
-        induction h2
-        <;> ctree_elim ht2
-        case ret =>
-          apply DEuttF.ret
-          exists y
-          apply And.intro
-          · assumption
-          · rw [ret_inj ht2]
-            assumption
-        case tau_right ih =>
-          apply DEuttF.tau_right
-          apply ih
-          · have ⟨t2, ⟨h1, h2⟩⟩ := h
-            exists t2
-            apply And.intro h1 h2.dest_tau_right
-          · assumption
+        have ⟨n3, z, ⟨hyz, ht3⟩⟩ := h2.dest_ret_left
+        rw [ht3]
+        apply DEuttF.tauN_right
+        apply DEuttF.ret
+        exists y
       | vis =>
-        sorry
+        rename_i α e k1 k2 hk1
+        have ⟨n3, k3, ⟨hk2, ht3⟩⟩ := h2.dest_vis_left
+        rw [ht3]
+        apply DEuttF.tauN_right
+        apply DEuttF.vis
+        intro a
+        exists k2 a
+        exact And.intro (hk1 a) (hk2 a)
       | tau =>
         induction DEuttF.dest_tau_left h2
         case ret =>
@@ -922,8 +995,17 @@ namespace CTree
         case vis =>
           apply DEuttF.tau_left
           have ⟨t2, ⟨h1, h2⟩⟩ := h
-
-          sorry
+          have h1 := h1.dest_tau_left
+          have ⟨n2, k2, ⟨hk2, ht2⟩⟩ := h2.dest_vis_right
+          rw [ht2] at h1
+          have h1 := h1.dest_tauN_right
+          have ⟨n1, k1, ⟨hk1, ht1⟩⟩ := h1.dest_vis_right
+          rw [ht1]
+          apply DEuttF.tauN_left
+          apply DEuttF.vis
+          intro a
+          exists k2 a
+          exact And.intro (hk1 a) (hk2 a)
         case tau =>
           apply DEuttF.tau
           have ⟨t2, ⟨h1, h2⟩⟩ := h
@@ -943,7 +1025,6 @@ namespace CTree
             exists t2
             exact And.intro h1 h2.dest_tau_right
           · exact h2.dest_tau_right
-        all_goals sorry
       | tau_left _ ih =>
         apply DEuttF.tau_left
         apply ih
