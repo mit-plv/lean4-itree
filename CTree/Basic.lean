@@ -211,6 +211,11 @@ namespace CTree
   def tau (t : CTree ε ρ) : CTree ε ρ :=
     .mk <| tau' t
 
+  def tauN (n : Nat) (t : CTree ε ρ) : CTree ε ρ :=
+    match n with
+    | 0 => t
+    | n + 1 => tau (tauN n t)
+
   @[match_pattern, simp]
   def vis {α : Type} (e : ε α) (k : α → CTree ε ρ) : CTree ε ρ :=
     .mk <| vis' e k
@@ -781,6 +786,11 @@ namespace CTree
       apply DEuttF.tau_right
       exact ih heq
 
+  theorem DEuttF.dest_tau_left (h : DEuttF r (DEutt r) t1.tau t2) : DEuttF r (DEutt r) t1 t2 := by
+    have := DEutt.dest_tau_left (by rw [DEutt]; exact h)
+    rw [DEutt] at this
+    exact this
+
   theorem DEutt.dest_tau_right (h : DEutt r t1 t2.tau) : DEutt r t1 t2 := by
     rw [DEutt] at *
     generalize heq : t2.tau = t2t at *
@@ -796,6 +806,20 @@ namespace CTree
     case tau_right h _ =>
       rw [←tau_inj heq] at h
       exact h
+
+  theorem DEuttF.dest_tau_right (h : DEuttF r (DEutt r) t1 t2.tau) : DEuttF r (DEutt r) t1 t2 := by
+    have := DEutt.dest_tau_right (by rw [DEutt]; exact h)
+    rw [DEutt] at this
+    exact this
+
+  theorem DEutt.dest_tauN_right (h : DEutt r t1 (tauN n t2)) : DEutt r t1 t2 := by
+    induction n with
+    | zero =>
+      simp only [tauN] at h
+      exact h
+    | succ _ ih =>
+      simp only [tauN] at h
+      exact ih h.dest_tau_right
 
   theorem DEutt.dest_tau (h : DEutt r t1.tau t2.tau) : DEutt r t1 t2 := by
     rw [DEutt] at *
@@ -817,7 +841,42 @@ namespace CTree
       rw [DEutt] at this
       exact this
 
-  #check DEuttF.rec
+  theorem DEuttF.dest_tau (h : DEuttF r (DEutt r) t1.tau t2.tau) : DEuttF r (DEutt r) t1 t2 := by
+    have := DEutt.dest_tau (by rw [DEutt]; exact h)
+    rw [DEutt] at this
+    exact this
+
+  theorem DEuttF.tauN_left (h : DEuttF r sim t1 t2) : ∀ n, DEuttF r sim (tauN n t1) t2 := by
+    intro n
+    induction n with
+    | zero =>
+      simp only [tauN]
+      exact h
+    | succ _ ih =>
+      simp only [tauN]
+      apply DEuttF.tau_left
+      exact ih
+
+  theorem DEutt.dest_ret_right (h : DEutt r t1 (ret y)) : ∃ (n : Nat) (x : ρ), r x y ∧ t1 = tauN n (ret x) := by
+    generalize ht2 : ret y = t2 at *
+    rw [DEutt] at *
+    induction h
+    <;> ctree_elim ht2
+    case ret =>
+      rw [ret_inj ht2]
+      rename_i x _ _
+      exists 0, x
+    case tau_left ih =>
+      have ⟨n, x, ⟨hr, ht1⟩⟩ := ih ht2
+      exists n + 1, x
+      apply And.intro hr
+      rw [ht1]
+      simp only [tauN]
+
+  theorem DEutt.tauN_left (h : DEutt r t1 t2) : ∀ n, DEutt r (tauN n t1) t2 := by
+    intro n
+    rw [DEutt] at *
+    exact h.tauN_left n
 
   theorem DEutt.trans {t1 : CTree ε α} {t2 : CTree ε β} {t3 : CTree ε γ}
     (h1 : DEutt r1 t1 t2) (h2 : DEutt r2 t2 t3) : DEutt (r1.comp r2) t1 t3 := by
@@ -826,66 +885,74 @@ namespace CTree
     · intro t1 t3 h
       have ⟨t2, ⟨h1, h2⟩⟩ := h
       rw [DEutt] at *
-      -- apply DEuttF.rec
       induction h1 with
-      | ret =>
-        rename_i x y _
-        generalize heq : ret y = t2 at *
+      | ret hxy =>
+        rename_i x y
+        generalize ht2 : ret y = t2 at *
         induction h2
-        <;> ctree_elim heq
+        <;> ctree_elim ht2
         case ret =>
           apply DEuttF.ret
-          rename_i h'
-          rw [←ret_inj heq] at h'
           exists y
+          apply And.intro
+          · assumption
+          · rw [ret_inj ht2]
+            assumption
         case tau_right ih =>
           apply DEuttF.tau_right
-          apply ih _ heq
-          have ⟨t2, h⟩ := h
-          exists t2
-          exact And.intro h.left (dest_tau_right h.right)
-      | vis hk1 =>
-        rename_i α e k1 k2
-        generalize heq : vis e k2 = t2 at *
-        induction h2
-        <;> ctree_elim heq
-        case vis =>
-          have := vis_inj_α heq
-          subst this
-          have := (vis_inj heq)
-          rw [this.left]
-          apply DEuttF.vis
-          intro a
-          rw [this.right] at hk1
-          rename_i k2 k3 hk2
-          exists k2 a
-          exact And.intro (hk1 a) (hk2 a)
-        case tau_right ih =>
-          apply DEuttF.tau_right
-          apply ih _ heq
-          have ⟨t2, h⟩ := h
-          exists t2
-          exact And.intro h.left h.right.dest_tau_right
-      | tau h1 =>
-        rename_i t1 t2
-        generalize heq : t2.tau = t2t at *
-        induction h2
-        <;> ctree_elim heq
-        case tau =>
-          apply DEuttF.tau
-          have ⟨t2, h⟩ := h
-          exists t2
-          exact And.intro h.left.dest_tau_left h.right.dest_tau_right
-        case tau_left h2 ih =>
-          rename_i t3
-          rw [←tau_inj heq] at h2
-          clear *- h1 h2 ih
+          apply ih
+          · have ⟨t2, ⟨h1, h2⟩⟩ := h
+            exists t2
+            apply And.intro h1 h2.dest_tau_right
+          · assumption
+      | vis =>
+        sorry
+      | tau =>
+        induction DEuttF.dest_tau_left h2
+        case ret =>
           apply DEuttF.tau_left
+          have ⟨t2, ⟨h1, h2⟩⟩ := h
+          have ⟨n2, y, ⟨hyz, ht2⟩⟩:= DEutt.dest_ret_right h2
+          rw [ht2] at h1
+          have ⟨n1, x, ⟨hxy, ht1⟩⟩ := h1.dest_tau_left.dest_tauN_right.dest_ret_right
+          rw [ht1]
+          apply DEuttF.tauN_left
+          apply DEuttF.ret
+          exists y
+        case vis =>
+          apply DEuttF.tau_left
+          have ⟨t2, ⟨h1, h2⟩⟩ := h
 
           sorry
-        sorry
-      | tau_left h ih => sorry
-      | tau_right h ih => sorry
+        case tau =>
+          apply DEuttF.tau
+          have ⟨t2, ⟨h1, h2⟩⟩ := h
+          exists t2
+          exact And.intro h1.dest_tau_left h2.dest_tau_right
+        case tau_left ih _ =>
+          apply ih
+          · rename_i h1
+            exact h1.dest_tau_right
+          · exact h
+          · exact h2.dest_tau_left
+        case tau_right ih _ =>
+          apply DEuttF.tau_right
+          apply ih
+          · assumption
+          · have ⟨t2, ⟨h1, h2⟩⟩ := h
+            exists t2
+            exact And.intro h1 h2.dest_tau_right
+          · exact h2.dest_tau_right
+        all_goals sorry
+      | tau_left _ ih =>
+        apply DEuttF.tau_left
+        apply ih
+        · have ⟨t2, ⟨h1, h2⟩⟩ := h
+          exists t2
+          exact And.intro h1.dest_tau_left h2
+        · assumption
+      | tau_right _ ih =>
+        exact ih h h2.dest_tau_left
 
   /- Refinement -/
 
@@ -1241,17 +1308,18 @@ namespace CTree
 
   -- TODO: How to do the case with two events?
   def biasedEffect (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
-    corec' (λ rec (t1, t2) =>
-      match t1.dest with
-      | ⟨.ret a, _⟩ => .inl <| zero
-      | ⟨.tau, c⟩ => .inr <| tau' <| rec (c _fin0, t2)
-      | ⟨.zero, _⟩ => .inl <| zero
-      | ⟨.choice, cts⟩ => .inr <| choice' (rec ⟨cts _fin0, t2⟩) (rec (cts _fin1, t2))
-      | ⟨.vis α e, k⟩ =>
-        .inr <| vis' e λ a =>
-          let k := k (.up a)
-          choice' (rec ⟨k, t2⟩) (bothRet k t2)
-    ) (t1, t2)
+    sorry
+    -- corec' (λ rec (t1, t2) =>
+    --   match t1.dest with
+    --   | ⟨.ret a, _⟩ => .inl <| zero
+    --   | ⟨.tau, c⟩ => .inr <| tau' <| rec (c _fin0, t2)
+    --   | ⟨.zero, _⟩ => .inl <| zero
+    --   | ⟨.choice, cts⟩ => .inr <| choice' (rec ⟨cts _fin0, t2⟩) (rec (cts _fin1, t2))
+    --   | ⟨.vis α e, k⟩ =>
+    --     .inr <| vis' e λ a =>
+    --       let k := k (.up a)
+    --       choice' (rec ⟨k, t2⟩) (bothRet k t2)
+    -- ) (t1, t2)
     -- corec (α := sorry) (λ state => sorry) sorry
     -- corec' (λ {X} rec (t1, t2) =>
     --   match t1.dest, t2.dest with
@@ -1268,11 +1336,11 @@ namespace CTree
     --   | _, ⟨.vis α' e, k⟩ => .inr <| vis' e λ a => rec ⟨t1, k (.up a)⟩
     --   | _, _ => .inl zero
     -- ) (t1, t2)
-  infixr:60 " || " => par
+  -- infixr:60 " || " => par
 
-  def parR (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε β :=
-    Prod.snd <$> (t1 || t2)
-  infixr:60 " ||→ " => parR
+  -- def parR (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε β :=
+  --   Prod.snd <$> (t1 || t2)
+  -- infixr:60 " ||→ " => parR
 
   end
 end CTree
