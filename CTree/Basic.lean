@@ -1040,20 +1040,30 @@ namespace CTree
 
   -- Should the choice cases be coinductive?
   inductive RefineF (r : Rel ρ σ) (sim : CTree ε ρ → CTree ε σ → Prop) : CTree ε ρ → CTree ε σ → Prop
-  | deutt (h : DEutt r t1 t2) : RefineF r sim t1 t2
+  | ret (h : r x y) : RefineF r sim (ret x) (ret y)
+  | vis {α : Type} {e : ε α} {k1 : α → CTree ε ρ} {k2 : α → CTree ε σ}
+        (h : ∀ a : α, sim (k1 a) (k2 a)) : RefineF r sim (vis e k1) (vis e k2)
+  | tau (h : sim t1 t2) : RefineF r sim t1.tau t2.tau
+  | tau_left (h : RefineF r sim t1 t2) : RefineF r sim t1.tau t2
+  | tau_right (h : RefineF r sim t1 t2) : RefineF r sim t1 t2.tau
   | zero {t : CTree ε σ} : RefineF r sim zero t
-  | choice_left (h : sim t1 t2) : RefineF r sim t1 (t2 ⊕ t3)
+  | choice_left (h : RefineF r sim t1 t2) : RefineF r sim t1 (t2 ⊕ t3)
   | choice_right (h : sim t1 t3) : RefineF r sim t1 (t2 ⊕ t3)
   | choice_idemp (h1 : sim t1 t3) (h2 : sim t2 t3) : RefineF r sim (t1 ⊕ t2) t3
 
+  #check RefineF.rec
   def Refine (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
   RefineF r (Refine r) t1 t2
   greatest_fixpoint monotonicity by
     intro _ _ hsim _ _ h
     induction h with
-    | deutt h => exact .deutt h
+    | ret h => exact .ret h
+    | vis h => exact .vis λ a => hsim _ _ <| h a
+    | tau h => exact .tau (hsim _ _ h)
+    | tau_left _ ih => exact RefineF.tau_left ih
+    | tau_right _ ih => exact RefineF.tau_right ih
     | zero => exact .zero
-    | choice_left h => exact .choice_left (hsim _ _ h)
+    | choice_left _ ih => exact .choice_left ih --(hsim _ _ h)
     | choice_right h => exact .choice_right (hsim _ _ h)
     | choice_idemp h1 h2 => exact .choice_idemp (hsim _ _ h1) (hsim _ _ h2)
 
@@ -1065,7 +1075,30 @@ namespace CTree
     Refine.fixpoint_induct r sim adm _ _ h
 
   theorem Refine.dest_tau_left (h : t1.tau ⊑r⊑ t2) : t1 ⊑r⊑ t2 := by
-    sorry
+    -- apply Refine.coind (λ t1 t2 => t1.tau ⊑r⊑ t2) _ h
+    -- intro t1 t2 h
+    generalize ht1 : t1.tau = t1t at *
+    rw [Refine] at *
+    induction h
+    <;> ctree_elim ht1
+    case tau h =>
+      apply RefineF.tau_right
+      rw [←tau_inj ht1] at h
+      rw [Refine] at h
+      exact h
+    case tau_left h _ =>
+      rw [←tau_inj ht1] at h
+      exact h
+    case tau_right ih =>
+      apply RefineF.tau_right
+      exact ih ht1
+    case choice_left ih =>
+      apply RefineF.choice_left
+      exact ih ht1
+    case choice_right h =>
+      apply RefineF.choice_right
+      rw [←ht1] at h
+      sorry
 
   theorem Refine.dest_tau_right (h : t1 ⊑r⊑ t2.tau) : t1 ⊑r⊑ t2 := by
     sorry
@@ -1075,24 +1108,7 @@ namespace CTree
 
   @[refl]
   theorem Refine.refl {r : Rel ρ ρ} [IsRefl ρ r] (t : CTree ε ρ) : t ⊑r⊑ t := by
-    apply Refine.coind (λ t t' => t = t') _ rfl
-    intro t t' heq
-    rw [←heq]
-    apply dMatchOn t
-    · intro v heq
-      rw [heq]
-      apply RefineF.deutt
-      rw [DEutt]
-      apply DEuttF.ret
-      exact IsRefl.refl v
-    · intro c heq
-      rw [heq]
-      apply RefineF.deutt
-      -- rfl
-      sorry
-    · sorry
-    · sorry
-    · sorry
+    sorry
 
   @[trans]
   theorem Refine.trans {r1 : Rel α β} {r2 : Rel β γ} {t1 : CTree ε α} {t2 : CTree ε β} {t3 : CTree ε γ}
