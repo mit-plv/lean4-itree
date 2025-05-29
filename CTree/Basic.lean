@@ -875,7 +875,8 @@ namespace CTree
               Nat.reduceAdd, Vector3.cons_fs, Vector3.cons_fz, infND, corec', PFunctor.M.corec',
               PFunctor.M.corec₁, Bind.bind, Sum.bind, choice', PFunctor.map]
 
-  example : t ⊑r⊑ infND := by
+  theorem infND_refine : ∀ t : CTree ε ρ, t ⊑r⊑ infND := by
+    intro
     apply Refine.coind (λ _ t => t = t ⊕ t) _ infND_eq
     intro t1 t2 h
     rw [h]
