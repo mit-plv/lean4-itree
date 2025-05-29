@@ -1237,14 +1237,107 @@ namespace CTree
       rw [tau_inj ht2]
       exact h.dest_tau_left
 
+  theorem Refine.dest_ret_left {t2 : CTree ε σ} (h : Refine r (ret x) t2)
+    : ∃ (n : Nat) (t2' : CTree ε σ), t2 = tauN n t2' ∧
+          ((∃ (y : σ), r x y ∧ t2' = ret y)
+           ∨ (∃ t3 t4, t2' = t3 ⊕ t4 ∧ (ret x ⊑r⊑ t3 ∨ ret x ⊑r⊑ t4))) := by
+    generalize ht1 : ret x = t1 at h
+    rw [Refine] at *
+    induction h
+    <;> ctree_elim ht1
+    case ret hxy =>
+      rename_i _ y
+      rw [←ret_inj ht1] at hxy
+      exists 0, ret y
+      apply And.intro
+      · simp only [tauN]
+      · apply Or.inl
+        exists y
+    case tau_right ih =>
+      have ⟨n, t2', ⟨ht2, h⟩⟩ := ih ht1
+      exists n + 1, t2'
+      apply And.intro _ h
+      rw [ht2]
+      simp only [tauN]
+    case choice_left h =>
+      rename_i t3 t4
+      exists 0, t3 ⊕ t4
+      apply And.intro
+      · simp only [tauN]
+      · apply Or.inr
+        exists t3, t4
+        apply And.intro rfl
+        exact Or.inl h
+    case choice_right h =>
+      rename_i t4 t3
+      exists 0, t3 ⊕ t4
+      apply And.intro
+      · simp only [tauN]
+      · apply Or.inr
+        exists t3, t4
+        apply And.intro rfl
+        exact Or.inr h
+
+  theorem RefineF.tauN_right (h : RefineF r sim t1 t2) : ∀ n, RefineF r sim t1 (tauN n t2) := by
+    intro n
+    induction n with
+    | zero =>
+      simp only [tauN]
+      exact h
+    | succ _ ih =>
+      simp only [tauN]
+      apply RefineF.tau_right
+      exact ih
+
+  theorem RefineF.dest_ret_left {t2 : CTree ε σ} (h : RefineF r (Refine r) (CTree.ret x) t2)
+    : ∃ (n : Nat) (t2' : CTree ε σ), t2 = tauN n t2' ∧
+          ((∃ (y : σ), r x y ∧ t2' = CTree.ret y)
+           ∨ (∃ t3 t4, t2' = t3 ⊕ t4 ∧ (CTree.ret x ⊑r⊑ t3 ∨ CTree.ret x ⊑r⊑ t4))) :=
+    Refine.dest_ret_left (by rw [Refine]; exact h)
+
   @[refl]
   theorem Refine.refl {r : Rel ρ ρ} [IsRefl ρ r] (t : CTree ε ρ) : t ⊑r⊑ t := by
     sorry
 
   @[trans]
   theorem Refine.trans {r1 : Rel α β} {r2 : Rel β γ} {t1 : CTree ε α} {t2 : CTree ε β} {t3 : CTree ε γ}
-    : t1 ⊑r1⊑ t2 → t2 ⊑r2⊑ t3 → t1 ⊑(r1.comp r2)⊑ t3 := by
-    sorry
+    (h1 : t1 ⊑r1⊑ t2) (h2 : t2 ⊑r2⊑ t3) : t1 ⊑(r1.comp r2)⊑ t3 := by
+    apply Refine.coind (λ t1 t3 => ∃ t2, t1 ⊑r1⊑ t2 ∧ t2 ⊑r2⊑ t3) _
+    · exists t2
+    · intro t1 t3 ⟨t2, ⟨h1, h2⟩⟩
+      rw [Refine] at *
+      induction h1 with
+      | ret hxy =>
+        have ⟨n, t3', ht3, h⟩ := h2.dest_ret_left
+        rename_i y
+        match h with
+        | .inl ⟨z, ⟨hyz, ht3'⟩⟩ =>
+          rw [ht3, ht3']
+          apply RefineF.tauN_right
+          apply RefineF.ret
+          exists y
+        | .inr ⟨t3, t4, ⟨ht3', h⟩⟩ =>
+          rw [ht3, ht3']
+          apply RefineF.tauN_right
+          cases h
+          on_goal 1 =>
+            apply RefineF.choice_left
+          on_goal 2 =>
+            apply RefineF.choice_right
+          all_goals
+           (exists ret y
+            apply And.intro
+            · rw [Refine]
+              exact RefineF.ret hxy
+            · assumption)
+      | vis => sorry
+      | tau => sorry
+      | tau_left => sorry
+      | tau_right => sorry
+      | zero => sorry
+      | choice_left => sorry
+      | choice_right => sorry
+      | choice_idemp => sorry
 
   instance {r : Rel ρ ρ} [IsRefl ρ r] : IsRefl (CTree ε ρ) (Refine r) where
     refl := .refl
