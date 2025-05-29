@@ -1239,7 +1239,7 @@ namespace CTree
 
   theorem Refine.dest_ret_left {t2 : CTree ε σ} (h : Refine r (ret x) t2)
     : ∃ (n : Nat) (t2' : CTree ε σ), t2 = tauN n t2' ∧
-          ((∃ (y : σ), r x y ∧ t2' = ret y)
+          ((∃ (y : σ), t2' = ret y ∧ r x y)
            ∨ (∃ t3 t4, t2' = t3 ⊕ t4 ∧ (ret x ⊑r⊑ t3 ∨ ret x ⊑r⊑ t4))) := by
     generalize ht1 : ret x = t1 at h
     rw [Refine] at *
@@ -1278,6 +1278,63 @@ namespace CTree
         apply And.intro rfl
         exact Or.inr h
 
+  theorem RefineF.dest_ret_left {t2 : CTree ε σ} (h : RefineF r (Refine r) (.ret x) t2)
+    : ∃ (n : Nat) (t2' : CTree ε σ), t2 = tauN n t2' ∧
+          ((∃ (y : σ), t2' = .ret y ∧ r x y)
+           ∨ (∃ t3 t4, t2' = t3 ⊕ t4 ∧ (.ret x ⊑r⊑ t3 ∨ .ret x ⊑r⊑ t4))) :=
+    Refine.dest_ret_left (by rw [Refine]; exact h)
+
+  theorem Refine.dest_vis_left {e : ε α} {t2 : CTree ε σ} (h : Refine r (vis e k1) t2)
+    : ∃ (n : Nat) (t2' : CTree ε σ), t2 = tauN n t2' ∧
+          ((∃ (k2 : α → CTree ε σ), t2' = vis e k2 ∧ ∀ a, k1 a ⊑r⊑ k2 a)
+           ∨ (∃ t3 t4, t2' = t3 ⊕ t4 ∧ (vis e k1 ⊑r⊑ t3 ∨ vis e k1 ⊑r⊑ t4))) := by
+    generalize ht1 : vis e k1 = t1 at h
+    rw [Refine] at *
+    induction h
+    <;> ctree_elim ht1
+    case vis h =>
+      rename_i k2
+      have ha := vis_inj_α ht1
+      subst ha
+      have ⟨he, hk⟩ := vis_inj ht1
+      subst he
+      rw [←hk] at h
+      exists 0, vis e k2
+      apply And.intro
+      · simp only [tauN]
+      · apply Or.inl
+        exists k2
+    case tau_right ih =>
+      have ⟨n, t2', ⟨ht2, h⟩⟩ := ih ht1
+      exists n + 1, t2'
+      apply And.intro _ h
+      rw [ht2]
+      simp only [tauN]
+    case choice_left h =>
+      rename_i t3 t4
+      exists 0, t3 ⊕ t4
+      apply And.intro
+      · simp only [tauN]
+      · apply Or.inr
+        exists t3, t4
+        apply And.intro rfl
+        exact Or.inl h
+    case choice_right h =>
+      rename_i t4 t3
+      exists 0, t3 ⊕ t4
+      apply And.intro
+      · simp only [tauN]
+      · apply Or.inr
+        exists t3, t4
+        apply And.intro rfl
+        exact Or.inr h
+
+  theorem RefineF.dest_vis_left {e : ε α} {t2 : CTree ε σ} (h : RefineF r (Refine r) (.vis e k1) t2)
+    : ∃ (n : Nat) (t2' : CTree ε σ), t2 = tauN n t2' ∧
+          ((∃ (k2 : α → CTree ε σ), t2' = .vis e k2 ∧ ∀ a, k1 a ⊑r⊑ k2 a)
+           ∨ (∃ t3 t4, t2' = t3 ⊕ t4 ∧ (.vis e k1 ⊑r⊑ t3 ∨ .vis e k1 ⊑r⊑ t4))) :=
+    Refine.dest_vis_left (by rw [Refine]; exact h)
+
   theorem RefineF.tauN_right (h : RefineF r sim t1 t2) : ∀ n, RefineF r sim t1 (tauN n t2) := by
     intro n
     induction n with
@@ -1288,12 +1345,6 @@ namespace CTree
       simp only [tauN]
       apply RefineF.tau_right
       exact ih
-
-  theorem RefineF.dest_ret_left {t2 : CTree ε σ} (h : RefineF r (Refine r) (CTree.ret x) t2)
-    : ∃ (n : Nat) (t2' : CTree ε σ), t2 = tauN n t2' ∧
-          ((∃ (y : σ), r x y ∧ t2' = CTree.ret y)
-           ∨ (∃ t3 t4, t2' = t3 ⊕ t4 ∧ (CTree.ret x ⊑r⊑ t3 ∨ CTree.ret x ⊑r⊑ t4))) :=
-    Refine.dest_ret_left (by rw [Refine]; exact h)
 
   @[refl]
   theorem Refine.refl {r : Rel ρ ρ} [IsRefl ρ r] (t : CTree ε ρ) : t ⊑r⊑ t := by
@@ -1311,7 +1362,7 @@ namespace CTree
         have ⟨n, t3', ht3, h⟩ := h2.dest_ret_left
         rename_i y
         match h with
-        | .inl ⟨z, ⟨hyz, ht3'⟩⟩ =>
+        | .inl ⟨z, ⟨ht3', hyz⟩⟩ =>
           rw [ht3, ht3']
           apply RefineF.tauN_right
           apply RefineF.ret
@@ -1330,7 +1381,32 @@ namespace CTree
             · rw [Refine]
               exact RefineF.ret hxy
             · assumption)
-      | vis => sorry
+      | vis hk1 =>
+        have ⟨n, t3', ⟨ht3, h⟩⟩ := h2.dest_vis_left
+        rw [ht3]
+        apply RefineF.tauN_right
+        match h with
+        | .inl ⟨k3, ht3', hk2⟩ =>
+          rw [ht3']
+          apply RefineF.vis
+          intro a
+          rename_i k2
+          exists k2 a
+          exact And.intro (hk1 a) (hk2 a)
+        | .inr ⟨t3, t4, ht3', h⟩ =>
+          rename_i e _ k2 _
+          rw [ht3']
+          cases h
+          on_goal 1 =>
+            apply RefineF.choice_left
+          on_goal 2 =>
+            apply RefineF.choice_right
+          all_goals
+           (exists vis e k2
+            apply And.intro
+            · rw [Refine]
+              exact RefineF.vis λ a => hk1 a
+            · assumption)
       | tau => sorry
       | tau_left => sorry
       | tau_right => sorry
