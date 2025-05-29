@@ -1604,6 +1604,9 @@ namespace CTree
   def Eutt (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
     t1 ⊑r⊑ t2 ∧ t2 ⊑(flip r)⊑ t1
 
+  theorem infND_eutt : ∀ t : CTree ε ρ, Eutt r t infND :=
+    λ _ => ⟨refine_infND _, infND_refine _⟩
+
   instance {r : Rel α α} [IsRefl α r] : IsRefl α (flip r) where
     refl a := by
       simp only [flip]
