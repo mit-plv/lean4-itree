@@ -1464,7 +1464,7 @@ namespace CTree
 
   namespace Eutt
     @[refl]
-    theorem refl {r : Rel ρ ρ} [IsRefl _ r] (t : CTree ε ρ) : Eutt r t t :=
+    theorem refl {r : Rel ρ ρ} [IsRefl _ r] {t : CTree ε ρ} : Eutt r t t :=
       ⟨.refl _, .refl _⟩
 
     @[symm]
@@ -1474,10 +1474,87 @@ namespace CTree
     @[trans]
     theorem trans {r : Rel ρ ρ} [IsRefl _ r] [IsTrans _ r] (t1 t2 t3 : CTree ε ρ) (h1 : Eutt r t1 t2) (h2 : Eutt r t2 t3) : Eutt r t1 t3 :=
       ⟨(Rel.comp_self (r := r)) ▸ .trans h1.left h2.left, (Rel.comp_self (r := flip r)) ▸ .trans h2.right h1.right⟩
+
+    theorem choice_idemp {t1 t2 : CTree ε ρ} {t3 : CTree ε σ} (h1 : Eutt r t1 t3) (h2 : Eutt r t2 t3)
+      : Eutt r (t1 ⊕ t2) t3 := by
+      apply And.intro
+      · rw [Refine]
+        exact RefineF.choice_idemp h1.left h2.left
+      · rw [Refine]
+        exact RefineF.choice_left h1.right
+
+    theorem choice_idemp_self [IsRefl _ r] : Eutt r (t ⊕ t) t :=
+      choice_idemp refl refl
+
+    theorem choice_comm [IsRefl _ r] {t1 t2 : CTree ε ρ} : Eutt r (t1 ⊕ t2) (t2 ⊕ t1) := by
+      apply And.intro
+      all_goals (rw [Refine]; apply RefineF.choice_idemp; all_goals rw [Refine])
+      on_goal 1 => apply RefineF.choice_right
+      on_goal 2 => apply RefineF.choice_left
+      on_goal 3 => apply RefineF.choice_right
+      on_goal 4 => apply RefineF.choice_left
+      all_goals rfl
+
+    theorem zero_left_id [IsRefl _ r] : Eutt r (zero ⊕ t) t := by
+      apply And.intro
+      all_goals rw [Refine]
+      · apply RefineF.choice_idemp
+        · rw [Refine]
+          exact RefineF.zero
+        · rfl
+      · apply RefineF.choice_right
+        rfl
+
+    theorem zero_right_id [IsRefl _ r] : Eutt r (t ⊕ zero) t := by
+      apply And.intro
+      all_goals rw [Refine]
+      · apply RefineF.choice_idemp
+        · rfl
+        · rw [Refine]
+          exact RefineF.zero
+      · apply RefineF.choice_left
+        rfl
+
+    theorem choice_assoc [IsRefl _ r] : Eutt r ((t1 ⊕ t2) ⊕ t3) (t1 ⊕ (t2 ⊕ t3)) := by
+      apply And.intro
+      all_goals rw [Refine]
+      · apply RefineF.choice_idemp
+        · rw [Refine]
+          apply RefineF.choice_idemp
+          · rw [Refine]
+            apply RefineF.choice_left
+            rfl
+          · rw [Refine]
+            apply RefineF.choice_right
+            rw [Refine]
+            apply RefineF.choice_left
+            rfl
+        · rw [Refine]
+          apply RefineF.choice_right
+          rw [Refine]
+          apply RefineF.choice_right
+          rfl
+      · apply RefineF.choice_idemp
+        · rw [Refine]
+          apply RefineF.choice_left
+          rw [Refine]
+          apply RefineF.choice_left
+          rfl
+        · rw [Refine]
+          apply RefineF.choice_idemp
+          · rw [Refine]
+            apply RefineF.choice_left
+            rw [Refine]
+            apply RefineF.choice_right
+            rfl
+          · rw [Refine]
+            apply RefineF.choice_right
+            rfl
+
   end Eutt
 
   instance [IsEquiv _ r] : IsEquiv (CTree ε ρ) (Eutt r) where
-     refl := Eutt.refl
+     refl := @Eutt.refl _ _ _ _
      trans := Eutt.trans
      symm := Eutt.symm
 
@@ -1523,11 +1600,28 @@ namespace CTree
     --   | _, ⟨.vis α' e, k⟩ => .inr <| vis' e λ a => rec ⟨t1, k (.up a)⟩
     --   | _, _ => .inl zero
     -- ) (t1, t2)
-  -- infixr:60 " || " => par
 
-  -- def parR (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε β :=
-  --   Prod.snd <$> (t1 || t2)
-  -- infixr:60 " ||→ " => parR
+  def par (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
+    sorry
+  infixr:60 " || " => par
+
+  def parR (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε β :=
+    Prod.snd <$> (t1 || t2)
+  infixr:60 " ||→ " => parR
+
+  namespace Eutt
+    theorem parR_ret : Eutt r ((ret x) ||→ t) t := by
+      sorry
+
+    theorem parR_map : Eutt r ((map f t1) ||→ t2) (t1 ||→ t2) := by
+      sorry
+
+    theorem parR_assoc : Eutt r ((t1 ||→ t2) ||→ t3) (t1 ||→ (t2 ||→ t3)) := by
+      sorry
+
+    theorem parR_symm : Eutt r ((t1 ||→ t2) ||→ t3) ((t2 ||→ t1) ||→ t3) := by
+      sorry
+  end Eutt
 
   end
 end CTree
