@@ -464,6 +464,64 @@ namespace CTree
         PFunctor.M.corec_def]
       rfl
 
+  /- Infinite Nondeterminism -/
+  def infND : CTree ε ρ :=
+    corec' (α := PUnit) (λ rec x =>
+      .inr <| CTree.choice' (rec x) (rec x)
+    ) PUnit.unit
+
+  theorem infND_eq : @infND ε ρ = (infND ⊕ infND) := by
+    apply PFunctor.M.bisim (λ t1 t2 => t1 = infND ∧ t2 = (infND ⊕ infND)) _
+    · apply And.intro <;> rfl
+    · intro x y h
+      have ⟨hx, hy⟩ := h
+      simp only [infND, corec', PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def,
+        PFunctor.map, Bind.bind, Sum.bind, choice'] at hx
+      simp only [infND, corec', PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def,
+        PFunctor.map, Bind.bind, Sum.bind, choice'] at hy
+      rw [hx, hy]
+      simp only [PFunctor.M.dest_mk]
+      apply exists_and_eq
+      intro i
+      apply And.intro
+      · match i with
+        | .up (.ofNat' 0) =>
+          simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
+            Nat.reduceAdd, Vector3.cons_fz, infND, corec', PFunctor.M.corec', PFunctor.M.corec₁,
+            Bind.bind, Sum.bind, choice', PFunctor.map]
+        | .up (.ofNat' 1) =>
+          simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
+            Nat.reduceAdd, Vector3.cons_fs, Vector3.cons_fz, infND, corec', PFunctor.M.corec',
+            PFunctor.M.corec₁, Bind.bind, Sum.bind, choice', PFunctor.map]
+      · match i with
+        | .up (.ofNat' 0) =>
+          simp only [choice, mk, choice', PFunctor.M.children_mk, cast_eq, _fin2Const, Fin2.ofNat', Vector3.cons, Fin2.cases']
+          congr
+          funext i
+          match i with
+          | .up (.ofNat' 0) =>
+            simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
+              Nat.reduceAdd, Vector3.cons_fz, infND, corec', PFunctor.M.corec', PFunctor.M.corec₁,
+              Bind.bind, Sum.bind, choice', PFunctor.map]
+          | .up (.ofNat' 1) =>
+            simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
+              Nat.reduceAdd, Vector3.cons_fs, Vector3.cons_fz, infND, corec', PFunctor.M.corec',
+              PFunctor.M.corec₁, Bind.bind, Sum.bind, choice', PFunctor.map]
+        | .up (.ofNat' 1) =>
+          simp only [choice, mk, choice', PFunctor.M.children_mk, cast_eq, _fin2Const, Fin2.ofNat', Vector3.cons, Fin2.cases']
+          congr
+          funext i
+          match i with
+          | .up (.ofNat' 0) =>
+            simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
+              Nat.reduceAdd, Vector3.cons_fz, infND, corec', PFunctor.M.corec', PFunctor.M.corec₁,
+              Bind.bind, Sum.bind, choice', PFunctor.map]
+          | .up (.ofNat' 1) =>
+            simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
+              Nat.reduceAdd, Vector3.cons_fs, Vector3.cons_fz, infND, corec', PFunctor.M.corec',
+              PFunctor.M.corec₁, Bind.bind, Sum.bind, choice', PFunctor.map]
+
+
   /- Monad Instance -/
   def bind {σ} (t : CTree ε ρ) (f : ρ → CTree ε σ) : CTree ε σ :=
     corec' (λ rec t =>
@@ -761,6 +819,44 @@ namespace CTree
 
   macro "ctree_elim " h:term : tactic => `(tactic| try (have := (Sigma.mk.inj (PFunctor.M.mk_inj $h)).left; contradiction))
 
+  /- Labelled Transition System -/
+
+  inductive Label (ρ : Type) (ε : Type → Type)
+  | val (v : ρ)
+  | event (e : ε α) (a : α)
+
+  inductive LTS : CTree ε ρ → Label ρ ε → CTree ε ρ → Prop
+  | ret : LTS (ret v) (.val v) zero
+  | vis : LTS (vis e k) (.event e a) (k a)
+  | choice_left (h : LTS t1 l t3) : LTS (t1 ⊕ t2) l t3
+  | choice_right (h : LTS t2 l t3) : LTS (t1 ⊕ t2) l t3
+
+  def LTS.sim (r : Rel ρ σ) : Rel (CTree ε ρ) (CTree ε σ) :=
+    λ p q =>
+      ∀ {l : Label ρ ε} {p' : CTree ε ρ} (_ : LTS p l p'),
+        match l with
+        | .val x => ∃ y q', r x y ∧ LTS q (.val y) q'
+        | .event e a => ∃ q', LTS q (.event e a) q'
+
+  def LTS.bisim (r : Rel ρ σ) : Rel (CTree ε ρ) (CTree ε σ) :=
+    λ p q => LTS.sim r p q ∧ LTS.sim (flip r) q p
+
+  inductive WeakBisimF (r : Rel ρ σ) (sim : Rel (CTree ε ρ) (CTree ε σ)) : Rel (CTree ε ρ) (CTree ε σ)
+  | bisim (h : LTS.sim r p q) : WeakBisimF r sim p q
+  | tau_left (h : WeakBisimF r sim p q) : WeakBisimF r sim p.tau q
+  | tau_right (h : WeakBisimF r sim p q) : WeakBisimF r sim p q.tau
+  | tau (h : sim p q) : WeakBisimF r sim p.tau q.tau
+
+  def WeakBisim (r : Rel ρ σ) : Rel (CTree ε ρ) (CTree ε σ) :=
+    λ p q => WeakBisimF r (WeakBisim r) p q
+    greatest_fixpoint monotonicity by
+      intro sim1 sim2 hsim p q h1
+      induction h1 with
+      | bisim h => exact WeakBisimF.bisim h
+      | tau_left _ ih => exact WeakBisimF.tau_left ih
+      | tau_right _ ih => exact WeakBisimF.tau_right ih
+      | tau h => exact WeakBisimF.tau (hsim _ _ h)
+
   /- Refinement -/
 
   inductive RefineF (r : Rel ρ σ) (sim : CTree ε ρ → CTree ε σ → Prop) : CTree ε ρ → CTree ε σ → Prop
@@ -818,62 +914,6 @@ namespace CTree
   theorem Refine.coind (sim : CTree ε ρ → CTree ε σ → Prop) (adm : ∀ t1 t2, sim t1 t2 → RefineF r sim t1 t2)
     {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim t1 t2) : t1 ⊑r⊑ t2 :=
     Refine.fixpoint_induct r sim adm _ _ h
-
-  def infND : CTree ε ρ :=
-    corec' (α := PUnit) (λ rec x =>
-      .inr <| CTree.choice' (rec x) (rec x)
-    ) PUnit.unit
-
-  theorem infND_eq : @infND ε ρ = (infND ⊕ infND) := by
-    apply PFunctor.M.bisim (λ t1 t2 => t1 = infND ∧ t2 = (infND ⊕ infND)) _
-    · apply And.intro <;> rfl
-    · intro x y h
-      have ⟨hx, hy⟩ := h
-      simp only [infND, corec', PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def,
-        PFunctor.map, Bind.bind, Sum.bind, choice'] at hx
-      simp only [infND, corec', PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def,
-        PFunctor.map, Bind.bind, Sum.bind, choice'] at hy
-      rw [hx, hy]
-      simp only [PFunctor.M.dest_mk]
-      apply exists_and_eq
-      intro i
-      apply And.intro
-      · match i with
-        | .up (.ofNat' 0) =>
-          simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
-            Nat.reduceAdd, Vector3.cons_fz, infND, corec', PFunctor.M.corec', PFunctor.M.corec₁,
-            Bind.bind, Sum.bind, choice', PFunctor.map]
-        | .up (.ofNat' 1) =>
-          simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
-            Nat.reduceAdd, Vector3.cons_fs, Vector3.cons_fz, infND, corec', PFunctor.M.corec',
-            PFunctor.M.corec₁, Bind.bind, Sum.bind, choice', PFunctor.map]
-      · match i with
-        | .up (.ofNat' 0) =>
-          simp only [choice, mk, choice', PFunctor.M.children_mk, cast_eq, _fin2Const, Fin2.ofNat', Vector3.cons, Fin2.cases']
-          congr
-          funext i
-          match i with
-          | .up (.ofNat' 0) =>
-            simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
-              Nat.reduceAdd, Vector3.cons_fz, infND, corec', PFunctor.M.corec', PFunctor.M.corec₁,
-              Bind.bind, Sum.bind, choice', PFunctor.map]
-          | .up (.ofNat' 1) =>
-            simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
-              Nat.reduceAdd, Vector3.cons_fs, Vector3.cons_fz, infND, corec', PFunctor.M.corec',
-              PFunctor.M.corec₁, Bind.bind, Sum.bind, choice', PFunctor.map]
-        | .up (.ofNat' 1) =>
-          simp only [choice, mk, choice', PFunctor.M.children_mk, cast_eq, _fin2Const, Fin2.ofNat', Vector3.cons, Fin2.cases']
-          congr
-          funext i
-          match i with
-          | .up (.ofNat' 0) =>
-            simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
-              Nat.reduceAdd, Vector3.cons_fz, infND, corec', PFunctor.M.corec', PFunctor.M.corec₁,
-              Bind.bind, Sum.bind, choice', PFunctor.map]
-          | .up (.ofNat' 1) =>
-            simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
-              Nat.reduceAdd, Vector3.cons_fs, Vector3.cons_fz, infND, corec', PFunctor.M.corec',
-              PFunctor.M.corec₁, Bind.bind, Sum.bind, choice', PFunctor.map]
 
   theorem refine_infND : ∀ t : CTree ε ρ, t ⊑r⊑ infND := by
     intro
