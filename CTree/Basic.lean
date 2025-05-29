@@ -875,12 +875,19 @@ namespace CTree
               Nat.reduceAdd, Vector3.cons_fs, Vector3.cons_fz, infND, corec', PFunctor.M.corec',
               PFunctor.M.corec₁, Bind.bind, Sum.bind, choice', PFunctor.map]
 
-  theorem infND_refine : ∀ t : CTree ε ρ, t ⊑r⊑ infND := by
+  theorem refine_infND : ∀ t : CTree ε ρ, t ⊑r⊑ infND := by
     intro
     apply Refine.coind (λ _ t => t = t ⊕ t) _ infND_eq
     intro t1 t2 h
     rw [h]
     exact RefineF.choice_left h
+
+  theorem infND_refine : ∀ t : CTree ε ρ, infND ⊑r⊑ t := by
+    intro
+    apply Refine.coind (λ t _ => t = t ⊕ t) _ infND_eq
+    intro t1 t2 h
+    rw [h]
+    apply RefineF.choice_idemp <;> exact h
 
   -- Various custom destructors for instances of `Refine` and `RefineF`
 
