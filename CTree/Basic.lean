@@ -1074,7 +1074,7 @@ namespace CTree
     {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim t1 t2) : t1 ⊑r⊑ t2 :=
     Refine.fixpoint_induct r sim adm _ _ h
 
-  theorem RefineF.dest_tau_left_adm (h : RefineF r (Refine r) t1 t2) : RefineF r (λ t1 t2 => t1.tau ⊑r⊑ t2) t1 t2 := by
+  theorem RefineF.dest_tau_left_compat (h : RefineF r (Refine r) t1 t2) : RefineF r (λ t1 t2 => t1.tau ⊑r⊑ t2) t1 t2 := by
     induction h
     case tau h =>
       apply RefineF.tau
@@ -1115,38 +1115,127 @@ namespace CTree
       exact this
 
   theorem Refine.dest_tau_left (h : t1.tau ⊑r⊑ t2) : t1 ⊑r⊑ t2 := by
-    apply Refine.coind (λ t1 t2 => t1.tau ⊑r⊑ t2) _
-    · exact h
-    · intro t1 t2 h
-      generalize ht1 : t1.tau = t1t at *
+    apply Refine.coind (λ t1 t2 => t1.tau ⊑r⊑ t2) _ h
+    intro t1 t2 h
+    generalize ht1 : t1.tau = t1t at *
+    rw [Refine] at *
+    induction h
+    <;> ctree_elim ht1
+    case tau h =>
+      apply RefineF.tau_right
       rw [Refine] at *
-      induction h
-      <;> ctree_elim ht1
-      case tau h =>
-        apply RefineF.tau_right
-        rw [←tau_inj ht1] at h
-        rw [Refine] at h
-        exact h.dest_tau_left_adm
-      case tau_left h _ =>
-        rw [←tau_inj ht1] at h
-        exact h.dest_tau_left_adm
-      case tau_right ih =>
-        apply RefineF.tau_right
-        exact ih ht1
-      case choice_left h =>
-        apply RefineF.choice_left
-        rw [←ht1] at h
-        exact h
-      case choice_right h =>
-        apply RefineF.choice_right
-        rw [←ht1] at h
-        exact h
+      rw [tau_inj ht1]
+      exact h.dest_tau_left_compat
+    case tau_left h _ =>
+      rw [tau_inj ht1]
+      exact h.dest_tau_left_compat
+    case tau_right ih =>
+      apply RefineF.tau_right
+      exact ih ht1
+    case choice_left h =>
+      apply RefineF.choice_left
+      rw [ht1]
+      exact h
+    case choice_right h =>
+      apply RefineF.choice_right
+      rw [ht1]
+      exact h
+
+  theorem RefineF.dest_tau_left (h : RefineF r (Refine r) t1.tau t2) : RefineF r (Refine r) t1 t2 := by
+    have := Refine.dest_tau_left (by rw [Refine]; exact h)
+    rw [Refine] at this
+    exact this
+
+  theorem RefineF.dest_tau_right_compat (h : RefineF r (Refine r) t1 t2) : RefineF r (λ t1 t2 => t1 ⊑r⊑ t2.tau) t1 t2 := by
+    induction h
+    case tau h =>
+      apply RefineF.tau
+      rw [Refine] at *
+      apply RefineF.tau_right
+      exact h
+    case tau_left _ ih =>
+      apply RefineF.tau_left
+      exact ih
+    case tau_right _ ih =>
+      apply RefineF.tau_right
+      exact ih
+    case choice_left h =>
+      apply RefineF.choice_left
+      rw [Refine] at *
+      apply RefineF.tau_right
+      exact h
+    case choice_right h =>
+      apply RefineF.choice_right
+      rw [Refine] at *
+      apply RefineF.tau_right
+      exact h
+    case choice_idemp h1 h2 =>
+      apply RefineF.choice_idemp
+      <;> (rw [Refine] at *; apply RefineF.tau_right)
+      · exact h1
+      · exact h2
+    case zero =>
+      exact RefineF.zero
+    case ret h =>
+      exact RefineF.ret h
+    case vis h =>
+      apply RefineF.vis
+      intro a
+      have := h a
+      rw [Refine] at *
+      apply RefineF.tau_right
+      exact this
 
   theorem Refine.dest_tau_right (h : t1 ⊑r⊑ t2.tau) : t1 ⊑r⊑ t2 := by
-    sorry
+    apply Refine.coind (λ t1 t2 => t1 ⊑r⊑ t2.tau) _ h
+    intro t1 t2 h
+    generalize ht2 : t2.tau = t2t at *
+    rw [Refine] at *
+    induction h
+    <;> ctree_elim ht2
+    case tau h =>
+      apply RefineF.tau_left
+      rw [Refine] at *
+      rw [tau_inj ht2]
+      exact h.dest_tau_right_compat
+    case tau_left ih =>
+      apply RefineF.tau_left
+      exact ih ht2
+    case tau_right h _ =>
+      rw [tau_inj ht2]
+      exact h.dest_tau_right_compat
+    case zero =>
+      exact RefineF.zero
+    case choice_idemp h1 h2 =>
+      apply RefineF.choice_idemp
+      <;> rw [ht2]
+      · exact h1
+      · exact h2
+
+  theorem RefineF.dest_tau_right (h : RefineF r (Refine r) t1 t2.tau) : RefineF r (Refine r) t1 t2 := by
+    have := Refine.dest_tau_right (by rw [Refine]; exact h)
+    rw [Refine] at this
+    exact this
 
   theorem Refine.dest_tau (h : t1.tau ⊑r⊑ t2.tau) : t1 ⊑r⊑ t2 := by
-    sorry
+    generalize ht1 : t1.tau = t1t at *
+    generalize ht2 : t2.tau = t2t at *
+    rw [Refine] at *
+    induction h
+    <;> ctree_elim ht1
+    <;> ctree_elim ht2
+    case tau h =>
+      rw [tau_inj ht1, tau_inj ht2]
+      rw [Refine] at h
+      exact h
+    case tau_left h _ =>
+      rw [←ht2] at h
+      rw [tau_inj ht1]
+      exact h.dest_tau_right
+    case tau_right h _ =>
+      rw [←ht1] at h
+      rw [tau_inj ht2]
+      exact h.dest_tau_left
 
   @[refl]
   theorem Refine.refl {r : Rel ρ ρ} [IsRefl ρ r] (t : CTree ε ρ) : t ⊑r⊑ t := by
