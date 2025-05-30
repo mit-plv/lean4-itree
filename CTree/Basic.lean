@@ -2,6 +2,14 @@ import Mathlib.Data.QPF.Univariate.Basic
 import Mathlib.Data.Vector3
 import Mathlib.Data.Rel
 
+theorem Or.elim4 {motive : Prop} (hor : P1 ∨ P2 ∨ P3 ∨ P4)
+  (h1 : P1 → motive) (h2 : P2 → motive) (h3 : P3 → motive) (h4 : P4 → motive) : motive :=
+  hor.elim3 h1 h2 (λ hor =>
+    match hor with
+    | .inl h => h3 h
+    | .inr h => h4 h
+  )
+
 -- Is this actually the id pfunctor?
 -- Does id even make sense for pfunctors?
 def IdF : PFunctor.{u} :=
@@ -882,6 +890,28 @@ namespace CTree
   | choice_right (h : RefineF r sim t1 t3) : RefineF r sim t1 (t2 ⊕ t3)
   | choice_idemp (h1 : RefineF r sim t1 t3) (h2 : RefineF r sim t2 t3) : RefineF r sim (t1 ⊕ t2) t3
 
+  def Refine (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
+    RefineF r (Refine r) t1 t2
+    greatest_fixpoint monotonicity by
+      intro _ _ hsim _ _ h
+      induction h with
+      | ret h => exact .ret h
+      | vis h => exact .vis λ a => hsim _ _ <| h a
+      | tau h => exact .tau (hsim _ _ h)
+      | tau_left _ ih => exact RefineF.tau_left ih
+      | tau_right _ ih => exact RefineF.tau_right ih
+      | zero => exact .zero
+      | choice_left _ ih => exact .choice_left ih
+      | choice_right _ ih => exact .choice_right ih
+      | choice_idemp _ _ ih1 ih2 => exact .choice_idemp ih1 ih2
+
+  -- `t1 r⊑ t2` looks better, but somehow clashes with multi-line class instance definition
+  notation:60 t1:61 " ⊑"r:61"⊑ " t2:61 => Refine r t1 t2
+
+  theorem Refine.coind (sim : CTree ε ρ → CTree ε σ → Prop) (adm : ∀ t1 t2, sim t1 t2 → RefineF r sim t1 t2)
+    {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim t1 t2) : t1 ⊑r⊑ t2 :=
+    Refine.fixpoint_induct r sim adm _ _ h
+
   theorem RefineF.tauN_left (h : RefineF r sim t1 t2) : ∀ n, RefineF r sim (tauN n t1) t2 := by
     intro n
     induction n with
@@ -903,28 +933,6 @@ namespace CTree
       simp only [tauN]
       apply RefineF.tau_right
       exact ih
-
-  def Refine (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
-  RefineF r (Refine r) t1 t2
-  greatest_fixpoint monotonicity by
-    intro _ _ hsim _ _ h
-    induction h with
-    | ret h => exact .ret h
-    | vis h => exact .vis λ a => hsim _ _ <| h a
-    | tau h => exact .tau (hsim _ _ h)
-    | tau_left _ ih => exact RefineF.tau_left ih
-    | tau_right _ ih => exact RefineF.tau_right ih
-    | zero => exact .zero
-    | choice_left _ ih => exact .choice_left ih
-    | choice_right _ ih => exact .choice_right ih
-    | choice_idemp _ _ ih1 ih2 => exact .choice_idemp ih1 ih2
-
-  -- `t1 r⊑ t2` looks better, but somehow clashes with multi-line class instance definition
-  notation:60 t1:61 " ⊑"r:61"⊑ " t2:61 => Refine r t1 t2
-
-  theorem Refine.coind (sim : CTree ε ρ → CTree ε σ → Prop) (adm : ∀ t1 t2, sim t1 t2 → RefineF r sim t1 t2)
-    {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim t1 t2) : t1 ⊑r⊑ t2 :=
-    Refine.fixpoint_induct r sim adm _ _ h
 
   -- Various custom destructors for instances of `Refine` and `RefineF`
 
@@ -1289,6 +1297,98 @@ namespace CTree
     : Refine r t1 (.ret y) ∧ Refine r t2 (.ret y) :=
     Refine.dest_choice_ret (by rw [Refine]; exact h)
 
+  theorem Refine.dest_choice_right (h : t1 ⊑r⊑ t2 ⊕ t3)
+    : ∃ n t1', t1 = tauN n t1' ∧
+      ((t1' = zero) ∨ (t1 ⊑r⊑ t2) ∨ (t1 ⊑r⊑ t3) ∨ (∃ t11 t12, t1' = t11 ⊕ t12 ∧ t11 ⊕ t12 ⊑r⊑ t2 ⊕ t3)) := by
+    generalize ht2 : t2 ⊕ t3 = t2 at *
+    rw [Refine] at h
+    induction h
+    <;> ctree_elim ht2
+    case tau_left ih =>
+      obtain ⟨n, t1', ht1', ih⟩ := ih ht2
+      exists n + 1, t1'
+      apply And.intro
+      · simp only [tauN, ht1']
+      · apply ih.elim3
+        · intro h
+          exact Or.inl h
+        · intro h
+          apply Or.inr (Or.inl _)
+          rw [Refine] at *
+          exact RefineF.tau_left h
+        · intro h
+          match h with
+          | .inl h =>
+            apply Or.inr (Or.inr (Or.inl _))
+            rw [Refine]
+            apply RefineF.tau_left
+            rw [Refine] at h
+            exact h
+          | .inr h =>
+            apply Or.inr <| Or.inr <| Or.inr _
+            exact h
+    case zero =>
+      exists 0, zero
+      apply And.intro _ (.inl rfl)
+      simp only [tauN]
+    case choice_left h _ =>
+      rename_i t1 t2 t3 _
+      have ⟨heq1, _⟩ := choice_inj ht2
+      subst heq1
+      exists 0, t1
+      apply And.intro
+      · simp only [tauN]
+      · apply Or.inr <| Or.inl _
+        rw [Refine]
+        assumption
+    case choice_right h _ =>
+      rename_i t1 t2 t3 _
+      have ⟨_, heq2⟩ := choice_inj ht2
+      subst heq2
+      exists 0, t1
+      apply And.intro
+      · simp only [tauN]
+      · apply Or.inr <| Or.inr <| Or.inl _
+        rw [Refine]
+        assumption
+    case choice_idemp h1 h2 _ _ =>
+      rename_i t1 t3 t2 _ _
+      exists 0, t1 ⊕ t2
+      apply And.intro
+      · simp only [tauN]
+      · apply Or.inr <| Or.inr <| Or.inr _
+        exists t1, t2
+        apply And.intro rfl
+        rw [Refine]
+        exact RefineF.choice_idemp h1 h2
+
+  theorem Refine.dest_choice_left_zero_left (h : (zero ⊕ t1) ⊑r⊑ t2) : t1 ⊑r⊑ t2 := by
+    generalize ht1 : zero ⊕ t1 = t1' at *
+    rw [Refine] at h
+    induction h
+    <;> ctree_elim ht1
+    case tau_right ih =>
+      rw [Refine] at *
+      apply RefineF.tau_right
+      exact ih ht1
+    case choice_left ih =>
+      rw [Refine] at *
+      apply RefineF.choice_left
+      exact ih ht1
+    case choice_right ih =>
+      rw [Refine] at *
+      apply RefineF.choice_right
+      exact ih ht1
+    case choice_idemp =>
+      rw [(choice_inj ht1).right]
+      rw [Refine]
+      assumption
+
+  theorem RefineF.dest_choice_left_zero_left (h : RefineF r (Refine r) (.zero ⊕ t1) t2) : RefineF r (Refine r) t1 t2 := by
+    have := Refine.dest_choice_left_zero_left (by rw [Refine]; exact h)
+    rw [Refine] at this
+    exact this
+
   @[refl]
   theorem Refine.refl {r : Rel ρ ρ} [IsRefl ρ r] (t : CTree ε ρ) : t ⊑r⊑ t := by
     sorry
@@ -1301,126 +1401,98 @@ namespace CTree
 
   /- Transitivity Proof -/
 
-  -- lemma RefineF.ret_left_trans {r1 : Rel α β} {r2 : Rel β γ} (hxy : r1 x y) (h2 : RefineF r2 (Refine r2) (.ret y) t3)
-  --   : RefineF (r1.comp r2) (λ t1 t3 => ∃ t2, t1 ⊑r1⊑ t2 ∧ t2 ⊑r2⊑ t3) (.ret x) t3 := by
+  theorem Refine.choice_left_tau (h : (t1 ⊕ t2) ⊑r⊑ t3) : (t1.tau ⊕ t2) ⊑r⊑ t3 := by
+    generalize ht4 : t1 ⊕ t2 = t4 at *
+    rw [Refine] at *
+    induction h
+    <;> ctree_elim ht4
+    case tau_right ih => exact RefineF.tau_right (ih ht4)
+    case choice_left ih => exact RefineF.choice_left (ih ht4)
+    case choice_right ih => exact RefineF.choice_right (ih ht4)
+    case choice_idemp h1 h2 ih1 ih2 =>
+      have ⟨heq1, heq2⟩ := choice_inj ht4
+      subst heq1
+      subst heq2
+      exact RefineF.choice_idemp (RefineF.tau_left h1) h2
 
-  --   have ⟨n, t3', ht3, h⟩ := h2.dest_ret_left
-  --   match h with
-  --   | .inl ⟨z, ⟨ht3', hyz⟩⟩ =>
-  --     rw [ht3, ht3']
-  --     apply RefineF.tauN_right
-  --     apply RefineF.ret
-  --     exists y
-  --   | .inr ⟨t3, t4, ⟨ht3', h⟩⟩ =>
-  --     rw [ht3, ht3']
-  --     apply RefineF.tauN_right
-  --     cases h
-  --     on_goal 1 =>
-  --       apply RefineF.choice_left
-  --     on_goal 2 =>
-  --       apply RefineF.choice_right
-  --     all_goals
-  --      (exists .ret y
-  --       apply And.intro
-  --       · rw [Refine]
-  --         exact RefineF.ret hxy
-  --       · assumption)
+  theorem Refine.choice_right_tau (h : (t1 ⊕ t2) ⊑r⊑ t3) : (t1 ⊕ t2.tau) ⊑r⊑ t3 := by
+    generalize ht4 : t1 ⊕ t2 = t4 at *
+    rw [Refine] at *
+    induction h
+    <;> ctree_elim ht4
+    case tau_right ih => exact RefineF.tau_right (ih ht4)
+    case choice_left ih => exact RefineF.choice_left (ih ht4)
+    case choice_right ih => exact RefineF.choice_right (ih ht4)
+    case choice_idemp h1 h2 ih1 ih2 =>
+      have ⟨heq1, heq2⟩ := choice_inj ht4
+      subst heq1
+      subst heq2
+      exact RefineF.choice_idemp h1 (RefineF.tau_left h2)
 
-  -- lemma RefineF.vis_left_trans {e : ε α} {k1 : α → CTree ε ρ} (hk1 : ∀ a, k1 a ⊑r1⊑ k2 a) (h2 : RefineF r2 (Refine r2) (.vis e k2) t3)
-  --   : RefineF (r1.comp r2) (fun t1 t3 => ∃ t2, t1 ⊑r1⊑ t2 ∧ t2 ⊑r2⊑ t3) (.vis e k1) t3 := by
-  --   have ⟨n, t3', ⟨ht3, h⟩⟩ := h2.dest_vis_left
-  --   rw [ht3]
-  --   apply RefineF.tauN_right
-  --   match h with
-  --   | .inl ⟨k3, ht3', hk2⟩ =>
-  --     rw [ht3']
-  --     apply RefineF.vis
-  --     intro a
-  --     exists k2 a
-  --     exact And.intro (hk1 a) (hk2 a)
-  --   | .inr ⟨t3, t4, ht3', h⟩ =>
-  --     rw [ht3']
-  --     cases h
-  --     on_goal 1 =>
-  --       apply RefineF.choice_left
-  --     on_goal 2 =>
-  --       apply RefineF.choice_right
-  --     all_goals
-  --      (exists .vis e k2
-  --       apply And.intro
-  --       · rw [Refine]
-  --         exact RefineF.vis λ a => hk1 a
-  --       · assumption)
+  theorem Refine.choice_choice_or (h1 : t1 ⊑r⊑ t3 ⊕ t4) (h2 : t2 ⊑r⊑ t3 ⊕ t4)
+    : (t1 ⊕ t2) ⊑r⊑ t3 ∨ (t1 ⊕ t2) ⊑r⊑ t4 := by
+    generalize ht5 : t3 ⊕ t4 = t5 at *
+    rw [Refine] at h1
+    rw [Refine] at h2
+    induction h1
+    <;> ctree_elim ht5
+    case tau_left ih =>
+      apply (ih ht5 h2).elim
+      · intro h
+        exact Or.inl h.choice_left_tau
+      · intro h
+        exact Or.inr h.choice_left_tau
+    case zero =>
+      induction h2
+      <;> ctree_elim ht5
+      case tau_left ih =>
+        apply (ih ht5).elim
+        · intro h
+          exact Or.inl h.choice_right_tau
+        · intro h
+          exact Or.inr h.choice_right_tau
+      case zero =>
+        apply Or.inl
+        rw [Refine]
+        apply RefineF.choice_idemp
+        <;> exact RefineF.zero
+      case choice_left =>
+        have := (choice_inj ht5).left
+        subst this
+        apply Or.inl
+        rw [Refine]
+        apply RefineF.choice_idemp
+        · exact RefineF.zero
+        · assumption
+      case choice_right =>
+        have := (choice_inj ht5).right
+        subst this
+        apply Or.inr
+        rw [Refine]
+        apply RefineF.choice_idemp
+        · exact RefineF.zero
+        · assumption
+      case choice_idemp ih1 ih2 =>
+        have ih2 := ih2 ht5
+        have ih1 := ih1 ht5
+        cases ih1 <;> cases ih2
+        · rename_i h1 h2
+          apply Or.inl
+          rw [Refine] at *
+          apply RefineF.choice_idemp RefineF.zero
+          apply RefineF.choice_idemp
+          <;> (apply RefineF.dest_choice_left_zero_left; assumption)
+        · rename_i h1 h2
 
-  -- lemma RefineF.ret_right_trans {ε} (h1 : t1 ⊑r1⊑ .ret y) (h2 : RefineF (ε := ε) r2 (Refine r2) (.ret y) (.ret z))
-  --   : RefineF (r1.comp r2) (fun t1 t3 => ∃ t2, t1 ⊑r1⊑ t2 ∧ t2 ⊑r2⊑ t3) t1 (.ret z) := by
-  --   have hyz := h2.dest_ret_ret
-  --   have ⟨n, t1', ht1, h⟩ := h1.dest_ret_right
-  --   match h with
-  --   | .inl h =>
-  --     rw [ht1, h]
-  --     apply RefineF.tauN_left
-  --     exact RefineF.zero
-  --   | .inr h =>
-  --     match h with
-  --     | .inl ⟨x, ht1', hxy⟩ =>
-  --       rw [ht1, ht1']
-  --       apply RefineF.tauN_left
-  --       apply RefineF.ret
-  --       exists y
-  --     | .inr ⟨t1, t2, ⟨ht1', h1, h2⟩⟩ =>
-  --       rw [ht1, ht1']
-  --       apply RefineF.tauN_left
-  --       apply RefineF.choice_idemp
-  --       all_goals (exists .ret y; apply And.intro)
-  --       on_goal 1 => exact h1
-  --       on_goal 2 => exact h2
-  --       all_goals (rw [Refine]; exact RefineF.ret hyz)
-
-  -- lemma RefineF.vis_right_trans (h1 : t1 ⊑r1⊑ (.vis e k2)) (h2 : RefineF r2 (Refine r2) (.vis e k2) (.vis e k3))
-  --   : RefineF (r1.comp r2) (fun t1 t3 => ∃ t2, t1 ⊑r1⊑ t2 ∧ t2 ⊑r2⊑ t3) t1 (.vis e k3) := by
-  --   have hk2 := h2.dest_vis_both
-  --   have ⟨n, t1', ht1', h⟩ := h1.dest_vis_right
-  --   rw [ht1']
-  --   match h with
-  --   | .inl h =>
-  --     rw [h]
-  --     apply RefineF.tauN_left
-  --     exact RefineF.zero
-  --   | .inr h =>
-  --     match h with
-  --     | .inl ⟨k1, ht1', hk1⟩ =>
-  --       rw [ht1']
-  --       apply RefineF.tauN_left
-  --       apply RefineF.vis
-  --       intro a
-  --       exists k2 a
-  --       exact And.intro (hk1 a) (hk2 a)
-  --     | .inr ⟨t1, t2, ht1', h1, h2⟩ =>
-  --       rw [ht1']
-  --       apply RefineF.tauN_left
-  --       apply RefineF.choice_idemp
-  --       all_goals (exists .vis e k2; apply And.intro)
-  --       on_goal 1 => exact h1
-  --       on_goal 2 => exact h2
-  --       all_goals (rw [Refine]; apply RefineF.vis λ a => hk2 a)
-
-  -- lemma Refine.zero_right_trans (h1 : t1 ⊑r1⊑ .zero)
-  --   : RefineF (r1.comp r2) (fun t1 t3 => ∃ t2, t1 ⊑r1⊑ t2 ∧ t2 ⊑r2⊑ t3) t1 t3 := by
-  --   have ⟨n, h⟩ := h1.dest_zero_right
-  --   match h with
-  --   | .inl h =>
-  --     rw [h]
-  --     apply RefineF.tauN_left
-  --     exact RefineF.zero
-  --   | .inr ⟨t11, t12, ht1, h1, h2⟩ =>
-  --     rw [ht1]
-  --     apply RefineF.tauN_left
-  --     apply RefineF.choice_idemp
-  --     all_goals (exists .zero; apply And.intro)
-  --     on_goal 1 => exact h1
-  --     on_goal 2 => exact h2
-  --     all_goals (rw [Refine]; exact RefineF.zero)
+          sorry
+        · sorry
+        · rename_i h1 h2
+          apply Or.inr
+          rw [Refine] at *
+          apply RefineF.choice_idemp RefineF.zero
+          apply RefineF.choice_idemp
+          <;> (apply RefineF.dest_choice_left_zero_left; assumption)
+    all_goals sorry
 
   @[trans]
   theorem Refine.trans {r1 : Rel α β} {r2 : Rel β γ} {t1 : CTree ε α} {t2 : CTree ε β} {t3 : CTree ε γ}
@@ -1485,7 +1557,27 @@ namespace CTree
           case zero => exact RefineF.zero
           case choice_idemp ih1 ih2 => exact RefineF.choice_idemp (ih1 ht2 h2) (ih2 ht2 h2)
         | vis hk2 =>
-          sorry
+          rename_i t1 _ α e k2 k3
+          have h2 := h2.dest_tau_left
+          clear *- hk2 h1 h2
+          apply RefineF.tau_left
+          generalize ht2 : vis e k2 = t2 at *
+          rw [Refine] at h1
+          induction h1
+          <;> ctree_elim ht2
+          case vis hk1 =>
+            have hα := vis_inj_α ht2
+            subst hα
+            have ⟨he, hk⟩ := vis_inj ht2
+            subst he
+            subst hk
+            apply RefineF.vis
+            intro a
+            exists k2 a
+            exact And.intro (hk1 a) (hk2 a)
+          case tau_left ih => exact RefineF.tau_left (ih ht2 h2)
+          case zero => exact RefineF.zero
+          case choice_idemp ih1 ih2 => exact RefineF.choice_idemp (ih1 ht2 h2) (ih2 ht2 h2)
         | tau h =>
           apply RefineF.tau
           rename_i t2 _
@@ -1496,13 +1588,86 @@ namespace CTree
         | tau_left _ ih => exact ih h1.dest_tau_right h2.dest_tau_left
         | tau_right _ ih => exact RefineF.tau_right (ih h1 h2.dest_tau_right)
         | zero =>
-          sorry
-        | choice_left h =>
-          sorry
-        | choice_right h =>
-          sorry
-        | choice_idemp _ _ ih1 ih2 =>
-          sorry
+          rename_i t1 _ t3
+          have h2 := h2.dest_tau_left
+          clear *- h1 h2
+          apply RefineF.tau_left
+          rw [Refine] at h1
+          generalize ht2 : zero = t2 at *
+          induction h1
+          <;> ctree_elim ht2
+          case tau_left ih => exact RefineF.tau_left (ih ht2 h2)
+          case zero => exact RefineF.zero
+          case choice_idemp ih1 ih2 => exact RefineF.choice_idemp (ih1 ht2 h2) (ih2 ht2 h2)
+        | choice_left h ih =>
+          apply RefineF.choice_left
+          apply ih h1
+          exact RefineF.tau_left h
+        | choice_right h ih =>
+          apply RefineF.choice_right
+          apply ih h1
+          exact RefineF.tau_left h
+        | choice_idemp h21 h22 ih1 ih2 =>
+          rename_i t1 _ t21 t3 t22
+          clear *- h1 h21 h22 ih1 ih2
+          obtain ⟨n, t1', ht1', h1⟩ := h1.dest_choice_right
+          apply h1.elim4
+          · intro h
+            subst ht1'
+            subst h
+            apply RefineF.tau_left
+            apply RefineF.tauN_left
+            exact RefineF.zero
+          · intro h
+            exact ih1 h (RefineF.tau_left h21)
+          · intro h
+            exact ih2 h (RefineF.tau_left h22)
+          · intro h
+            obtain ⟨t11, t12, ht1', h1c⟩ := h
+            rename_i ht1
+            subst ht1
+            subst ht1'
+            clear *- h1c ih1 ih2 h21 h22
+            generalize ht1 : t11 ⊕ t12 = t1 at *
+            generalize ht2 : t21 ⊕ t22 = t2 at *
+            rw [Refine] at h1c
+            induction h1c
+            <;> ctree_elim ht1
+            <;> ctree_elim ht2
+            case choice_left =>
+              apply ih1
+              · rw [(choice_inj ht2).left]
+                rw [Refine]
+                apply RefineF.tauN_left
+                assumption
+              · exact RefineF.tau_left h21
+            case choice_right =>
+              apply ih2
+              · rw [(choice_inj ht2).right]
+                rw [Refine]
+                apply RefineF.tauN_left
+                assumption
+              · exact RefineF.tau_left h22
+            case choice_idemp h1 h2 _ _ =>
+              subst ht2
+              have ⟨heq1, heq2⟩ := choice_inj ht1
+              subst heq1
+              subst heq2
+              clear *- h1 h2 h21 h22 ih1 ih2
+              have := Refine.choice_choice_or (by rw [Refine]; exact h1) (by rw [Refine]; exact h2)
+              apply this.elim
+              · intro h
+                apply ih1
+                · rw [Refine] at *
+                  apply RefineF.tauN_left
+                  exact h
+                · exact RefineF.tau_left h21
+              · intro h
+                apply ih2
+                · rw [Refine] at *
+                  apply RefineF.tauN_left
+                  exact h
+                · exact RefineF.tau_left h22
       | tau_left _ ih => exact RefineF.tau_left (ih h2)
       | tau_right _ ih => exact ih h2.dest_tau_left
       | zero => exact RefineF.zero
