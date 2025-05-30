@@ -2,23 +2,25 @@ import Mathlib.Data.QPF.Univariate.Basic
 import Mathlib.Data.Vector3
 import Mathlib.Data.Rel
 
-@[reducible]
-def Function.exp {α : Sort u} (f : α → α) (n : Nat) : α → α :=
-  match n with
-  | 0 => id
-  | n + 1 => f ∘ (Function.exp f n)
+-- Is this actually the id pfunctor?
+-- Does id even make sense for pfunctors?
+def IdF : PFunctor.{u} :=
+  ⟨PUnit, λ _ => PUnit⟩
 
 def SumF (P1 P2 : PFunctor.{u}) : PFunctor.{u} :=
-  ⟨Sum P1.A P2.A, λ a => match a with | .inl a => P1.B a | .inr a => P2.B a⟩
+  ⟨P1.A ⊕ P2.A, λ a => match a with | .inl a => P1.B a | .inr a => P2.B a⟩
 
-def PFunctor.exp (P : PFunctor.{u}) : Nat → PFunctor.{u}
+def PFunctor.pow (P : PFunctor.{u}) : Nat → PFunctor.{u}
 | 0 => P
-| n + 1 => PFunctor.comp P (P.exp n)
+| n + 1 => PFunctor.comp P (P.pow n)
 
-def Pn (P : PFunctor.{u}) : Nat → PFunctor.{u}
+instance : Pow PFunctor Nat where
+  pow P n := P.pow n
+
+def PFunctor.sumPow (P : PFunctor.{u}) : Nat → PFunctor.{u}
 | 0 => P
-| n + 1 => SumF (P.exp (n + 1)) (Pn P n)
-infixl:70 " ^ " => Pn
+| n + 1 => SumF (P ^ (n + 1)) (PFunctor.sumPow P n)
+infixl:70 " ⊕^ " => PFunctor.sumPow
 
 def SumF.inl {P1 P2 : PFunctor.{u}} : P1.M → (SumF P1 P2).M  := sorry
 
@@ -30,7 +32,7 @@ def SumF.destL : P1 (SumF P1 P2).M → (SumF P1 P2).M := sorry
 
 def SumF.destR : P2 (SumF P1 P2).M → (SumF P1 P2).M := sorry
 
-def PFunctor.fold {P : PFunctor.{u}} (x : P.M) : (n : Nat) → (P ^ n).M
+def PFunctor.fold {P : PFunctor.{u}} (x : P.M) : (n : Nat) → (P ⊕^ n).M
 | 0 => x
 | n + 1 =>
   let x' := P.fold x n
@@ -53,21 +55,26 @@ P.comp P => P
 
 -/
 
-def PFunctor.unfold {P : PFunctor.{u}} : (n : Nat) → (x : (P ^ n).M) → P.M
+def PFunctor.unfold {P : PFunctor.{u}} : (n : Nat) → (x : (P ⊕^ n).M) → P.M
 | 0 => id
-| 1 => λ x => by
-  rw [Pn, PFunctor.exp] at x
-  rw [Pn, PFunctor.exp] at x
-  sorry
+| 1 => λ x =>
+  match SumF.case x with
+  | .inl x => by
+    simp [HPow.hPow, Pow.pow, PFunctor.pow, PFunctor.sumPow] at x
+    sorry
+  | .inr x => by
+    simp [HPow.hPow, Pow.pow, PFunctor.pow, PFunctor.sumPow] at x
+    sorry
 | n + 1 => λ x =>
   match SumF.case x with
-  | .inl x =>
+  | .inl x => by
     sorry
-  | .inr x => sorry--(.mk (P.unfold n x))
+  | .inr x => by
+    sorry
 
 def corecN {P : PFunctor.{u}} {α : Type u} (n : Nat)
-  (F : ∀ {X : Type u}, (α → X) → α → P.M ⊕ (P ^ n) X) (x : α) : P.M :=
-  let y : (P ^ n).M := PFunctor.M.corec' (λ rec y =>
+  (F : ∀ {X : Type u}, (α → X) → α → P.M ⊕ (P ⊕^ n) X) (x : α) : P.M :=
+  let y : (P ⊕^ n).M := PFunctor.M.corec' (λ rec y =>
     match F rec y with
     | .inl y => .inl <| PFunctor.fold y n
     | .inr y => .inr y
@@ -1461,7 +1468,22 @@ namespace CTree
       | tau h1 =>
         induction h2.dest_tau_left with
         | ret hyz =>
-          sorry
+          rename_i t1 _ y z
+          apply RefineF.tau_left
+          have h2 := h2.dest_tau_left
+          clear *- hyz h1 h2
+          rw [Refine] at h1
+          generalize ht2 : ret y = t2 at *
+          induction h1
+          <;> ctree_elim ht2
+          case ret hxy =>
+            have := ret_inj ht2
+            subst this
+            apply RefineF.ret
+            exists y
+          case tau_left ih => exact RefineF.tau_left (ih ht2 h2)
+          case zero => exact RefineF.zero
+          case choice_idemp ih1 ih2 => exact RefineF.choice_idemp (ih1 ht2 h2) (ih2 ht2 h2)
         | vis hk2 =>
           sorry
         | tau h =>
@@ -1480,7 +1502,6 @@ namespace CTree
         | choice_right h =>
           sorry
         | choice_idemp _ _ ih1 ih2 =>
-
           sorry
       | tau_left _ ih => exact RefineF.tau_left (ih h2)
       | tau_right _ ih => exact ih h2.dest_tau_left
@@ -1488,10 +1509,30 @@ namespace CTree
       | choice_left h1 ih =>
         rename_i t21 t22
         apply ih
-
-        sorry
-      | choice_right => sorry
-      | choice_idemp => sorry
+        clear *- h2
+        generalize ht2 : t21 ⊕ t22 = t2 at *
+        induction h2
+        <;> ctree_elim ht2
+        case tau_right ih => exact RefineF.tau_right (ih ht2)
+        case choice_left ih => exact RefineF.choice_left (ih ht2)
+        case choice_right ih => exact RefineF.choice_right (ih ht2)
+        case choice_idemp h1 _ _ _ =>
+          rw [(choice_inj ht2).left]
+          exact h1
+      | choice_right h1 ih =>
+        rename_i t22 t21
+        apply ih
+        clear *- h2
+        generalize ht2 : t21 ⊕ t22 = t2 at *
+        induction h2
+        <;> ctree_elim ht2
+        case tau_right ih => exact RefineF.tau_right (ih ht2)
+        case choice_left ih => exact RefineF.choice_left (ih ht2)
+        case choice_right ih => exact RefineF.choice_right (ih ht2)
+        case choice_idemp _ h2 _ _ =>
+          rw [(choice_inj ht2).right]
+          exact h2
+      | choice_idemp _ _ ih1 ih2 => apply RefineF.choice_idemp (ih1 h2) (ih2 h2)
 
   instance {r : Rel ρ ρ} [IsRefl ρ r] : IsRefl (CTree ε ρ) (Refine r) where
     refl := .refl
