@@ -821,28 +821,28 @@ namespace CTree
 
   /- Labelled Transition System -/
 
-  inductive Label (ρ : Type) (ε : Type → Type)
+  inductive Label (ε : Type → Type) (ρ : Type)
   | val (v : ρ)
-  | event (e : ε α) (a : α)
+  | event (α : Type) (e : ε α) (a : α)
 
-  inductive LTS : CTree ε ρ → Label ρ ε → CTree ε ρ → Prop
-  | ret : LTS (ret v) (.val v) zero
-  | vis : LTS (vis e k) (.event e a) (k a)
-  | choice_left (h : LTS t1 l t3) : LTS (t1 ⊕ t2) l t3
-  | choice_right (h : LTS t2 l t3) : LTS (t1 ⊕ t2) l t3
+  inductive Step : CTree ε ρ → Label ε ρ → CTree ε ρ → Prop
+  | ret : Step (ret v) (.val v) zero
+  | vis {α} {e : ε α} {a : α} {k : α → CTree ε ρ} : Step (vis e k) (.event α e a) (k a)
+  | choice_left (h : Step t1 l t3) : Step (t1 ⊕ t2) l t3
+  | choice_right (h : Step t2 l t3) : Step (t1 ⊕ t2) l t3
 
-  def LTS.sim (r : Rel ρ σ) : Rel (CTree ε ρ) (CTree ε σ) :=
-    λ p q =>
-      ∀ {l : Label ρ ε} {p' : CTree ε ρ} (_ : LTS p l p'),
-        match l with
-        | .val x => ∃ y q', r x y ∧ LTS q (.val y) q'
-        | .event e a => ∃ q', LTS q (.event e a) q'
-
-  def LTS.bisim (r : Rel ρ σ) : Rel (CTree ε ρ) (CTree ε σ) :=
-    λ p q => LTS.sim r p q ∧ LTS.sim (flip r) q p
+  def Label.compat (r : Rel ρ σ) : Rel (Label ε ρ) (Label ε σ) :=
+    λ l1 l2 =>
+      match l1, l2 with
+      | .val x, .val y => r x y
+      | .event α1 e1 a1, .event α2 e2 a2 => α1 = α2 ∧ HEq e1 e2 ∧ HEq a1 a2
+      | _, _ => False
 
   inductive WeakBisimF (r : Rel ρ σ) (sim : Rel (CTree ε ρ) (CTree ε σ)) : Rel (CTree ε ρ) (CTree ε σ)
-  | bisim (h : LTS.sim r p q) : WeakBisimF r sim p q
+  | step
+    (h1 : ∀ l, Step p l p' → ∃ l' q', l.compat r l' ∧ Step q l' q' ∧ sim p' q')
+    (h2 : ∀ l, Step q l q' → ∃ l' p', l.compat (flip r) l' ∧ Step p l' p' ∧ sim p' q')
+    : WeakBisimF r sim p q
   | tau_left (h : WeakBisimF r sim p q) : WeakBisimF r sim p.tau q
   | tau_right (h : WeakBisimF r sim p q) : WeakBisimF r sim p q.tau
   | tau (h : sim p q) : WeakBisimF r sim p.tau q.tau
@@ -852,7 +852,18 @@ namespace CTree
     greatest_fixpoint monotonicity by
       intro sim1 sim2 hsim p q h1
       induction h1 with
-      | bisim h => exact WeakBisimF.bisim h
+      | step h1 h2 =>
+        rename_i p p' q q'
+        apply @WeakBisimF.step _ _ _ _ _  p p' q q'
+        all_goals intro l s
+        on_goal 1 =>
+          obtain ⟨l', q', comp, s', h⟩ := h1 l s
+        on_goal 2 =>
+          obtain ⟨l', q', comp, s', h⟩ := h2 l s
+        all_goals
+         (exists l', q'
+          apply And.intro comp
+          exact And.intro s' (hsim _ _ h))
       | tau_left _ ih => exact WeakBisimF.tau_left ih
       | tau_right _ ih => exact WeakBisimF.tau_right ih
       | tau h => exact WeakBisimF.tau (hsim _ _ h)
