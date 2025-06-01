@@ -2,6 +2,29 @@ import Mathlib.Data.Rel
 import Mathlib.Data.Vector3
 import Mathlib.Data.QPF.Univariate.Basic
 
+theorem Rel.comp_self {r : Rel α α} [IsRefl α r] [IsTrans α r] : r.comp r = r := by
+  funext x y
+  simp only [Rel.comp]
+  apply propext
+  apply Iff.intro
+  · intro h
+    have ⟨z, ⟨h1, h2⟩⟩ := h
+    exact IsTrans.trans _ _ _ h1 h2
+  · intro h
+    exists x
+    exact And.intro (IsRefl.refl x) h
+
+instance {r : Rel α α} [IsRefl α r] : IsRefl α (flip r) where
+  refl a := by
+    simp only [flip]
+    exact IsRefl.refl a
+
+instance {r : Rel α α} [IsTrans α r] : IsTrans α (flip r) where
+  trans a b c := by
+    intro h1 h2
+    simp only [flip] at *
+    exact IsTrans.trans _ _ _ h2 h1
+
 theorem Or.elim4 {motive : Prop} (hor : P1 ∨ P2 ∨ P3 ∨ P4)
   (h1 : P1 → motive) (h2 : P2 → motive) (h3 : P3 → motive) (h4 : P4 → motive) : motive :=
   hor.elim3 h1 h2 (λ hor =>
@@ -93,6 +116,8 @@ theorem corec_inl_eq_id {P : PFunctor.{u}} {F : P.M ⊕ β → P (P.M ⊕ β)} {
       simp only [Function.comp_apply, PFunctor.M.corec_def, PFunctor.map, hF]
   · exists g
 
+/- Multiple coinductive constructor calls -/
+
 -- Is this actually the id pfunctor?
 -- Does id even make sense for pfunctors?
 def IdF : PFunctor.{u} :=
@@ -171,15 +196,3 @@ def corecN {P : PFunctor.{u}} {α : Type u} (n : Nat)
     | .inr y => .inr y
   ) x
   PFunctor.unfold n y
-
-theorem Rel.comp_self {r : Rel α α} [IsRefl α r] [IsTrans α r] : r.comp r = r := by
-  funext x y
-  simp only [Rel.comp]
-  apply propext
-  apply Iff.intro
-  · intro h
-    have ⟨z, ⟨h1, h2⟩⟩ := h
-    exact IsTrans.trans _ _ _ h1 h2
-  · intro h
-    exists x
-    exact And.intro (IsRefl.refl x) h
