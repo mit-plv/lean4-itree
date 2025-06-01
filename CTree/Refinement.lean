@@ -21,7 +21,7 @@ namespace CTree
   | choice_right {p1 p2 t1 t2 t3}
       (h : RefineF r sim p1 ⊤ t1 t3) : RefineF r sim p1 p2 t1 (t2 ⊕ t3)
   | choice_idemp {p1 p2 t1 t2 t3}
-      (h1 : RefineF r sim ⊤ p2 t1 t3) (h2 : RefineF r sim p1 p2 t2 t3)
+      (h1 : RefineF r sim ⊤ p2 t1 t3) (h2 : RefineF r sim ⊤ p2 t2 t3)
       : RefineF r sim p1 p2 (t1 ⊕ t2) t3
 
   def Refine' (r : Rel ρ σ) (p1 p2 : PartENat) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
