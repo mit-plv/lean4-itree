@@ -45,6 +45,14 @@ namespace CTree
   -- `t1 r⊑ t2` looks better, but somehow clashes with multi-line class instance definition
   notation:60 t1:61 " ⊑"r:61"⊑ " t2:61 => Refine r t1 t2
 
+  -- #check Nat.rec
+  -- theorem RefineF.ind {sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop} {motive : RefineF r sim p1 p2 t1 t2 → Prop}
+  --   (coind : {p1 p2 : PartENat} → {t1 : CTree ε ρ} → {t2 : CTree ε σ}
+  --     → (p1' : PartENat) → (p2' : PartENat) → (h1 : p1' < p1') → (h2 : p2' < p2)
+  --     → (h : sim p1' p2' t1 t2) → motive () → sorry)
+  --   (h : RefineF r sim p1 p2 t1 t2) : True := by
+  --   sorry
+
   theorem Refine.coind (sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop) (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
     (p1 p2 : PartENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : t1 ⊑r⊑ t2 :=
     ⟨p1, ⟨p2, Refine'.fixpoint_induct r sim adm p1 p2 t1 t2 h⟩⟩
@@ -117,5 +125,66 @@ namespace CTree
       rw [Rel.comp_self (r := r)] at this
       exact this
   }
+
+  inductive IsInfF (sim : CTree ε ρ → Prop) : CTree ε ρ → Prop
+  | choice_left (h : sim t1) : IsInfF sim (t1 ⊕ t2)
+  | choice_right (h : sim t2) : IsInfF sim (t1 ⊕ t2)
+  | tau (h : sim t) : IsInfF sim t.tau
+
+  def IsInf (t : CTree ε ρ) : Prop :=
+    IsInfF IsInf t
+    greatest_fixpoint monotonicity by
+      intro sim1 sim2 hsim x h
+      cases h with
+      | choice_left h => exact .choice_left (hsim _ h)
+      | choice_right h => exact .choice_right (hsim _ h)
+      | tau h => exact .tau (hsim _ h)
+
+  theorem infND_refine_left : infND ⊑r⊑ t → IsInf t := by
+    intro h
+    apply IsInf.fixpoint_induct (λ t => infND ⊑r⊑ t) _ t h
+    intro t h
+    rw [Refine] at h
+    obtain ⟨p1, p2, h⟩ := h
+    revert p1
+    induction p2 using WellFounded.induction PartENat.lt_wf
+    rename_i p2 ihp2
+    intro p2 h
+    rw [Refine'] at h
+    rw [infND_eq] at h
+    generalize hinf : infND ⊕ infND = t at *
+    induction h
+    <;> ctree_elim hinf
+    case coind _ p2 _ h2 h =>
+      rw [←hinf, ←infND_eq] at h
+      exact ihp2 p2 h2 _ h
+    case tau_right h _ =>
+      apply IsInfF.tau
+      subst hinf
+      rw [←infND_eq] at h
+      rename_i p1 _ _ _
+      exists p1, ⊤
+      rw [Refine']
+      assumption
+    case choice_left h _ =>
+      rename_i p1 _ _ _ _ _
+      apply IsInfF.choice_left
+      rw [←hinf, ←infND_eq] at h
+      rw [Refine]
+      exists p1, ⊤
+      rw [Refine']
+      assumption
+    case choice_right h _ =>
+      rename_i p1 _ _ _ _ _
+      apply IsInfF.choice_right
+      rw [←hinf, ←infND_eq] at h
+      rw [Refine]
+      exists p1, ⊤
+      rw [Refine']
+      assumption
+    case choice_idemp h1 h2 ih1 ih2 =>
+      apply ih2 ihp2
+      rw [←(choice_inj hinf).right]
+      simp only [←infND_eq]
 
 end CTree
