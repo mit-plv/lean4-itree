@@ -1,16 +1,6 @@
 import CTree.Basic
 
 namespace CTree
-
-  /- Refinement -/
-
-  /- Note:
-    While infinite non-determinism are expressible in CTrees. We cannot prove that it refines anything
-    because the choice cases are defined inductively. We could add a coinductive case with choice on both sides,
-    but it doesn't seem very useful and complicates reasoning.
-
-    Eventually, it would be nice to prove `WeakBisim ↔ Eutt`, but there might be some edge cases with infinite non-determinsim.
-  -/
   inductive RefineF {ε : Type → Type} {ρ σ : Type}
     (r : Rel ρ σ) (sim : Nat → Nat → CTree ε ρ → CTree ε σ → Prop)
     : Nat → Nat → CTree ε ρ → CTree ε σ → Prop
