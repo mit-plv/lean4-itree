@@ -45,14 +45,6 @@ namespace CTree
   -- `t1 r⊑ t2` looks better, but somehow clashes with multi-line class instance definition
   notation:60 t1:61 " ⊑"r:61"⊑ " t2:61 => Refine r t1 t2
 
-  -- #check Nat.rec
-  -- theorem RefineF.ind {sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop} {motive : RefineF r sim p1 p2 t1 t2 → Prop}
-  --   (coind : {p1 p2 : PartENat} → {t1 : CTree ε ρ} → {t2 : CTree ε σ}
-  --     → (p1' : PartENat) → (p2' : PartENat) → (h1 : p1' < p1') → (h2 : p2' < p2)
-  --     → (h : sim p1' p2' t1 t2) → motive () → sorry)
-  --   (h : RefineF r sim p1 p2 t1 t2) : True := by
-  --   sorry
-
   theorem Refine.coind (sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop) (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
     (p1 p2 : PartENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : t1 ⊑r⊑ t2 :=
     ⟨p1, ⟨p2, Refine'.fixpoint_induct r sim adm p1 p2 t1 t2 h⟩⟩
@@ -102,7 +94,32 @@ namespace CTree
   @[trans]
   theorem Refine.trans {r1 : Rel α β} {r2 : Rel β γ} {t1 : CTree ε α} {t2 : CTree ε β} {t3 : CTree ε γ}
     (h1 : t1 ⊑r1⊑ t2) (h2 : t2 ⊑r2⊑ t3) : t1 ⊑(r1.comp r2)⊑ t3 := by
-    sorry
+    rw [Refine] at h1
+    rw [Refine] at h2
+    obtain ⟨p11, p12, h1⟩ := h1
+    obtain ⟨p21, p22, h2⟩ := h2
+    apply Refine.coind
+      (λ p1 p2 t1 t3 => ∃ t2 p11 p12 p21 p22, Refine' r1 p11 p12 t1 t2 ∧ Refine' r2 p21 p22 t2 t3)
+      _ p11 p12
+    · exists t2, p11, p12, p21, p22
+    · intro p1 p2 t1 t3 h
+      induction p1 using WellFounded.induction PartENat.lt_wf
+      rename_i p1 ihp1
+      obtain ⟨t2, p11, p12, p21, p22, h1, h2⟩ := h
+      rw [Refine'] at h1
+      rw [Refine'] at h2
+      induction h1 with
+      | coind p11' p12' h11 h12 h1 =>
+        apply ihp1
+        sorry
+      | ret => sorry
+      | vis => sorry
+      | tau_left => sorry
+      | tau_right => sorry
+      | zero => sorry
+      | choice_left => sorry
+      | choice_right => sorry
+      | choice_idemp => sorry
 
   instance {r : Rel ρ ρ} [IsRefl ρ r] : IsRefl (CTree ε ρ) (Refine r) where
     refl := .refl
