@@ -1,7 +1,17 @@
 import CTree.Basic
 import Mathlib.Data.Nat.PartENat
 
+
 namespace CTree
+  /--
+    Somewhat failed attemp at defining a direct refinement between `CTree`s without defining traces first.
+    The definition uses ideas from the [FreeSim paper](https://dl.acm.org/doi/10.1145/3622857)
+
+    While this definition seems plausible and we can prove reflexivity and some intersting theorems about infinite non-determinism.
+    This nested inductive-coinductive structure is very difficult to work with.
+
+    It would be interesting to see if the is equivalent to the `TraceRefine` definition.
+  -/
   inductive RefineF {ε : Type → Type} {ρ σ : Type}
     (r : Rel ρ σ) (sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop)
     : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop
@@ -90,58 +100,6 @@ namespace CTree
         apply RefineF.coind 0 0
         <;> simp_all only [PartENat.zero_lt_top]
         simp_all only [and_self]
-
-  @[trans]
-  theorem Refine.trans {r1 : Rel α β} {r2 : Rel β γ} {t1 : CTree ε α} {t2 : CTree ε β} {t3 : CTree ε γ}
-    (h1 : t1 ≤r1≤ t2) (h2 : t2 ≤r2≤ t3) : t1 ≤(r1.comp r2)≤ t3 := by
-    rw [Refine] at h1
-    rw [Refine] at h2
-    obtain ⟨p11, p12, h1⟩ := h1
-    obtain ⟨p21, p22, h2⟩ := h2
-    apply Refine.coind
-      (λ p1 p2 t1 t3 => ∃ t2 p11 p12 p21 p22, Refine' r1 p11 p12 t1 t2 ∧ Refine' r2 p21 p22 t2 t3)
-      _ p11 p12
-    · exists t2, p11, p12, p21, p22
-    · intro p1 p2 t1 t3 h
-      induction p1 using WellFounded.induction PartENat.lt_wf
-      rename_i p1 ihp1
-      obtain ⟨t2, p11, p12, p21, p22, h1, h2⟩ := h
-      rw [Refine'] at h1
-      rw [Refine'] at h2
-      induction h1 with
-      | coind p11' p12' h11 h12 h1 =>
-        apply ihp1
-        sorry
-      | ret => sorry
-      | vis => sorry
-      | tau_left => sorry
-      | tau_right => sorry
-      | zero => sorry
-      | choice_left => sorry
-      | choice_right => sorry
-      | choice_idemp => sorry
-
-  instance {r : Rel ρ ρ} [IsRefl ρ r] : IsRefl (CTree ε ρ) (Refine r) where
-    refl := .refl
-
-  -- TODO: Does `r` have to be refl and trans?
-  instance {r : Rel ρ ρ} [IsRefl ρ r] [IsTrans ρ r] : IsTrans (CTree ε ρ) (Refine r) where
-    trans := by
-      intro a b c h1 h2
-      have := Refine.trans h1 h2
-      rw [Rel.comp_self (r := r)] at this
-      exact this
-
-  def Refine.instPreorder (r : Rel ρ ρ) [IsRefl ρ r] [IsTrans ρ r] : Preorder (CTree ε ρ) :=
-  {
-    le := Refine r,
-    le_refl := refl,
-    le_trans := by
-      intro a b c h1 h2
-      have := trans h1 h2
-      rw [Rel.comp_self (r := r)] at this
-      exact this
-  }
 
   inductive IsInfF (sim : CTree ε ρ → Prop) : CTree ε ρ → Prop
   | choice_left (h : sim t1) : IsInfF sim (t1 ⊕ t2)

@@ -3,11 +3,11 @@ import CTree.Trace
 
 namespace CTree
 
-  def Eutt (t1 t2 : CTree ε ρ) : Prop :=
+  def TraceEq (t1 t2 : CTree ε ρ) : Prop :=
     t1 ≤ t2 ∧ t2 ≤ t1
 
   instance : HasEquiv (CTree ε ρ) where
-    Equiv := Eutt
+    Equiv := TraceEq
 
   namespace Eutt
     @[refl]
@@ -22,7 +22,7 @@ namespace CTree
     theorem trans {t1 t2 t3 : CTree ε ρ} (h1 : t1 ≈ t2) (h2 : t2 ≈ t3) : t1 ≈ t3 :=
       ⟨.trans h1.left h2.left, .trans h2.right h1.right⟩
 
-    instance instCTreeIsEquiv : IsEquiv (CTree ε ρ) Eutt where
+    instance instCTreeIsEquiv : IsEquiv (CTree ε ρ) TraceEq where
       refl _ := refl
       trans _ _ _ := trans
       symm _ _ := symm
