@@ -42,15 +42,15 @@ namespace CTree
   abbrev Refine (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) :=
     ∃ p1 p2, Refine' r p1 p2 t1 t2
 
-  -- `t1 r⊑ t2` looks better, but somehow clashes with multi-line class instance definition
-  notation:60 t1:61 " ⊑"r:61"⊑ " t2:61 => Refine r t1 t2
+  -- `t1 r≤ t2` looks better, but somehow clashes with multi-line class instance definition
+  notation:60 t1:61 " ≤"r:61"≤ " t2:61 => Refine r t1 t2
 
   theorem Refine.coind (sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop) (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
-    (p1 p2 : PartENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : t1 ⊑r⊑ t2 :=
+    (p1 p2 : PartENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : t1 ≤r≤ t2 :=
     ⟨p1, ⟨p2, Refine'.fixpoint_induct r sim adm p1 p2 t1 t2 h⟩⟩
 
   @[refl]
-  theorem Refine.refl {r : Rel ρ ρ} [IsRefl ρ r] (t : CTree ε ρ) : t ⊑r⊑ t := by
+  theorem Refine.refl {r : Rel ρ ρ} [IsRefl ρ r] (t : CTree ε ρ) : t ≤r≤ t := by
     apply Refine.coind (λ p1 p2 t1 t2 => p1 = 0 ∧ p2 = 0 ∧ t1 = t2) _ 0 0 (And.intro rfl <| And.intro rfl rfl)
     intro p1 p2 t t' h
     obtain ⟨hp1, hp2, heq⟩ := h
@@ -93,7 +93,7 @@ namespace CTree
 
   @[trans]
   theorem Refine.trans {r1 : Rel α β} {r2 : Rel β γ} {t1 : CTree ε α} {t2 : CTree ε β} {t3 : CTree ε γ}
-    (h1 : t1 ⊑r1⊑ t2) (h2 : t2 ⊑r2⊑ t3) : t1 ⊑(r1.comp r2)⊑ t3 := by
+    (h1 : t1 ≤r1≤ t2) (h2 : t2 ≤r2≤ t3) : t1 ≤(r1.comp r2)≤ t3 := by
     rw [Refine] at h1
     rw [Refine] at h2
     obtain ⟨p11, p12, h1⟩ := h1
@@ -157,9 +157,9 @@ namespace CTree
       | choice_right h => exact .choice_right (hsim _ h)
       | tau h => exact .tau (hsim _ h)
 
-  theorem infND_refine_left : infND ⊑r⊑ t → IsInf t := by
+  theorem infND_refine_left : infND ≤r≤ t → IsInf t := by
     intro h
-    apply IsInf.fixpoint_induct (λ t => infND ⊑r⊑ t) _ t h
+    apply IsInf.fixpoint_induct (λ t => infND ≤r≤ t) _ t h
     intro t h
     rw [Refine] at h
     obtain ⟨p1, p2, h⟩ := h
