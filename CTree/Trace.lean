@@ -1,14 +1,12 @@
 import CTree.Basic
 
 namespace CTree
-  @[aesop safe [constructors, cases]]
   inductive Trace (ε : Type → Type) (ρ : Type)
   | nil : Trace ε ρ
   | ret (v : ρ) : Trace ε ρ
   | event_end {α} (e : ε α) : Trace ε ρ
   | event_response {α} (e : ε α) (a : α) (cont : Trace ε ρ) : Trace ε ρ
 
-  @[aesop safe [constructors, cases]]
   inductive IsTraceOf {ε : Type → Type} {ρ : Type} : Rel (CTree ε ρ) (Trace ε ρ)
   | empty {t} : IsTraceOf t .nil
   | ret (v) : IsTraceOf (.ret v) (.ret v)

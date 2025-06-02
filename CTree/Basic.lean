@@ -3,18 +3,6 @@ import Mathlib.Data.Vector3
 import Mathlib.Data.Rel
 import CTree.Utils
 
-/--
-Coinductive Choice Tree defined with `PFunctor.M`.
-```
-coinductive CTree (ε : Type → Type) (ρ : Type)
-  | ret (v : ρ)
-  | tau (t : CTree ε ρ)
-  | vis {α} (e : ε α) (k : α → CTree ε ρ)
-  | zero
-  | choice : CTree ε ρ → CTree ε ρ → CTree ε ρ
-```
--/
-
 inductive CTree.shape (ε : Type → Type) (ρ : Type) : Type 1
 | ret (v : ρ)
 | tau
@@ -31,6 +19,18 @@ def CTree.children {ε : Type → Type} {ρ : Type} : CTree.shape ε ρ → Type
 
 def CTree.P (ε : Type → Type) (ρ : Type) : PFunctor.{1} := ⟨CTree.shape ε ρ, CTree.children⟩
 
+/--
+Coinductive Choice Tree defined with `PFunctor.M`.
+Equivalent to the following definition:
+```
+coinductive CTree (ε : Type → Type) (ρ : Type)
+| ret (v : ρ)
+| tau (t : CTree ε ρ)
+| vis {α : Type} (e : ε α) (k : α → CTree ε ρ)
+| zero
+| choice (l r : CTree ε ρ)
+```
+-/
 def CTree (ε : Type → Type) (ρ : Type) := (CTree.P ε ρ).M
 
 namespace CTree
