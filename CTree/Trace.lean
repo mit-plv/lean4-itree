@@ -73,20 +73,27 @@ namespace CTree
     induction htr with
     | empty => exact .empty
     | ret v =>
-      have := h1 (.ret v) (.ret v)
-      cases this
+      cases h1 (.ret v) (.ret v)
       case ret => exact ret_le h2
       case tau h1 => exact h2 (.ret v) (.tau _ h1)
       all_goals
-       (apply h1.ret_le_choice.elim
-        · intro h
-          exact h2.choice_le.left (.ret v) h
-        · intro h
-          exact h2.choice_le.right (.ret v) h)
-    | tau => sorry
-    | vis_end => sorry
-    | vis_continue => sorry
-    | choice_left => sorry
-    | choice_right => sorry
+       (apply h1.ret_le_choice.elim <;> intro h
+        · exact h2.choice_le.left (.ret v) h
+        · exact h2.choice_le.right (.ret v) h)
+    | tau _ _ ih => exact ih λ tr htr => h1 tr (.tau _ htr)
+    | vis_end e =>
+      cases h1 (.event_end e) (.vis_end e)
+      case tau h => exact h2 (.event_end e) (.tau _ h)
+      case vis_end => exact h2 (.event_end e) (.vis_end e)
+      case choice_left h => exact h2 (.event_end e) (.choice_left _ h)
+      case choice_right h => exact h2 (.event_end e) (.choice_right _ h)
+    | vis_continue tr e a h =>
+      cases h1 (.event_response e a tr) (.vis_continue tr e a h)
+      case tau h => exact h2 (.event_response e a tr) (.tau _ h)
+      case vis_continue h => exact h2 (.event_response e a tr) (.vis_continue tr e a h)
+      case choice_left h => exact h2 (.event_response e a tr) (.choice_left _ h)
+      case choice_right h => exact h2 (.event_response e a tr) (.choice_right _ h)
+    | choice_left _ _ ih => exact ih h1.choice_le.left
+    | choice_right _ _ ih => exact ih h1.choice_le.right
 
 end CTree
