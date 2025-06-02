@@ -11,7 +11,7 @@ namespace CTree
     This nested inductive-coinductive structure is very difficult to work with in practice compared to `TraceRefine` (at least
     for writing general equational theories, ymmv when proving equivalence of concrete systems).
 
-    It would be interesting to see if this is equivalent to the `TraceRefine` definition.
+    Note that this is not equivalent to `TraceRefine`, becasuse `TraceRefine` makes no distinction between `zero` and `infND`.
   -/
   inductive RefineF {ε : Type → Type} {ρ σ : Type}
     (r : Rel ρ σ) (sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop)
