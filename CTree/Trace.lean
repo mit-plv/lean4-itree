@@ -96,4 +96,43 @@ namespace CTree
     | choice_left _ _ ih => exact ih h1.choice_le.left
     | choice_right _ _ ih => exact ih h1.choice_le.right
 
+  instance instCTreePreorder : Preorder (CTree ε ρ) where
+    le_refl _ := TraceRefine.refl
+    le_trans _ _ _ := TraceRefine.trans
+
+  theorem TraceRefine.choice_idemp {t1 t2 t3 : CTree ε ρ} (h1 : t1 ≤ t3) (h2 : t2 ≤ t3) : (t1 ⊕ t2) ≤ t3 := by
+    intro tr h
+    generalize ht : t1 ⊕ t2 = t at *
+    cases h
+    <;> ctree_elim ht
+    case empty => exact .empty
+    case choice_left h =>
+      rw [←(choice_inj ht).left] at h
+      exact h1 tr h
+    case choice_right h =>
+      rw [←(choice_inj ht).right] at h
+      exact h2 tr h
+
+  theorem TraceRefine.choice_le_iff {t1 t2 t3 : CTree ε ρ} : (t1 ⊕ t2) ≤ t3 ↔ t1 ≤ t3 ∧ t2 ≤ t3 :=
+    ⟨TraceRefine.choice_le, λ h => TraceRefine.choice_idemp h.left h.right⟩
+
+  theorem TraceRefine.choice_left {t1 t2 t3 : CTree ε ρ} (h : t1 ≤ t2) : t1 ≤ t2 ⊕ t3 :=
+    λ tr htr => IsTraceOf.choice_left _ (h tr htr)
+
+  theorem TraceRefine.choice_right {t1 t2 t3 : CTree ε ρ} (h : t1 ≤ t3) : t1 ≤ t2 ⊕ t3 :=
+    λ tr htr => IsTraceOf.choice_right _ (h tr htr)
+
+  theorem TraceRefine.zero_le : zero ≤ t := by
+    intro tr htr
+    generalize hz : zero = t1 at *
+    cases htr
+    <;> ctree_elim hz
+    exact IsTraceOf.empty
+
+  instance instCTeeBot : Bot (CTree ε ρ) where
+    bot := zero
+
+  instance instCTreeOrderBot : OrderBot (CTree ε ρ) where
+    bot_le _ := TraceRefine.zero_le
+
 end CTree
