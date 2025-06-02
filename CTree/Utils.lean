@@ -123,9 +123,6 @@ theorem corec_inl_eq_id {P : PFunctor.{u}} {F : P.M ⊕ β → P (P.M ⊕ β)} {
 def IdF : PFunctor.{u} :=
   ⟨PUnit, λ _ => PUnit⟩
 
-def SumF (P1 P2 : PFunctor.{u}) : PFunctor.{u} :=
-  ⟨P1.A ⊕ P2.A, λ a => match a with | .inl a => P1.B a | .inr a => P2.B a⟩
-
 def PFunctor.pow (P : PFunctor.{u}) : Nat → PFunctor.{u}
 | 0 => P
 | n + 1 => PFunctor.comp P (P.pow n)
@@ -133,20 +130,37 @@ def PFunctor.pow (P : PFunctor.{u}) : Nat → PFunctor.{u}
 instance : Pow PFunctor Nat where
   pow P n := P.pow n
 
+/-- The sum of two pfunctors -/
+def SumF (P1 P2 : PFunctor.{u}) : PFunctor.{u} :=
+  ⟨P1.A ⊕ P2.A, λ a => match a with | .inl a => P1.B a | .inr a => P2.B a⟩
+
 def PFunctor.sumPow (P : PFunctor.{u}) : Nat → PFunctor.{u}
 | 0 => P
 | n + 1 => SumF (P ^ (n + 1)) (PFunctor.sumPow P n)
 infixl:70 " ⊕^ " => PFunctor.sumPow
 
-def SumF.inl {P1 P2 : PFunctor.{u}} : P1.M → (SumF P1 P2).M  := sorry
+def SumF.inl {P1 P2 : PFunctor.{u}} (x : P1.M) : (SumF P1 P2).M  :=
+  .corec (λ x =>
+    let ⟨s, c⟩ := x.dest
+    ⟨.inl s, λ sl => c sl⟩
+  ) x
 
-def SumF.inr {P1 P2 : PFunctor.{u}} : P2.M → (SumF P1 P2).M  := sorry
+def SumF.inr {P1 P2 : PFunctor.{u}} (x : P2.M) : (SumF P1 P2).M  :=
+  .corec (λ x =>
+    let ⟨s, c⟩ := x.dest
+    ⟨.inr s, λ sr => c sr⟩
+  ) x
 
-def SumF.case : (SumF P1 P2).M → P1 (SumF P1 P2).M ⊕ P2 (SumF P1 P2).M := sorry
+def SumF.case (x : (SumF P1 P2).M) : P1 (SumF P1 P2).M ⊕ P2 (SumF P1 P2).M :=
+  match x.dest with
+  | ⟨.inl sl, c⟩ => .inl ⟨sl, c⟩
+  | ⟨.inr sr, c⟩ => .inr ⟨sr, c⟩
 
-def SumF.destL : P1 (SumF P1 P2).M → (SumF P1 P2).M := sorry
+def SumF.destL (x : P1 (SumF P1 P2).M) : (SumF P1 P2).M :=
+  .mk ⟨.inl x.fst, x.snd⟩
 
-def SumF.destR : P2 (SumF P1 P2).M → (SumF P1 P2).M := sorry
+def SumF.destR (x : P2 (SumF P1 P2).M) : (SumF P1 P2).M :=
+  .mk ⟨.inr x.fst, x.snd⟩
 
 def PFunctor.fold {P : PFunctor.{u}} (x : P.M) : (n : Nat) → (P ⊕^ n).M
 | 0 => x
