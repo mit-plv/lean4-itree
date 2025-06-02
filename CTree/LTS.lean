@@ -3,9 +3,6 @@ import CTree.Basic
 namespace CTree
   /-
     Labelled transition system for `CTree`s.
-
-    Ultimately, it would be nice to show that `WeakBisim`, `TraceEq`,
-    and a two-way `Refine` are all equivalent to each other.
   -/
 
   inductive Label (ε : Type → Type) (ρ : Type)
