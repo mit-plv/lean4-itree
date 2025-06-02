@@ -9,7 +9,7 @@ namespace CTree
   instance : HasEquiv (CTree ε ρ) where
     Equiv := TraceEq
 
-  namespace Eutt
+  namespace TraceEq
     @[refl]
     theorem refl {t : CTree ε ρ} : t ≈ t :=
       ⟨.refl, .refl⟩
@@ -52,7 +52,6 @@ namespace CTree
           (.choice_left <| .choice_left .refl)
           (.choice_idemp (.choice_left <| .choice_right .refl) (.choice_right .refl))
       ⟩
-
-  end Eutt
+  end TraceEq
 
 end CTree

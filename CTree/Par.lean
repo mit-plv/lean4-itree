@@ -1,6 +1,6 @@
 import CTree.Basic
-import CTree.Eutt
 import CTree.Monad
+import CTree.TraceEq
 
 namespace CTree
   /- Paralle Opeartor -/
@@ -51,18 +51,18 @@ namespace CTree
     Prod.snd <$> (t1 || t2)
   infixr:60 " ||→ " => parR
 
-  namespace Eutt
-    theorem parR_ret : Eutt r ((ret x) ||→ t) t := by
+  namespace TraceEq
+    theorem parR_ret : ((ret x) ||→ t) ≈ t := by
       sorry
 
-    theorem parR_map : Eutt r ((map f t1) ||→ t2) (t1 ||→ t2) := by
+    theorem parR_map : ((map f t1) ||→ t2) ≈ (t1 ||→ t2) := by
       sorry
 
-    theorem parR_assoc : Eutt r ((t1 ||→ t2) ||→ t3) (t1 ||→ (t2 ||→ t3)) := by
+    theorem parR_assoc : ((t1 ||→ t2) ||→ t3) ≈ (t1 ||→ (t2 ||→ t3)) := by
       sorry
 
-    theorem parR_symm : Eutt r ((t1 ||→ t2) ||→ t3) ((t2 ||→ t1) ||→ t3) := by
+    theorem parR_symm : ((t1 ||→ t2) ||→ t3) ≈ ((t2 ||→ t1) ||→ t3) := by
       sorry
-  end Eutt
+  end TraceEq
 
 end CTree
