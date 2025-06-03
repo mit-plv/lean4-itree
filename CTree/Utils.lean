@@ -185,22 +185,51 @@ P.comp P => P
 
 -/
 
-def PFunctor.unfold {P : PFunctor.{u}} : (n : Nat) → (x : (P ⊕^ n).M) → P.M
-| 0 => id
-| 1 => λ x =>
-  match SumF.case x with
-  | .inl x => by
-    simp [HPow.hPow, Pow.pow, PFunctor.pow, PFunctor.sumPow] at x
-    sorry
-  | .inr x => by
-    simp [HPow.hPow, Pow.pow, PFunctor.pow, PFunctor.sumPow] at x
-    sorry
-| n + 1 => λ x =>
-  match SumF.case x with
-  | .inl x => by
-    sorry
-  | .inr x => by
-    sorry
+/-- constructor for composition -/
+def PFunctor.comp.pmk (P₂ P₁ : PFunctor.{u}) {α : Type u} (x : P₂ (P₁ α)) : comp P₂ P₁ α :=
+  ⟨⟨x.1, Sigma.fst ∘ x.2⟩, fun a₂a₁ => (x.2 a₂a₁.1).2 a₂a₁.2⟩
+
+/-- universe polymorphic destructor for composition -/
+def PFunctor.comp.pget {P₂ P₁ : PFunctor.{u}} {α : Type u} (x : comp P₂ P₁ α) : P₂ (P₁ α) :=
+  ⟨x.1.1, fun a₂ => ⟨x.1.2 a₂, fun a₁ => x.2 ⟨a₂, a₁⟩⟩⟩
+
+def PFunctor.unfold1 {P : PFunctor.{u}} (x : (P ⊕^ 1).M) : P.M :=
+  .corec (λ x =>
+    match SumF.case x with
+    | .inl x =>
+      let ⟨a1, c1⟩ := PFunctor.comp.pget x
+      ⟨a1, λ b1 =>
+        let ⟨a2, c2⟩ := c1 b1
+        .mk ⟨.inr a2, λ b2 => c2 b2⟩
+      ⟩
+    | .inr x =>
+      x
+  ) x
+
+def PFunctor.unfold2 {P : PFunctor.{u}} (x : (P ⊕^ 2).M) : P.M :=
+  .corec (λ x =>
+    match SumF.case x with
+    | .inl x =>
+      let x := PFunctor.comp.pget x
+      let ⟨a1, c1⟩ := x
+      ⟨a1, λ b1 =>
+        let ⟨a2, c2⟩ := c1 b1
+        .mk ⟨.inr <| .inl a2, λ b2 => c2 b2⟩
+      ⟩
+    | .inr x =>
+      let ⟨a1, c1⟩ := x
+      match a1 with
+      | .inl a1 =>
+        let ⟨a1, a2⟩ := a1
+        ⟨a1, λ _ => .mk ⟨.inr <| .inl ⟨a1, a2⟩, λ b2 => c1 b2⟩⟩
+      | .inr a1 =>
+        ⟨a1, λ b1 => c1 b1⟩
+  ) x
+
+def PFunctor.unfold {P : PFunctor.{u}} (n : Nat) (x : (P ⊕^ n).M) : P.M :=
+  match n with
+  | 0 => x
+  | n + 1 => sorry
 
 def corecN {P : PFunctor.{u}} {α : Type u} (n : Nat)
   (F : ∀ {X : Type u}, (α → X) → α → P.M ⊕ (P ⊕^ n) X) (x : α) : P.M :=
