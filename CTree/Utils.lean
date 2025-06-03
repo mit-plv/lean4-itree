@@ -206,6 +206,45 @@ def PFunctor.unfold1 {P : PFunctor.{u}} (x : (P ⊕^ 1).M) : P.M :=
       x
   ) x
 
+def PFunctor.M.corec2 {P : PFunctor.{u}} {α : Type u}
+  (F : ∀ {X : Type u}, (α → X) → α → P.M ⊕ P (P X) ⊕ P X) (x : α) : P.M :=
+  .corec (λ (a : P.M ⊕ P α ⊕ α) =>
+    match a with
+    | .inl y => P.map .inl y.dest
+    | .inr (.inl ⟨s, c⟩) =>
+      ⟨s, λ i => .inr <| .inr <| c i⟩
+    | .inr (.inr y) =>
+      let y := F id y
+      match y with
+      | .inl y => P.map .inl y.dest
+      | .inr (.inl ⟨s, c⟩) =>
+        ⟨s, λ i => .inr <| .inl <| c i⟩
+      | .inr (.inr ⟨s, c⟩) => ⟨s, λ i => .inr <| .inr <| c i⟩
+  ) (.inr <| .inr x)
+
+inductive PFunctor.UpTo3 (P : PFunctor.{u}) (X : Type u)
+| res (x : P.M)
+| one (x : P X)
+| two (x : P <| P X)
+| three (x : P <| P <| P X)
+
+def PFunctor.M.corec3 {P : PFunctor.{u}} {α : Type u}
+  (F : ∀ {X : Type u}, (α → X) → α → PFunctor.UpTo3 P X) (x : α) : P.M :=
+  -- .corec (λ (a : P.M ⊕ P α ⊕ α) =>
+  --   match a with
+  --   | .inl y => P.map .inl y.dest
+  --   | .inr (.inl ⟨s, c⟩) =>
+  --     ⟨s, λ i => .inr <| .inr <| c i⟩
+  --   | .inr (.inr y) =>
+  --     let y := F id y
+  --     match y with
+  --     | .inl y => P.map .inl y.dest
+  --     | .inr (.inl ⟨s, c⟩) =>
+  --       ⟨s, λ i => .inr <| .inl <| c i⟩
+  --     | .inr (.inr ⟨s, c⟩) => ⟨s, λ i => .inr <| .inr <| c i⟩
+  -- ) (.inr <| .inr x)
+  sorry
+
 def PFunctor.unfold2 {P : PFunctor.{u}} (x : (P ⊕^ 2).M) : P.M :=
   .corec (λ x =>
     match SumF.case x with
@@ -226,16 +265,47 @@ def PFunctor.unfold2 {P : PFunctor.{u}} (x : (P ⊕^ 2).M) : P.M :=
         ⟨a1, λ b1 => c1 b1⟩
   ) x
 
-def PFunctor.unfold {P : PFunctor.{u}} (n : Nat) (x : (P ⊕^ n).M) : P.M :=
-  match n with
-  | 0 => x
-  | n + 1 => sorry
+-- def PFunctor.unfold {P : PFunctor.{u}} (n : Nat) (x : (P ⊕^ n).M) : P.M :=
+--   match n with
+--   | 0 => x
+--   | n + 1 => .corec (λ x =>
+--     match SumF.case x with
+--     | .inl x =>
+--       let ⟨a1, c1⟩ := PFunctor.comp.pget x
+--       ⟨a1, λ b1 =>
+--         let ⟨a2, c2⟩ := c1 b1
+--         .mk ⟨
+--           match n with
+--           | 0 => Sum.inr a2
+--           | n + 1 => Sum.inr <| Sum.inl a2,
+--           λ b2 =>
+--             match n with
+--             | 0 => c2 b2
+--             | n + 1 => c2 b2
+--         ⟩
+--       ⟩
+--     | .inr x =>
+--       let rec go (m : Nat) (x : (P ⊕^ m) (SumF (P ^ (n + 1)) (P ⊕^ n)).M) : P (SumF (P ^ (n + 1)) (P ⊕^ n)).M :=
+--         match m with
+--         | 0 => x
+--         | m' + 1 =>
+--           let ⟨a1, c1⟩ := x
+--           match a1 with
+--           | .inl a1 =>
+--             let ⟨a1, a2⟩ := a1
+--             -- ⟨a1, λ _ => .mk ⟨.inr <| sorry, λ b2 => c1 b2⟩⟩
+--             sorry
+--           | .inr a1 => by
 
-def corecN {P : PFunctor.{u}} {α : Type u} (n : Nat)
-  (F : ∀ {X : Type u}, (α → X) → α → P.M ⊕ (P ⊕^ n) X) (x : α) : P.M :=
-  let y : (P ⊕^ n).M := PFunctor.M.corec' (λ rec y =>
-    match F rec y with
-    | .inl y => .inl <| PFunctor.fold y n
-    | .inr y => .inr y
-  ) x
-  PFunctor.unfold n y
+--             sorry
+--       go n x
+--   ) x
+
+-- def corecN {P : PFunctor.{u}} {α : Type u} (n : Nat)
+--   (F : ∀ {X : Type u}, (α → X) → α → P.M ⊕ (P ⊕^ n) X) (x : α) : P.M :=
+--   let y : (P ⊕^ n).M := PFunctor.M.corec' (λ rec y =>
+--     match F rec y with
+--     | .inl y => .inl <| PFunctor.fold y n
+--     | .inr y => .inr y
+--   ) x
+--   PFunctor.unfold n y
