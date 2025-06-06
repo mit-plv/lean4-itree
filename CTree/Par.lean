@@ -76,6 +76,9 @@ namespace CTree
       | .both t1 t2 =>
         match t1.dest, t2.dest with
         | ⟨.ret x, _⟩, ⟨.ret y, _⟩ => .inl <| ret (x, y)
+        | ⟨.tau, c1⟩, ⟨.tau, c2⟩ => .inr <| .inl <| tau' <| rec <| .both (c1 _fin0) (c2 _fin0)
+        | ⟨.tau, c1⟩, _ => .inr <| .inl <| tau' <| rec <| .both (c1 _fin0) t2
+        | _, ⟨.tau, c2⟩ => .inr <| .inl <| tau' <| rec <| .both t1 (c2 _fin0)
         | _, _ => .inl zero
     ) ps
 
