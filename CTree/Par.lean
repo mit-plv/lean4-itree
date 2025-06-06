@@ -5,47 +5,84 @@ import CTree.TraceEq
 namespace CTree
   /- Paralle Opeartor -/
 
-  def vis_left {α β} (par : CTree ε α → CTree ε β → CTree ε (α × β))
-    (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
-    sorry
+  -- State for the parallel operator corecursion
+  inductive ParState (ε : Type → Type) (α β : Type)
+    | left (t1 : CTree ε α) (t2 : CTree ε β)   -- ◁ operator
+    | right (t1 : CTree ε α) (t2 : CTree ε β)  -- ▷ operator
+    | both (t1 : CTree ε α) (t2 : CTree ε β)   -- ⊲⊳ operator
 
-  def bothRet (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
-    sorry
+  /--
+  Extended corecursion that can handle mixed depths
+  The key insight: allow the function to return either:
+  - A final result `(P.M)`
+  - One layer of constructor `(P X)`
+  - Two layers of constructor with a mix `(P (P (P X ⊕ X)))`
+  - A mix where left and right have different depths `(P X ⊕ X)`
+  -/
+  def corecAsym {P : PFunctor.{u}} {α : Type u}
+    (F : ∀ {X : Type u}, (α → X) → α → P.M ⊕ P X ⊕ P (P (P X ⊕ X))) (x : α) : P.M :=
+    .corec (λ (state : P.M ⊕ P α ⊕ P (P (P α ⊕ α)) ⊕ P (P α ⊕ α) ⊕ α) =>
+      match state with
+      | .inl result =>
+        -- Final result, just unfold it
+        P.map .inl result.dest
+      | .inr (.inl px) =>
+        -- One layer: P X -> continue with X
+        ⟨px.1, λ i => .inr <| .inr <| .inr <| .inr <| px.2 i⟩
+      | .inr (.inr (.inl ppx)) =>
+        -- Two layers: P (P (P X ⊕ X)) -> continue with P (P X ⊕ X)
+        ⟨ppx.1, λ i => .inr <| .inr <| .inr <| .inl <| ppx.2 i⟩
+      | .inr (.inr (.inr (.inl pmix))) =>
+        -- Mixed: P (P X ⊕ X) -> handle the sum
+        ⟨pmix.1, λ i =>
+          match pmix.2 i with
+          | .inl px => .inr <| .inl px  -- P X case
+          | .inr x => .inr <| .inr <| .inr <| .inr x  -- X case
+        ⟩
+      | .inr (.inr (.inr (.inr y))) =>
+        -- Initial state, apply the function
+        match F id y with
+        | .inl result =>
+          P.map .inl result.dest
+        | .inr (.inl px) =>
+          ⟨px.1, λ i => .inr <| .inr <| .inr <| .inr <| px.2 i⟩
+        | .inr (.inr pmix) =>
+          ⟨pmix.1, λ i => .inr <| .inr <| .inr <| .inl <| pmix.2 i⟩
+    ) (.inr <| .inr <| .inr <| .inr x)
 
-  inductive ParFlag
-  | visLeft
-  | visRight
-  | ret
-
-  def choice3' (t1 t2 t3 : X) : P ε ρ (P ε ρ X) :=
-    .mk .choice (_fin2Const sorry (.mk .choice (_fin2Const t2 t3)))
-
-  def choice3 (t1 t2 t3 : CTree ε ρ) : CTree ε ρ :=
-    t1 ⊕ t2 ⊕ t3
-
-  -- TODO: How to do the case with two events?
-  def biasedEffect (flag : ParFlag) (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
-    match flag with
-    | .visLeft =>
-      PFunctor.M.corec3 (λ rec ((flag, t1, t2) : ParFlag × CTree ε α × CTree ε β) =>
+  def parAux (ps : ParState ε α β) : CTree ε (α × β) :=
+    corecAsym (λ rec state =>
+      match state with
+      | .left t1 t2 =>
         match t1.dest with
-        | ⟨.ret _, _⟩ => .res <| zero
-        | ⟨.tau, c⟩ => .one <| tau' <| rec (.visLeft, c _fin0, t2)
-        | ⟨.zero, _⟩ => .res zero
-        | ⟨.choice, cts⟩ => .one <| choice' (rec (.visLeft, cts _fin0, t2)) (rec (.visLeft, cts _fin1, t2))
+        | ⟨.ret _, _⟩ => .inl <| zero
+        | ⟨.tau, c⟩ => .inr <| .inl <| tau' <| rec <| .left (c _fin0) t2
+        | ⟨.zero, _⟩ => .inl <| zero
+        | ⟨.choice, cts⟩ => .inr <| .inl <| choice' (rec <| .left (cts _fin0) t2) (rec <| .left (cts _fin1) t2)
         | ⟨.vis _ e, k⟩ =>
-          .two <| vis' e λ a =>
+          .inr <| .inr <| vis' e λ a =>
             let k := k (.up a)
-            -- choice' (rec (.visLeft, k, t2), choice' (rec (.visLeft, k, t2)) (rec (.visRight, k, t2))) --(rec (.ret, k, t2))
-            sorry
-      ) (flag, t1, t2)
-    | .visRight =>
-      sorry
-    | .ret =>
-      sorry
+            choice' (.inl <| choice' (rec <| .left k t2) (rec <| .right k t2)) (.inr <| rec <| .both k t2)
+      | .right t1 t2 =>
+        match t2.dest with
+        | ⟨.ret _, _⟩ => .inl <| zero
+        | ⟨.tau, c⟩ => .inr <| .inl <| tau' <| rec <| .left t1 (c _fin0)
+        | ⟨.zero, _⟩ => .inl <| zero
+        | ⟨.choice, cts⟩ => .inr <| .inl <| choice' (rec <| .left t1 (cts _fin0)) (rec <| .left t1 (cts _fin1))
+        | ⟨.vis _ e, k⟩ =>
+          .inr <| .inr <| vis' e λ a =>
+            let k := k (.up a)
+            choice' (.inl <| choice' (rec <| .left t1 k) (rec <| .right t1 k)) (.inr <| rec <| .both t1 k)
+      | .both t1 t2 =>
+        match t1.dest, t2.dest with
+        | ⟨.ret x, _⟩, ⟨.ret y, _⟩ => .inl <| ret (x, y)
+        | _, _ => .inl zero
+    ) ps
 
   def par (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
-    sorry
+    choice
+      (choice (parAux <| .left t1 t2) (parAux <| .right t1 t2))
+      (parAux <| .both t1 t2)
   infixr:60 " || " => par
 
   def parR (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε β :=
