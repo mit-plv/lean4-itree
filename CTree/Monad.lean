@@ -73,6 +73,21 @@ namespace CTree
         PFunctor.M.corec_def]
       rfl
 
+  theorem map_ret_eq (h : f <$> t1 = ret y) : ∃ x, f x = y ∧ t1 = ret x := by
+    apply dMatchOn t1
+    · intro x heq
+      simp only [heq, Functor.map, map_ret] at h
+      exists x
+      exact And.intro (ret_inj h) heq
+    on_goal 1 => intro _ heq
+    on_goal 2 => intro _ _ _ heq
+    on_goal 3 => intro heq
+    on_goal 4 => intro _ _ heq
+    all_goals
+     (rw [heq] at h
+      simp only [heq, Functor.map, map_tau, map_vis, map_zero, map_choice] at h
+      ctree_elim h)
+
   /- Monad Instance -/
   def bind {σ} (t : CTree ε ρ) (f : ρ → CTree ε σ) : CTree ε σ :=
     corec' (λ rec t =>

@@ -52,6 +52,9 @@ namespace CTree
           (.choice_left <| .choice_left .refl)
           (.choice_idemp (.choice_left <| .choice_right .refl) (.choice_right .refl))
       ⟩
+
+    theorem map_eq {t1 t2 : CTree ε ρ} (h1 : t1 ≈ t2) (h2 : f <$> t2 ≈ t3) : f <$> t1 ≈ t3 := by
+      sorry
   end TraceEq
 
 end CTree

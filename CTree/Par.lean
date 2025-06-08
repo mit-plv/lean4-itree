@@ -153,9 +153,6 @@ namespace CTree
   infixr:60 " ||→ " => parR
 
   namespace TraceEq
-    theorem map_eq {t1 t2 : CTree ε ρ} (h1 : t1 ≈ t2) (h2 : f <$> t2 ≈ t3) : f <$> t1 ≈ t3 := by
-      sorry
-
     theorem parR_ret : ((ret x) ||→ t) ≈ t := by
       apply dMatchOn t
       · intro v h

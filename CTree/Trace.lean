@@ -1,4 +1,5 @@
 import CTree.Basic
+import CTree.Monad
 
 namespace CTree
   inductive Trace (ε : Type → Type) (ρ : Type)
@@ -132,5 +133,70 @@ namespace CTree
 
   instance instCTreeOrderBot : OrderBot (CTree ε ρ) where
     bot_le _ := TraceRefine.zero_le
+
+  theorem IsTraceOf.map_ret {t : CTree ε ρ} (h : t.IsTraceOf (.ret x)) : (f <$> t).IsTraceOf (.ret <| f x) := by
+    generalize htr : (Trace.ret x) = tr at *
+    induction h with
+    | empty =>
+      contradiction
+    | vis_end =>
+      contradiction
+    | vis_continue =>
+      contradiction
+    | ret =>
+      simp only [Functor.map, CTree.map_ret, (Trace.ret.inj htr).symm]
+      exact IsTraceOf.ret <| f x
+    | tau _ _ ih =>
+      simp only [Functor.map, CTree.map_tau]
+      apply IsTraceOf.tau
+      simp only [Functor.map] at ih
+      exact ih htr
+    | choice_left _ _ ih =>
+      simp only [Functor.map, CTree.map_choice]
+      apply IsTraceOf.choice_left
+      simp only [Functor.map] at ih
+      exact ih htr
+    | choice_right _ _ ih =>
+      simp only [Functor.map, CTree.map_choice]
+      apply IsTraceOf.choice_right
+      simp only [Functor.map] at ih
+      exact ih htr
+
+  theorem TraceRefine.dest_tau_right {t1 t2 : CTree ε ρ} (h : t1 ≤ t2.tau) : t1 ≤ t2 := by
+    intro tr htr
+    have := h tr htr
+    generalize ht2 : t2.tau = t2t at *
+    cases this
+    <;> ctree_elim ht2
+    case empty => exact .empty
+    case tau h' =>
+      rw [tau_inj ht2]
+      exact h'
+
+  theorem TraceRefine.congr_map {t1 t2 : CTree ε ρ} (h : t1 ≤ t2) : f <$> t1 ≤ f <$> t2 := by
+    intro tr htr
+    apply dMatchOn t1
+    · intro x heq
+      subst heq
+      have := h (.ret x) (.ret x)
+      generalize htrx : Trace.ret x = trx at *
+      induction this
+      <;> try contradiction
+      case ret =>
+        rw [←Trace.ret.inj htrx]
+        exact htr
+      case tau ih =>
+        simp_all only [Functor.map, map_tau]
+        apply IsTraceOf.tau
+        exact ih h.dest_tau_right trivial
+      case choice_left =>
+        sorry
+      all_goals sorry
+    all_goals sorry
+
+  theorem TraceRefine.map_eq {t1 t2 : CTree ε ρ} (h1 : t1 ≤ t2) (h2 : f <$> t2 ≤ t3) : f <$> t1 ≤ t3 := by
+    trans
+    · exact h1.congr_map
+    · exact h2
 
 end CTree
