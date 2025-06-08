@@ -50,6 +50,12 @@ namespace CTree
       | choice_right _ ih => exact .choice_right ih
       | choice_idemp _ _ ih1 ih2 => exact .choice_idemp ih1 ih2
 
+  abbrev Refine (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) :=
+    ∃ p1 p2, Refine' r p1 p2 t1 t2
+
+  -- `t1 r⊑ t2` looks better, but somehow clashes with multi-line class instance definition
+  notation:60 t1:61 " ⊑"r:61"⊑ " t2:61 => Refine r t1 t2
+
   mutual
 
   theorem RefineF.idx_mono_left {p1' p1 p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
@@ -124,11 +130,62 @@ namespace CTree
 
   end
 
-  abbrev Refine (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) :=
-    ∃ p1 p2, Refine' r p1 p2 t1 t2
+  mutual
 
-  -- `t1 r⊑ t2` looks better, but somehow clashes with multi-line class instance definition
-  notation:60 t1:61 " ⊑"r:61"⊑ " t2:61 => Refine r t1 t2
+  theorem Refine'.idx_irrelevance_left {t1 : CTree ε ρ} {t2 : CTree ε σ}
+    {p1' p2'} (h : Refine' r p1' p2' t1 t2) : ∀ p1, Refine' r p1 p2' t1 t2 := by
+    sorry
+
+  theorem Refine'.idx_irrelevance_right {t1 : CTree ε ρ} {t2 : CTree ε σ}
+    {p1' p2'} (h : Refine' r p1' p2' t1 t2) : ∀ p2, Refine' r p1' p2 t1 t2 := by
+    sorry
+
+  theorem Refine'.idx_irrelevance {t1 : CTree ε ρ} {t2 : CTree ε σ}
+    {p1' p2'} (h : Refine' r p1' p2' t1 t2) : ∀ p1 p2, Refine' r p1 p2 t1 t2 := by
+    revert p1'
+    induction p2' using WellFounded.induction PartENat.lt_wf
+    rename_i p2' ih_p2'
+    intro p1' h
+    intro p1 p2
+    rw [Refine'] at *
+    induction h with
+    | coind p1'' p2'' h1' h2' h =>
+      have := ih_p2' p2'' h2' h p1 p2
+      rw [Refine'] at this
+      exact this
+    | ret h => exact RefineF.ret h
+    | vis h _ => exact RefineF.vis h
+    | tau_left h =>
+      apply RefineF.tau_left
+      have := Refine'.idx_irrelevance_right (by rw [Refine']; exact h) p2
+      rw [Refine'] at this
+      exact this
+    | tau_right h =>
+      apply RefineF.tau_right
+      have := Refine'.idx_irrelevance_left (by rw [Refine']; exact h) p1
+      rw [Refine'] at this
+      exact this
+    | zero => exact RefineF.zero
+    | choice_left h =>
+      apply RefineF.choice_left
+      have := Refine'.idx_irrelevance_left (by rw [Refine']; exact h) p1
+      rw [Refine'] at this
+      exact this
+    | choice_right h =>
+      apply RefineF.choice_right
+      have := Refine'.idx_irrelevance_left (by rw [Refine']; exact h) p1
+      rw [Refine'] at this
+      exact this
+    | choice_idemp h1 h2 =>
+      apply RefineF.choice_idemp
+      · have := Refine'.idx_irrelevance_right (by rw [Refine']; exact h1) p2
+        rw [Refine'] at this
+        exact this
+      · have := Refine'.idx_irrelevance_right (by rw [Refine']; exact h2) p2
+        rw [Refine'] at this
+        exact this
+
+  end
 
   theorem Refine.coind (sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop) (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
     (p1 p2 : PartENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : t1 ⊑r⊑ t2 :=
