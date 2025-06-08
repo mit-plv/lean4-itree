@@ -126,187 +126,187 @@ namespace CTree
       · exact RefineF.idx_mono_right h2 h1'
       · exact RefineF.idx_mono_right h2 h2'
 
-  theorem RefineF.cont_right :
-    ∀ p1 p2 (t1 : CTree ε ρ) (t2' : CTree ε σ),
-      -- if t1 refines t2',
-      RefineF r (Refine' r) p1 p2 t1 t2' →
-      -- for any t2 that may continue as t2'
-      ∀ t2, ((∃ t1', t2 = t1' ⊕ t2') ∨ (∃ t1', t2 = t2' ⊕ t1') ∨ t2 = t2'.tau) →
-      -- t1 must refine t2
-      ∀ p1' p2', RefineF r (Refine' r) p1' p2' t1 t2 := by
-      intro p1
-      induction p1 using WellFounded.induction PartENat.lt_wf
-      rename_i ih
-      intro _ _ _ h
-      induction h with
-      | coind p1'' p2'' h1' h2' h =>
-        rw [Refine'] at h
-        apply ih <;> assumption
-      | ret h =>
-        intros
-        rename_i cont p1' p2'
-        cases cont with
+  /--
+    If `t1` refines `t2'`, then for any `t2` that may *continue* as `t2'`, `t1` must refine `t2`.
+
+    By *continue* we mean that `t2'` shows up as a choice within `t2` or is a `tau` step behind `t2`.
+  -/
+  theorem RefineF.cont_right {p1 p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
+    (h : RefineF r (Refine' r) p1 p2 t1 t2') :
+    ∀ t2, ((∃ t1', t2 = t1' ⊕ t2') ∨ (∃ t1', t2 = t2' ⊕ t1') ∨ t2 = t2'.tau) →
+    ∀ p1' p2', RefineF r (Refine' r) p1' p2' t1 t2 := by
+    revert p2 t1 t2 t2'
+    induction p1 using WellFounded.induction PartENat.lt_wf
+    rename_i ih
+    intro _ _ _ _ h
+    induction h with
+    | coind p1'' p2'' h1' h2' h =>
+      rw [Refine'] at h
+      apply ih <;> assumption
+    | ret h =>
+      intros
+      rename_i cont p1' p2'
+      cases cont with
+      | inl h =>
+        have ⟨t1', h⟩ := h
+        rw [h]
+        apply RefineF.choice_right
+        apply RefineF.ret; assumption
+      | inr h =>
+        cases h with
         | inl h =>
           have ⟨t1', h⟩ := h
           rw [h]
-          apply RefineF.choice_right
+          apply RefineF.choice_left
           apply RefineF.ret; assumption
         | inr h =>
-          cases h with
-          | inl h =>
-            have ⟨t1', h⟩ := h
-            rw [h]
-            apply RefineF.choice_left
-            apply RefineF.ret; assumption
-          | inr h =>
-            rw [h]
-            apply RefineF.tau_right
-            apply RefineF.ret; assumption
-      | vis h _ =>
-        intros
-        rename_i cont p1' p2'
-        cases cont with
+          rw [h]
+          apply RefineF.tau_right
+          apply RefineF.ret; assumption
+    | vis h _ =>
+      intros
+      rename_i cont p1' p2'
+      cases cont with
+      | inl h =>
+        have ⟨t1', h⟩ := h
+        rw [h]
+        apply RefineF.choice_right
+        apply RefineF.vis; assumption
+      | inr h =>
+        cases h with
         | inl h =>
           have ⟨t1', h⟩ := h
           rw [h]
-          apply RefineF.choice_right
+          apply RefineF.choice_left
           apply RefineF.vis; assumption
         | inr h =>
-          cases h with
-          | inl h =>
-            have ⟨t1', h⟩ := h
-            rw [h]
-            apply RefineF.choice_left
-            apply RefineF.vis; assumption
-          | inr h =>
-            rw [h]
-            apply RefineF.tau_right
-            apply RefineF.vis; assumption
-      | tau_left h =>
-        intros
-        rename_i cont p1' p2'
-        cases cont with
+          rw [h]
+          apply RefineF.tau_right
+          apply RefineF.vis; assumption
+    | tau_left h =>
+      intros
+      rename_i cont p1' p2'
+      cases cont with
+      | inl h =>
+        have ⟨t1', h⟩ := h
+        rw [h]
+        apply RefineF.choice_right
+        apply RefineF.tau_left
+        all_goals apply RefineF.idx_mono <;> (try assumption) <;> (try apply le_top)
+      | inr h =>
+        cases h with
         | inl h =>
           have ⟨t1', h⟩ := h
           rw [h]
-          apply RefineF.choice_right
+          apply RefineF.choice_left
           apply RefineF.tau_left
           all_goals apply RefineF.idx_mono <;> (try assumption) <;> (try apply le_top)
         | inr h =>
-          cases h with
-          | inl h =>
-            have ⟨t1', h⟩ := h
-            rw [h]
-            apply RefineF.choice_left
-            apply RefineF.tau_left
-            all_goals apply RefineF.idx_mono <;> (try assumption) <;> (try apply le_top)
-          | inr h =>
-            rw [h]
-            apply RefineF.tau_right
-            apply RefineF.tau_left
-            all_goals apply RefineF.idx_mono <;> (try assumption) <;> (try apply le_top)
-      | tau_right h =>
-        rename_i h_ih
-        intros
-        rename_i cont p1' p2'
-        cases cont with
+          rw [h]
+          apply RefineF.tau_right
+          apply RefineF.tau_left
+          all_goals apply RefineF.idx_mono <;> (try assumption) <;> (try apply le_top)
+    | tau_right h =>
+      rename_i h_ih
+      intros
+      rename_i cont p1' p2'
+      cases cont with
+      | inl h =>
+        have ⟨t1', h⟩ := h
+        rw [h]
+        apply RefineF.choice_right
+        apply h_ih ih
+        exact (.inr (.inr rfl))
+      | inr h =>
+        cases h with
         | inl h =>
           have ⟨t1', h⟩ := h
           rw [h]
-          apply RefineF.choice_right
+          apply RefineF.choice_left
           apply h_ih ih
           exact (.inr (.inr rfl))
         | inr h =>
-          cases h with
-          | inl h =>
-            have ⟨t1', h⟩ := h
-            rw [h]
-            apply RefineF.choice_left
-            apply h_ih ih
-            exact (.inr (.inr rfl))
-          | inr h =>
-            rw [h]
-            apply RefineF.tau_right
-            apply h_ih ih
-            exact (.inr (.inr rfl))
-      | zero => intros; exact RefineF.zero
-      | choice_left h =>
-        rename_i h_ih
-        intros
-        rename_i cont p1' p2'
-        cases cont with
+          rw [h]
+          apply RefineF.tau_right
+          apply h_ih ih
+          exact (.inr (.inr rfl))
+    | zero => intros; exact RefineF.zero
+    | choice_left h =>
+      rename_i h_ih
+      intros
+      rename_i cont p1' p2'
+      cases cont with
+      | inl h =>
+        have ⟨t1', h⟩ := h
+        rw [h]
+        apply RefineF.choice_right
+        apply h_ih ih
+        exact (.inr (.inl ⟨_, rfl⟩))
+      | inr h =>
+        cases h with
         | inl h =>
           have ⟨t1', h⟩ := h
           rw [h]
-          apply RefineF.choice_right
+          apply RefineF.choice_left
           apply h_ih ih
           exact (.inr (.inl ⟨_, rfl⟩))
         | inr h =>
-          cases h with
-          | inl h =>
-            have ⟨t1', h⟩ := h
-            rw [h]
-            apply RefineF.choice_left
-            apply h_ih ih
-            exact (.inr (.inl ⟨_, rfl⟩))
-          | inr h =>
-            rw [h]
-            apply RefineF.tau_right
-            apply h_ih ih
-            exact (.inr (.inl ⟨_, rfl⟩))
-      | choice_right h =>
-        rename_i h_ih
-        intros
-        rename_i cont p1' p2'
-        cases cont with
+          rw [h]
+          apply RefineF.tau_right
+          apply h_ih ih
+          exact (.inr (.inl ⟨_, rfl⟩))
+    | choice_right h =>
+      rename_i h_ih
+      intros
+      rename_i cont p1' p2'
+      cases cont with
+      | inl h =>
+        have ⟨t1', h⟩ := h
+        rw [h]
+        apply RefineF.choice_right
+        apply h_ih ih
+        exact (.inl ⟨_, rfl⟩)
+      | inr h =>
+        cases h with
         | inl h =>
           have ⟨t1', h⟩ := h
           rw [h]
-          apply RefineF.choice_right
+          apply RefineF.choice_left
           apply h_ih ih
           exact (.inl ⟨_, rfl⟩)
         | inr h =>
-          cases h with
-          | inl h =>
-            have ⟨t1', h⟩ := h
-            rw [h]
-            apply RefineF.choice_left
-            apply h_ih ih
-            exact (.inl ⟨_, rfl⟩)
-          | inr h =>
-            rw [h]
-            apply RefineF.tau_right
-            apply h_ih ih
-            exact (.inl ⟨_, rfl⟩)
-      | choice_idemp h1 h2 =>
-        intros
-        rename_i cont p1' p2'
-        cases cont with
+          rw [h]
+          apply RefineF.tau_right
+          apply h_ih ih
+          exact (.inl ⟨_, rfl⟩)
+    | choice_idemp h1 h2 =>
+      intros
+      rename_i cont p1' p2'
+      cases cont with
+      | inl h =>
+        have ⟨t1', h⟩ := h
+        rw [h]
+        apply RefineF.choice_right
+        apply RefineF.choice_idemp
+        all_goals apply RefineF.idx_mono <;> (try assumption) <;> (try apply le_top)
+      | inr h =>
+        cases h with
         | inl h =>
           have ⟨t1', h⟩ := h
           rw [h]
-          apply RefineF.choice_right
+          apply RefineF.choice_left
           apply RefineF.choice_idemp
           all_goals apply RefineF.idx_mono <;> (try assumption) <;> (try apply le_top)
         | inr h =>
-          cases h with
-          | inl h =>
-            have ⟨t1', h⟩ := h
-            rw [h]
-            apply RefineF.choice_left
-            apply RefineF.choice_idemp
-            all_goals apply RefineF.idx_mono <;> (try assumption) <;> (try apply le_top)
-          | inr h =>
-            rw [h]
-            apply RefineF.tau_right
-            apply RefineF.choice_idemp
-            all_goals apply RefineF.idx_mono <;> (try assumption) <;> (try apply le_top)
+          rw [h]
+          apply RefineF.tau_right
+          apply RefineF.choice_idemp
+          all_goals apply RefineF.idx_mono <;> (try assumption) <;> (try apply le_top)
 
-  theorem RefineF.idx_irrelevance :
-    ∀ p1 p2 (t1 : CTree ε ρ) (t2 : CTree ε σ) (h : RefineF r (Refine' r) p1 p2 t1 t2)
-    p1' p2', RefineF r (Refine' r) p1' p2' t1 t2 := by
-    intro p1 p2
-    revert p1
+  theorem RefineF.idx_irrelevance {p1 p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
+    (h : RefineF r (Refine' r) p1 p2 t1 t2)
+    : ∀ p1' p2', RefineF r (Refine' r) p1' p2' t1 t2 := by
+    revert t1 t2 p1
     induction p2 using WellFounded.induction PartENat.lt_wf
     rename_i p1 ih_p1
     intro p1 t1 t2 h
@@ -314,16 +314,13 @@ namespace CTree
     | coind p1'' p2'' h1' h2' h =>
       intro p1' p2'
       rw [Refine'] at h
-      apply ih_p1 <;> assumption
+      exact ih_p1 p2'' h2' h p1' p2'
     | ret h =>
       intros; apply RefineF.ret; assumption
     | vis h _ =>
       intros; apply RefineF.vis; assumption
-    | tau_left h =>
-      rename_i h_ih
-      intro p1 t1
-      apply RefineF.tau_left
-      apply h_ih; assumption
+    | tau_left h ih =>
+      intros; apply RefineF.tau_left; apply ih; assumption
     | tau_right h =>
       intros
       apply RefineF.cont_right <;> try assumption
@@ -343,101 +340,6 @@ namespace CTree
       apply RefineF.choice_idemp
       · apply h1_ih; assumption
       · apply h2_ih; assumption
-
-  -- theorem RefineF.idx_irrelevance_left {t1 : CTree ε ρ} {t2 : CTree ε σ}
-  --   {p1' p2'} (h : RefineF r (Refine' r) p1' p2' t1 t2) : ∀ p1, RefineF r (Refine' r) p1 p2' t1 t2 := by
-  --   revert p2'
-  --   induction p1' using WellFounded.induction PartENat.lt_wf
-  --   rename_i p1' ih_p1'
-  --   intro p2' h p1
-  --   induction h with
-  --   | coind p1'' p2'' h1' h2' h =>
-  --     rw [Refine'] at h
-  --     have := ih_p1' p1'' h1' h p1
-  --     exact RefineF.idx_mono_right (le_of_lt h2') this
-  --   | ret h => exact RefineF.ret h
-  --   | vis h _ => exact RefineF.vis h
-  --   | tau_left h =>
-  --     apply RefineF.tau_left
-  --     exact h
-  --   | tau_right h =>
-  --     apply RefineF.tau_right
-  --     exact RefineF.idx_irrelevance_left h p1
-  --   | zero => exact RefineF.zero
-  --   | choice_left h =>
-  --     apply RefineF.choice_left
-  --     exact RefineF.idx_irrelevance_left h p1
-  --   | choice_right h =>
-  --     apply RefineF.choice_right
-  --     exact RefineF.idx_irrelevance_left h p1
-  --   | choice_idemp h1 h2 =>
-  --     apply RefineF.choice_idemp
-  --     · exact h1
-  --     · exact h2
-
-  -- theorem RefineF.idx_irrelevance_right {t1 : CTree ε ρ} {t2 : CTree ε σ}
-  --   {p1' p2'} (h : RefineF r (Refine' r) p1' p2' t1 t2) : ∀ p2, RefineF r (Refine' r) p1' p2 t1 t2 := by
-  --   revert p1'
-  --   induction p2' using WellFounded.induction PartENat.lt_wf
-  --   rename_i p2' ih_p2'
-  --   intro p1' h p2
-  --   induction h with
-  --   | coind p1'' p2'' h1' h2' h =>
-  --     rw [Refine'] at h
-  --     have := ih_p2' p2'' h2' h p2
-  --     exact RefineF.idx_mono_left (le_of_lt h1') this
-  --   | ret h => exact RefineF.ret h
-  --   | vis h _ => exact RefineF.vis h
-  --   | tau_left h =>
-  --     apply RefineF.tau_left
-  --     exact RefineF.idx_irrelevance_right h p2
-  --   | tau_right h =>
-  --     apply RefineF.tau_right
-  --     exact h
-  --   | zero => exact RefineF.zero
-  --   | choice_left h =>
-  --     apply RefineF.choice_left
-  --     exact h
-  --   | choice_right h =>
-  --     apply RefineF.choice_right
-  --     exact h
-  --   | choice_idemp h1 h2 =>
-  --     apply RefineF.choice_idemp
-  --     · exact RefineF.idx_irrelevance_right h1 p2
-  --     · exact RefineF.idx_irrelevance_right h2 p2
-
-  -- theorem Refine'.idx_irrelevance {t1 : CTree ε ρ} {t2 : CTree ε σ}
-  --   {p1' p2'} (h : Refine' r p1' p2' t1 t2) : ∀ p1 p2, Refine' r p1 p2 t1 t2 := by
-  --   revert p1'
-  --   induction p2' using WellFounded.induction PartENat.lt_wf
-  --   rename_i p2' ih_p2'
-  --   intro p1' h
-  --   intro p1 p2
-  --   rw [Refine'] at *
-  --   cases h with
-  --   | coind p1'' p2'' h1' h2' h =>
-  --     have := ih_p2' p2'' h2' h p1 p2
-  --     rw [Refine'] at this
-  --     exact this
-  --   | ret h => exact RefineF.ret h
-  --   | vis h => exact RefineF.vis h
-  --   | tau_left h =>
-  --     apply RefineF.tau_left
-  --     exact RefineF.idx_irrelevance_right h p2
-  --   | tau_right h =>
-  --     apply RefineF.tau_right
-  --     exact RefineF.idx_irrelevance_left h p1
-  --   | zero => exact RefineF.zero
-  --   | choice_left h =>
-  --     apply RefineF.choice_left
-  --     exact RefineF.idx_irrelevance_left h p1
-  --   | choice_right h =>
-  --     apply RefineF.choice_right
-  --     exact RefineF.idx_irrelevance_left h p1
-  --   | choice_idemp h1 h2 =>
-  --     apply RefineF.choice_idemp
-  --     · exact RefineF.idx_irrelevance_right h1 p2
-  --     · exact RefineF.idx_irrelevance_right h2 p2
 
   theorem Refine.coind (sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop) (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
     (p1 p2 : PartENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : t1 ⊑r⊑ t2 :=
