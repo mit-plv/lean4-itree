@@ -98,13 +98,75 @@ namespace CTree
       (parAux <| .both t1 t2)
   infixr:60 " || " => par
 
+  theorem parBoth_ret_ret : (parAux (.both (ret (ε := ε) x) (ret y))) = ret (x, y) := by
+    apply PFunctor.M.bisim (λ t1 t2 => t1 = parAux (.both (ret x) (ret y)) ∧ t2 = ret (x, y))
+    · intro t1 t2 h
+      obtain ⟨ht1, ht2⟩ := h
+      subst ht1
+      subst ht2
+      simp only [parAux, corecAsym, PFunctor.M.corec_def]
+      apply exists_and_eq
+      intro i
+      simp only [P, children, zero, mk, zero', tau', id_eq, choice', vis', ret, ret',
+        PFunctor.M.dest_mk, PFunctor.map_map, PFunctor.M.head_mk, PFunctor.fst_map] at i
+      apply elim0_lift i
+    · exact And.intro rfl rfl
+
+  theorem parLeft_ret_ret : (parAux (.left (ret (ε := ε) x) (ret y))) = zero := by
+    apply PFunctor.M.bisim (λ t1 t2 => t1 = parAux (.left (ret x) (ret y)) ∧ t2 = zero)
+    · intro t1 t2 h
+      obtain ⟨ht1, ht2⟩ := h
+      subst ht1
+      subst ht2
+      simp only [parAux, corecAsym, PFunctor.M.corec_def]
+      apply exists_and_eq
+      intro i
+      simp only [P, children, zero, mk, zero', tau', id_eq, choice', vis', ret, ret',
+        PFunctor.M.dest_mk, PFunctor.map_map, PFunctor.M.head_mk, PFunctor.fst_map] at i
+      apply elim0_lift i
+    · exact And.intro rfl rfl
+
+  theorem parRight_ret_ret : (parAux (.right (ret (ε := ε) x) (ret y))) = zero := by
+    apply PFunctor.M.bisim (λ t1 t2 => t1 = parAux (.right (ret x) (ret y)) ∧ t2 = zero)
+    · intro t1 t2 h
+      obtain ⟨ht1, ht2⟩ := h
+      subst ht1
+      subst ht2
+      simp only [parAux, corecAsym, PFunctor.M.corec_def]
+      apply exists_and_eq
+      intro i
+      simp only [P, children, zero, mk, zero', tau', id_eq, choice', vis', ret, ret',
+        PFunctor.M.dest_mk, PFunctor.map_map, PFunctor.M.head_mk, PFunctor.fst_map] at i
+      apply elim0_lift i
+    · exact And.intro rfl rfl
+
+  theorem par_ret_ret : (ret (ε := ε) x || ret y) ≈ ret (x, y) := by
+    simp only [par]
+    rw [parBoth_ret_ret, parLeft_ret_ret, parRight_ret_ret]
+    apply TraceEq.trans (t2 := zero ⊕ (zero ⊕ ret (x, y)))
+    · exact TraceEq.choice_assoc
+    · apply TraceEq.trans (t2 := zero ⊕ ret (x, y))
+      <;> exact TraceEq.zero_left_id
+
   def parR (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε β :=
     Prod.snd <$> (t1 || t2)
   infixr:60 " ||→ " => parR
 
   namespace TraceEq
-    theorem parR_ret : ((ret x) ||→ t) ≈ t := by
+    theorem map_eq {t1 t2 : CTree ε ρ} (h1 : t1 ≈ t2) (h2 : f <$> t2 ≈ t3) : f <$> t1 ≈ t3 := by
       sorry
+
+    theorem parR_ret : ((ret x) ||→ t) ≈ t := by
+      apply dMatchOn t
+      · intro v h
+        simp only [h, parR]
+        apply map_eq par_ret_ret
+        simp only [Functor.map]
+        rw [CTree.map_ret]
+      · sorry
+      · sorry
+      · sorry
+      · sorry
 
     theorem parR_map : ((map f t1) ||→ t2) ≈ (t1 ||→ t2) := by
       sorry
