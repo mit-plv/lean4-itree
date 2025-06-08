@@ -50,6 +50,80 @@ namespace CTree
       | choice_right _ ih => exact .choice_right ih
       | choice_idemp _ _ ih1 ih2 => exact .choice_idemp ih1 ih2
 
+  mutual
+
+  theorem RefineF.idx_mono_left {p1' p1 p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
+    (h1 : p1' ≤ p1) (h : RefineF r sim p1' p2 t1 t2) : RefineF r sim p1 p2 t1 t2 := by
+    induction h with
+    | coind p1'' p2'' h1' h2 h =>
+      apply RefineF.coind p1'' p2'' _ h2 h
+      exact lt_of_lt_of_le h1' h1
+    | ret h => exact RefineF.ret h
+    | vis h => exact RefineF.vis h
+    | tau_left h => exact RefineF.tau_left h
+    | tau_right h ih =>
+      apply RefineF.tau_right
+      exact ih h1
+    | zero => exact RefineF.zero
+    | choice_left h ih =>
+      apply RefineF.choice_left
+      exact ih h1
+    | choice_right h ih =>
+      apply RefineF.choice_right
+      exact ih h1
+    | choice_idemp h1' h2' => exact RefineF.choice_idemp h1' h2'
+
+  theorem RefineF.idx_mono_right {p1 p2' p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
+    (h2 : p2' ≤ p2) (h : RefineF r sim p1 p2' t1 t2) : RefineF r sim p1 p2 t1 t2 := by
+    induction h with
+    | coind p1'' p2'' h1 h2' h =>
+      apply RefineF.coind p1'' p2'' h1 _ h
+      exact lt_of_lt_of_le h2' h2
+    | ret h => exact RefineF.ret h
+    | vis h => exact RefineF.vis h
+    | tau_left h ih =>
+      apply RefineF.tau_left
+      exact ih h2
+    | tau_right h =>
+      exact RefineF.tau_right h
+    | zero => exact RefineF.zero
+    | choice_left h => exact RefineF.choice_left h
+    | choice_right h => exact RefineF.choice_right h
+    | choice_idemp _ _ ih1 ih2 =>
+      apply RefineF.choice_idemp
+      · exact ih1 h2
+      · exact ih2 h2
+
+  theorem RefineF.idx_mono {t1 : CTree ε ρ} {t2 : CTree ε σ}
+    {p1' p1 p2' p2 : PartENat} (h1 : p1' ≤ p1) (h2 : p2' ≤ p2) (h : RefineF r sim p1' p2' t1 t2)
+    : RefineF r sim p1 p2 t1 t2 := by
+    induction h with
+    | coind p1'' p2'' h1' h2' h =>
+      apply RefineF.coind p1'' p2'' _ _ h
+      exact lt_of_lt_of_le h1' h1
+      exact lt_of_lt_of_le h2' h2
+    | ret h => exact RefineF.ret h
+    | vis h _ => exact RefineF.vis h
+    | tau_left h =>
+      apply RefineF.tau_left
+      exact RefineF.idx_mono_right h2 h
+    | tau_right h =>
+      apply RefineF.tau_right
+      exact RefineF.idx_mono_left h1 h
+    | zero => exact RefineF.zero
+    | choice_left h =>
+      apply RefineF.choice_left
+      exact RefineF.idx_mono_left h1 h
+    | choice_right h =>
+      apply RefineF.choice_right
+      exact RefineF.idx_mono_left h1 h
+    | choice_idemp h1' h2' =>
+      apply RefineF.choice_idemp
+      · exact RefineF.idx_mono_right h2 h1'
+      · exact RefineF.idx_mono_right h2 h2'
+
+  end
+
   abbrev Refine (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) :=
     ∃ p1 p2, Refine' r p1 p2 t1 t2
 
