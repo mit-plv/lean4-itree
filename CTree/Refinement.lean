@@ -100,6 +100,8 @@ namespace CTree
       · exact ih1 h2
       · exact ih2 h2
 
+  end
+
   theorem RefineF.idx_mono {t1 : CTree ε ρ} {t2 : CTree ε σ}
     {p1' p1 p2' p2 : PartENat} (h1 : p1' ≤ p1) (h2 : p2' ≤ p2) (h : RefineF r sim p1' p2' t1 t2)
     : RefineF r sim p1 p2 t1 t2 := by
@@ -128,21 +130,18 @@ namespace CTree
       · exact RefineF.idx_mono_right h2 h1'
       · exact RefineF.idx_mono_right h2 h2'
 
-  end
-
   mutual
 
-  theorem Refine'.idx_irrelevance_left {t1 : CTree ε ρ} {t2 : CTree ε σ}
-    {p1' p2'} (h : Refine' r p1' p2' t1 t2) : ∀ p1, Refine' r p1 p2' t1 t2 := by
+  theorem RefineF.idx_irrelevance_left {t1 : CTree ε ρ} {t2 : CTree ε σ}
+    {p1' p2'} (h : RefineF r (Refine' r) p1' p2' t1 t2) : ∀ p1, RefineF r (Refine' r) p1 p2' t1 t2 := by
     revert p2'
     induction p1' using WellFounded.induction PartENat.lt_wf
     rename_i p1' ih_p1'
     intro p2' h p1
-    rw [Refine'] at *
     induction h with
     | coind p1'' p2'' h1' h2' h =>
+      rw [Refine'] at h
       have := ih_p1' p1'' h1' h p1
-      rw [Refine'] at this
       exact RefineF.idx_mono_right (le_of_lt h2') this
     | ret h => exact RefineF.ret h
     | vis h _ => exact RefineF.vis h
@@ -151,44 +150,35 @@ namespace CTree
       exact h
     | tau_right h =>
       apply RefineF.tau_right
-      have := Refine'.idx_irrelevance_left (by rw [Refine']; exact h) p1
-      rw [Refine'] at this
-      exact this
+      exact RefineF.idx_irrelevance_left h p1
     | zero => exact RefineF.zero
     | choice_left h =>
       apply RefineF.choice_left
-      have := Refine'.idx_irrelevance_left (by rw [Refine']; exact h) p1
-      rw [Refine'] at this
-      exact this
+      exact RefineF.idx_irrelevance_left h p1
     | choice_right h =>
       apply RefineF.choice_right
-      have := Refine'.idx_irrelevance_left (by rw [Refine']; exact h) p1
-      rw [Refine'] at this
-      exact this
+      exact RefineF.idx_irrelevance_left h p1
     | choice_idemp h1 h2 =>
       apply RefineF.choice_idemp
       · exact h1
       · exact h2
 
-  theorem Refine'.idx_irrelevance_right {t1 : CTree ε ρ} {t2 : CTree ε σ}
-    {p1' p2'} (h : Refine' r p1' p2' t1 t2) : ∀ p2, Refine' r p1' p2 t1 t2 := by
+  theorem RefineF.idx_irrelevance_right {t1 : CTree ε ρ} {t2 : CTree ε σ}
+    {p1' p2'} (h : RefineF r (Refine' r) p1' p2' t1 t2) : ∀ p2, RefineF r (Refine' r) p1' p2 t1 t2 := by
     revert p1'
     induction p2' using WellFounded.induction PartENat.lt_wf
     rename_i p2' ih_p2'
     intro p1' h p2
-    rw [Refine'] at *
     induction h with
     | coind p1'' p2'' h1' h2' h =>
+      rw [Refine'] at h
       have := ih_p2' p2'' h2' h p2
-      rw [Refine'] at this
       exact RefineF.idx_mono_left (le_of_lt h1') this
     | ret h => exact RefineF.ret h
     | vis h _ => exact RefineF.vis h
     | tau_left h =>
       apply RefineF.tau_left
-      have := Refine'.idx_irrelevance_right (by rw [Refine']; exact h) p2
-      rw [Refine'] at this
-      exact this
+      exact RefineF.idx_irrelevance_right h p2
     | tau_right h =>
       apply RefineF.tau_right
       exact h
@@ -201,12 +191,10 @@ namespace CTree
       exact h
     | choice_idemp h1 h2 =>
       apply RefineF.choice_idemp
-      · have := Refine'.idx_irrelevance_right (by rw [Refine']; exact h1) p2
-        rw [Refine'] at this
-        exact this
-      · have := Refine'.idx_irrelevance_right (by rw [Refine']; exact h2) p2
-        rw [Refine'] at this
-        exact this
+      · exact RefineF.idx_irrelevance_right h1 p2
+      · exact RefineF.idx_irrelevance_right h2 p2
+
+  end
 
   theorem Refine'.idx_irrelevance {t1 : CTree ε ρ} {t2 : CTree ε σ}
     {p1' p2'} (h : Refine' r p1' p2' t1 t2) : ∀ p1 p2, Refine' r p1 p2 t1 t2 := by
@@ -216,44 +204,30 @@ namespace CTree
     intro p1' h
     intro p1 p2
     rw [Refine'] at *
-    induction h with
+    cases h with
     | coind p1'' p2'' h1' h2' h =>
       have := ih_p2' p2'' h2' h p1 p2
       rw [Refine'] at this
       exact this
     | ret h => exact RefineF.ret h
-    | vis h _ => exact RefineF.vis h
+    | vis h => exact RefineF.vis h
     | tau_left h =>
       apply RefineF.tau_left
-      have := Refine'.idx_irrelevance_right (by rw [Refine']; exact h) p2
-      rw [Refine'] at this
-      exact this
+      exact RefineF.idx_irrelevance_right h p2
     | tau_right h =>
       apply RefineF.tau_right
-      have := Refine'.idx_irrelevance_left (by rw [Refine']; exact h) p1
-      rw [Refine'] at this
-      exact this
+      exact RefineF.idx_irrelevance_left h p1
     | zero => exact RefineF.zero
     | choice_left h =>
       apply RefineF.choice_left
-      have := Refine'.idx_irrelevance_left (by rw [Refine']; exact h) p1
-      rw [Refine'] at this
-      exact this
+      exact RefineF.idx_irrelevance_left h p1
     | choice_right h =>
       apply RefineF.choice_right
-      have := Refine'.idx_irrelevance_left (by rw [Refine']; exact h) p1
-      rw [Refine'] at this
-      exact this
+      exact RefineF.idx_irrelevance_left h p1
     | choice_idemp h1 h2 =>
       apply RefineF.choice_idemp
-      · have := Refine'.idx_irrelevance_right (by rw [Refine']; exact h1) p2
-        rw [Refine'] at this
-        exact this
-      · have := Refine'.idx_irrelevance_right (by rw [Refine']; exact h2) p2
-        rw [Refine'] at this
-        exact this
-
-  end
+      · exact RefineF.idx_irrelevance_right h1 p2
+      · exact RefineF.idx_irrelevance_right h2 p2
 
   theorem Refine.coind (sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop) (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
     (p1 p2 : PartENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : t1 ⊑r⊑ t2 :=
