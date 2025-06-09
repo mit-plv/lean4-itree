@@ -4,7 +4,7 @@ import CTree.Trace
 namespace CTree
 
   def TraceEq (t1 t2 : CTree ε ρ) : Prop :=
-    t1 ≤ t2 ∧ t2 ≤ t1
+    t1 ⊑ t2 ∧ t2 ⊑ t1
 
   infix:60 " ≃ " => TraceEq
 

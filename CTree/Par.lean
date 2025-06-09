@@ -1,6 +1,6 @@
 import CTree.Basic
 import CTree.Monad
-import CTree.TraceEq
+import CTree.Euttc
 
 namespace CTree
   /- Paralle Opeartor -/
@@ -143,10 +143,10 @@ namespace CTree
   theorem par_ret_ret : (ret (ε := ε) x || ret y) ≈ ret (x, y) := by
     simp only [par]
     rw [parBoth_ret_ret, parLeft_ret_ret, parRight_ret_ret]
-    apply TraceEq.trans (t2 := zero ⊕ (zero ⊕ ret (x, y)))
-    · exact TraceEq.choice_assoc
-    · apply TraceEq.trans (t2 := zero ⊕ ret (x, y))
-      <;> exact TraceEq.zero_left_id
+    apply Euttc.eq_trans (t2 := zero ⊕ (zero ⊕ ret (x, y)))
+    · exact Euttc.choice_assoc
+    · apply Euttc.eq_trans (t2 := zero ⊕ ret (x, y))
+      <;> exact .zero_left_id
 
   def parR (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε β :=
     Prod.snd <$> (t1 || t2)
@@ -155,11 +155,7 @@ namespace CTree
   namespace TraceEq
     theorem parR_ret : ((ret x) ||→ t) ≈ t := by
       apply dMatchOn t
-      · intro v h
-        simp only [h, parR]
-        apply map_eq par_ret_ret
-        simp only [Functor.map]
-        rw [CTree.map_ret]
+      · sorry
       · sorry
       · sorry
       · sorry

@@ -39,19 +39,29 @@ namespace CTree
           · simp_all only
     ⟨.trans h1.1 h2.1, heq ▸ .trans h2.2 h1.2⟩
 
-  instance : IsEquiv (CTree ε ρ) (Euttc Eq) where
-    refl _ := Euttc.refl
-    symm x y h := by
-      have := Euttc.symm h
-      rw [flip_eq] at this
-      exact this
-    trans _ _ _ h1 h2 := by
-      have := Euttc.trans h1 h2
-      rw [Rel.comp_right_id] at this
-      exact this
-
   instance : HasEquiv (CTree ε ρ) where
     Equiv := Euttc Eq
+
+  @[refl]
+  theorem Euttc.eq_refl {t : CTree ε ρ} : t ≈ t :=
+    ⟨.refl _, .refl _⟩
+
+  @[symm]
+  theorem Euttc.eq_symm {t1 t2 : CTree ε ρ} (h : t1 ≈ t2) : t2 ≈ t1 := by
+    have := Euttc.symm h
+    rw [flip_eq] at this
+    exact this
+
+  @[trans]
+  theorem Euttc.eq_trans {t1 t2 t3 : CTree ε ρ} (h1 : t1 ≈ t2) (h2 : t2 ≈ t3) : t1 ≈ t3 := by
+    have := Euttc.trans h1 h2
+    rw [Rel.comp_right_id] at this
+    exact this
+
+  instance : IsEquiv (CTree ε ρ) (Euttc Eq) where
+    refl _ := Euttc.eq_refl
+    symm _ _ := Euttc.eq_symm
+    trans _ _ _ := Euttc.eq_trans
 
   namespace Euttc
     theorem choice_idemp (h1 : Euttc r t1 t3) (h2 : Euttc r t2 t3) : Euttc r (t1 ⊕ t2) t3 :=

@@ -986,6 +986,94 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
       simp only [Refine'] at *
       exact RefineF.choice_right (h.idx_irrelevance _ _)
 
+    lemma dest_tau_right_adm (h : RefineF r (Refine' r) p1 p2 t1 t2)
+      : RefineF r (λ p1 p2 t1 t2 => Refine' r p1 p2 t1 t2.tau) p1 p2 t1 t2 := by
+      induction h with
+      | coind =>
+        apply RefineF.coind <;> try assumption
+        rw [Refine'] at *
+        apply RefineF.tau_right
+        apply RefineF.idx_irrelevance; assumption
+      | ret h => exact RefineF.ret h
+      | vis _ ih => exact RefineF.vis ih
+      | tau_left _ ih => exact RefineF.tau_left ih
+      | tau_right _ ih => exact RefineF.tau_right ih
+      | zero => exact RefineF.zero
+      | choice_left _ ih => exact RefineF.choice_left ih
+      | choice_right _ ih => exact RefineF.choice_right ih
+      | choice_idemp _ _ ih1 ih2 => exact RefineF.choice_idemp ih1 ih2
+
+    theorem dest_tau_right (h : t1 ≤r≤ t2.tau) : t1 ≤r≤ t2 := by
+      obtain ⟨p1, p2, h⟩ := h
+      apply Refine.coind (λ p1 p2 t1 t2 => Refine' r p1 p2 t1 t2.tau) _ p1 p2 h
+      intro p1 p2 t1 t2 h
+      simp only [Refine'] at h
+      generalize ht2 : t2.tau = t2t at *
+      induction h
+      <;> ctree_elim ht2
+      case coind =>
+        subst ht2
+        apply RefineF.coind <;> assumption
+      case tau_left ih => exact RefineF.tau_left (ih ht2)
+      case tau_right h _ =>
+        rw [tau_inj ht2]
+        exact dest_tau_right_adm (h.idx_irrelevance _ _)
+      case zero => exact RefineF.zero
+      case choice_idemp ih1 ih2 => exact RefineF.choice_idemp (ih1 ht2) (ih2 ht2)
+
+    lemma dest_tau_left_adm (h : RefineF r (Refine' r) p1 p2 t1 t2)
+      : RefineF r (λ p1 p2 t1 t2 => Refine' r p1 p2 t1.tau t2) p1 p2 t1 t2 := by
+      induction h with
+      | coind =>
+        apply RefineF.coind <;> try assumption
+        rw [Refine'] at *
+        apply RefineF.tau_left
+        apply RefineF.idx_irrelevance; assumption
+      | ret h => exact RefineF.ret h
+      | vis _ ih => exact RefineF.vis ih
+      | tau_left _ ih => exact RefineF.tau_left ih
+      | tau_right _ ih => exact RefineF.tau_right ih
+      | zero => exact RefineF.zero
+      | choice_left _ ih => exact RefineF.choice_left ih
+      | choice_right _ ih => exact RefineF.choice_right ih
+      | choice_idemp _ _ ih1 ih2 => exact RefineF.choice_idemp ih1 ih2
+
+    theorem dest_tau_left (h : t1.tau ≤r≤ t2) : t1 ≤r≤ t2 := by
+      obtain ⟨p1, p2, h⟩ := h
+      apply Refine.coind (λ p1 p2 t1 t2 => Refine' r p1 p2 t1.tau t2) _ p1 p2 h
+      intro p1 p2 t1 t2 h
+      simp only [Refine'] at h
+      generalize ht1 : t1.tau = t1t at *
+      induction h
+      <;> ctree_elim ht1
+      case coind =>
+        subst ht1
+        apply RefineF.coind <;> assumption
+      case tau_left h _ =>
+        rw [tau_inj ht1]
+        exact dest_tau_left_adm (h.idx_irrelevance _ _)
+      case tau_right ih => exact RefineF.tau_right (ih ht1)
+      case choice_left ih => exact RefineF.choice_left (ih ht1)
+      case choice_right ih => exact RefineF.choice_right (ih ht1)
+
+    theorem dest_tauN_left (h : tauN n t1 ≤r≤ t2) : t1 ≤r≤ t2 := by
+      induction n with
+      | zero => simp only [tauN] at h; exact h
+      | succ n ih => simp only [tauN] at h; exact ih h.dest_tau_left
+
+    theorem dest_tauN_right (h : t1 ≤r≤ tauN n t2) : t1 ≤r≤ t2 := by
+      induction n with
+      | zero => simp only [tauN] at h; exact h
+      | succ n ih => simp only [tauN] at h; exact ih h.dest_tau_right
+
+    theorem dest_tau_both (h : t1.tau ≤r≤ t2.tau) : t1 ≤r≤ t2 :=
+      h.dest_tau_left.dest_tau_right
+
+    lemma map_tauN : map f (tauN n t) = tauN n (map f t) := by
+      induction n with
+      | zero => simp only [tauN, map_tau]
+      | succ => simp only [tauN, map_tau]; congr
+
     theorem congr_map {t1 t2 : CTree ε ρ} {f : ρ → σ} (h : t1 ≤ t2) : t1.map f ≤ t2.map f := by
       obtain ⟨p1, p2, h⟩ := h
       apply Refine.coind (λ p1 p2 ft1 ft2 => ∃ t1 t2, ft1 = t1.map f ∧ ft2 = t2.map f ∧ Refine' Eq p1 p2 t1 t2) _ p1 p2
