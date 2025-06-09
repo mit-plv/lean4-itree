@@ -35,7 +35,7 @@ namespace CTree
       (h1 : RefineF r sim ⊤ p2 t1 t3) (h2 : RefineF r sim ⊤ p2 t2 t3)
       : RefineF r sim p1 p2 (t1 ⊕ t2) t3
 
-  def RefineF_monotone (r : Rel ρ σ) (sim sim' : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop)
+  def RefineF.monotone (r : Rel ρ σ) (sim sim' : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop)
     (hsim : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → sim' p1 p2 t1 t2)
     p1 p2 t1 t2 (h : RefineF r sim p1 p2 t1 t2) : RefineF r sim' p1 p2 t1 t2 := by
     induction h with
@@ -53,7 +53,7 @@ namespace CTree
     RefineF r (Refine' r) p1 p2 t1 t2
     greatest_fixpoint monotonicity by
       intro _ _ hsim _ _ _ _ h
-      apply RefineF_monotone (hsim := hsim) (h := h)
+      apply RefineF.monotone (hsim := hsim) (h := h)
 
   abbrev Refine (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) :=
     ∃ p1 p2, Refine' r p1 p2 t1 t2
@@ -378,7 +378,7 @@ namespace CTree
       intros t eq_tau
       apply tau_inj at eq_tau
       subst eq_tau
-      apply RefineF_monotone
+      apply RefineF.monotone
       on_goal 2 => apply RefineF.idx_irrelevance <;> assumption
       intro p1 p2 t1 t2 h
       exists t1.tau
@@ -443,7 +443,7 @@ theorem Refine'.inv_tau_right (r : Rel ρ σ) :
       intros t eq_tau
       apply tau_inj at eq_tau
       subst eq_tau
-      apply RefineF_monotone
+      apply RefineF.monotone
       on_goal 2 => apply RefineF.idx_irrelevance <;> assumption
       intro p1 p2 t1 t2 h
       exists t2.tau
@@ -466,6 +466,46 @@ theorem Refine'.inv_tau_right (r : Rel ρ σ) :
       apply RefineF.choice_idemp
       · apply h1_ih; assumption
       · apply h2_ih; assumption
+
+  theorem Refine'.inv_zero_right (r1 : Rel ρ σ1) (r2 : Rel ρ σ2) :
+    ∀ p1 p2 (t1 : CTree ε ρ),
+      Refine' r1 p1 p2 t1 zero →
+    ∀ t2, Refine' r2 p1 p2 t1 t2 := by
+    intro _ _ _ h t2
+    apply Refine'.coind (fun p1 p2 t1 t2 => ∃ t, t = zero ∧ Refine' r1 p1 p2 t1 t)
+    on_goal 2 => exact ⟨zero, And.intro rfl h⟩
+    clear *-
+    intro p1 p2 t1 t2 h
+    have ⟨t, ⟨eq_zero, h'⟩⟩ := h
+    clear h
+    revert t2
+    rw [Refine'] at h'
+    induction h' with
+    | coind p1'' p2'' h1' h2' h =>
+      intros
+      subst eq_zero
+      apply RefineF.coind <;> try assumption
+      exact ⟨zero, And.intro rfl h⟩
+    | ret h =>
+      intros; ctree_elim eq_zero
+    | vis h _ =>
+      intros; ctree_elim eq_zero
+    | tau_left h ih =>
+      intros; subst eq_zero
+      apply RefineF.tau_left; apply ih rfl
+    | tau_right h =>
+      intros; ctree_elim eq_zero
+    | zero =>
+      intros; exact RefineF.zero
+    | choice_left h =>
+      intros; ctree_elim eq_zero
+    | choice_right h =>
+      intros; ctree_elim eq_zero
+    | choice_idemp h1 h2 =>
+      intros; subst eq_zero
+      rename_i h1_ih h2_ih
+      apply RefineF.choice_idemp <;>
+      first | apply h1_ih rfl | apply h2_ih rfl
 
 theorem Refine'.inv_choice_left_left (r : Rel ρ σ) :
     ∀ p1 p2 t1 t2 (t : CTree ε σ),
@@ -518,7 +558,7 @@ theorem Refine'.inv_choice_left_left (r : Rel ρ σ) :
       apply choice_inj at eq_choice
       have ⟨eq_choiceL, eq_choiceR⟩ := eq_choice
       subst eq_choiceL eq_choiceR
-      apply RefineF_monotone
+      apply RefineF.monotone
       on_goal 2 => apply RefineF.idx_irrelevance <;> assumption
       intro p1 p2 t1 t2 h
       exists t1, (t1 ⊕ t1)
@@ -578,7 +618,7 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
       apply choice_inj at eq_choice
       have ⟨eq_choiceL, eq_choiceR⟩ := eq_choice
       subst eq_choiceL eq_choiceR
-      apply RefineF_monotone
+      apply RefineF.monotone
       on_goal 2 => apply RefineF.idx_irrelevance <;> assumption
       intro p1 p2 t1 t2 h
       exists t1, (t1 ⊕ t1)
@@ -587,7 +627,274 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
       apply RefineF.choice_idemp
       all_goals apply RefineF.idx_mono <;> (try assumption) <;> (try apply le_top); apply le_refl
 
-  theorem Refine.coind (sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop) (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
+  theorem vis_hinj (h : vis (ρ := ρ) (ε := ε) (α := α1) e1 k1 = vis (α := α2) e2 k2) :
+    ∃ heq : α1 = α2, (heq ▸ e1) = e2 ∧ (heq ▸ k1) = k2 := by
+    simp only [vis, mk, vis'] at h
+    have ⟨eqα, heq⟩ := Sigma.mk.inj (PFunctor.M.mk_inj h)
+    injection eqα
+    rename_i eqα heq'
+    exists eqα
+    subst eqα
+    simp_all only [heq_eq_eq]
+    apply And.intro True.intro
+    ext
+    rename_i x
+    have : ∀ {A B} (f : A → B) g x, f = g → f x = g x := by intros _ _ _ _ _ h; subst h; rfl
+    apply (this _ _ (ULift.up x)) at heq
+    assumption
+
+  theorem Refine'.trans (r12 : Rel ρ1 ρ2) (r23 : Rel ρ2 ρ3) :
+    ∀ p11 p12 (t1 : CTree ε ρ1) t2,
+      Refine' r12 p11 p12 t1 t2 →
+    ∀ p21 p22 t3,
+      Refine' r23 p21 p22 t2 t3 →
+      Refine' (r12.comp r23) p11 p22 t1 t3 := by
+    intros p11 p12 t1 t2 h1 p21 p22 t3 h2
+    apply Refine'.coind (λ p11 p22 t1 t3 => Refine' (r12.comp r23) p11 p22 t1 t3 ∨ ∃ p12 p21 t2, Refine' r12 p11 p12 t1 t2 ∧ Refine' r23 p21 p22 t2 t3)
+    on_goal 2 => apply Or.intro_right; exists p12, p21, t2
+    clear *-
+    intros p11 p22 t1 t3 h
+    cases h
+    on_goal 1 =>
+      rename_i h
+      rw [Refine'] at h
+      apply RefineF.monotone <;> try assumption
+      intros; apply Or.intro_left; assumption
+    rename_i h
+    have ⟨p12, ⟨p21, ⟨t2, ⟨h1, h2⟩⟩⟩⟩ := h
+    clear h
+    rw [Refine'] at h1
+    revert t3 p21 p22
+    induction h1 with
+    | coind p1'' p2'' h1' h2' h =>
+      rename_i p11 p22 t1 t2
+      intros p22 t3 p21 h2
+      revert t1 h
+      rw [Refine'] at h2
+      induction h2 with
+      | coind p1'' p2'' h1' h2' h =>
+        intros
+        apply RefineF.coind <;> try assumption
+        apply Or.intro_right
+        rename_i h'
+        exact ⟨_, ⟨_, ⟨_, And.intro h' h⟩⟩⟩
+      | ret h =>
+        intro t1 h
+        rw [Refine'] at h
+        apply RefineF.monotone (sim := Refine' (r12.comp r23))
+        · intros; rename_i h; apply Or.intro_left; assumption
+        · rw [← Refine']; apply Refine'.inv_ret_right
+          · rw [Refine'] <;> (try apply RefineF.idx_irrelevance) <;> assumption
+          · rename_i x y _ _ _; intros; exists x
+      | vis h _ =>
+        rename_i α e k1 k2 h_ih
+        intros t1 h
+        rw [Refine'] at h
+        have h' : ∃ p1'' p2'' t2, p2'' = 0 ∧ t2 = vis e k1 ∧ RefineF r12 (Refine' r12) p1'' p2'' t1 t2 :=
+          ⟨0, ⟨0, ⟨vis e k1, And.intro rfl (And.intro rfl (by apply RefineF.idx_irrelevance; assumption))⟩⟩⟩
+        clear h
+        have ⟨p1'', ⟨p2'', ⟨t2, ⟨eq_idx, ⟨eq_vis, h⟩⟩⟩⟩⟩ := h'
+        clear h'
+        revert eq_idx eq_vis
+        induction h with
+        | coind p1'' p2'' h1' h2' h =>
+          intro eq_idx eq_vis; subst eq_idx eq_vis
+          apply not_lt_bot at h2'; cases h2'
+        | ret h =>
+          intro eq_idx eq_vis
+          ctree_elim eq_vis
+        | vis h _ =>
+          intro eq_idx eq_vis
+          rename_i cont _ _ α' e' k1' k2' h_ih'
+          apply vis_hinj at eq_vis
+          have ⟨rr, ⟨eq1, eq2⟩⟩ := eq_vis
+          clear eq_vis
+          subst rr
+          simp [heq_eq_eq] at eq1 eq2
+          subst eq1 eq2
+          apply RefineF.vis; intros
+          apply RefineF.coind 0 0 PartENat.zero_lt_top PartENat.zero_lt_top
+          apply Or.intro_right
+          rename_i a'
+          exists 0, 0, (k2' a')
+          apply And.intro <;> rw [Refine'] <;> apply RefineF.idx_irrelevance
+          · apply h
+          · apply cont
+        | tau_left h ih =>
+          intro eq_idx eq_vis; subst eq_idx eq_vis
+          apply RefineF.tau_left
+          apply RefineF.idx_mono (p1' := p11) <;>
+          first | apply le_top | apply le_refl | apply ih rfl rfl
+        | tau_right h =>
+          intro _ eq_vis; ctree_elim eq_vis
+        | zero => intros; apply RefineF.zero
+        | choice_left h =>
+          intro _ eq_vis; ctree_elim eq_vis
+        | choice_right h =>
+          intro _ eq_vis; ctree_elim eq_vis
+        | choice_idemp h1 h2 =>
+          intro eq_idx eq_vis; subst eq_idx eq_vis
+          rename_i h1_ih h2_ih
+          apply RefineF.choice_idemp <;>
+          apply RefineF.idx_mono (p1' := p11) <;>
+          first | apply le_top | apply le_refl | apply h1_ih rfl rfl | apply h2_ih rfl rfl
+      | tau_left h ih =>
+        intro t1 h'
+        apply Refine'.inv_tau_right at h'
+        apply ih; assumption
+      | tau_right h =>
+        rename_i h_ih
+        intros
+        apply RefineF.tau_right
+        apply h_ih; assumption
+      | zero =>
+        intro t1 h
+        rw [Refine'] at h
+        apply RefineF.monotone (sim := Refine' (r12.comp r23))
+        · intros; rename_i h; apply Or.intro_left; assumption
+        · rw [← Refine']; apply Refine'.inv_zero_right; rw [Refine'];
+          apply RefineF.idx_irrelevance; assumption
+      | choice_left h =>
+        rename_i h_ih
+        intros; apply RefineF.choice_left; apply h_ih; assumption
+      | choice_right h =>
+        rename_i h_ih
+        intros; apply RefineF.choice_right; apply h_ih; assumption
+      | choice_idemp h1 h2 =>
+        rename_i p1 p2 t t' t'' h1_ih h2_ih
+        intros t1 h
+        rw [Refine'] at h
+        have h' : ∃ p1'' p2'' t2, p2'' = 0 ∧ t2 = t ⊕ t' ∧ RefineF r12 (Refine' r12) p1'' p2'' t1 t2 :=
+          ⟨0, ⟨0, ⟨t ⊕ t', And.intro rfl (And.intro rfl (by apply RefineF.idx_irrelevance; assumption))⟩⟩⟩
+        clear h
+        have ⟨p1'', ⟨p2'', ⟨t2, ⟨eq_idx, ⟨eq_choice, h⟩⟩⟩⟩⟩ := h'
+        clear h'
+        revert eq_idx eq_choice
+        induction h with
+        | coind p1'' p2'' h1' h2' h =>
+          intro eq_idx eq_choice; subst eq_idx eq_choice
+          apply not_lt_bot at h2'; cases h2'
+        | ret h =>
+          intro eq_idx eq_choice
+          ctree_elim eq_choice
+        | vis h _ =>
+          intro eq_idx eq_choice
+          ctree_elim eq_choice
+        | tau_left h ih =>
+          intro eq_idx eq_vis; subst eq_idx eq_vis
+          apply RefineF.tau_left
+          apply RefineF.idx_mono (p1' := p11) <;>
+          first | apply le_top | apply le_refl | apply ih rfl rfl
+        | tau_right h =>
+          intro _ eq_vis; ctree_elim eq_vis
+        | zero => intros; apply RefineF.zero
+        | choice_left h =>
+          intro eq_idx eq_choice; subst eq_idx
+          apply choice_inj at eq_choice
+          have ⟨eq1, eq2⟩ := eq_choice
+          subst eq1 eq2; clear eq_choice
+          apply h1_ih
+          rw [Refine']
+          apply RefineF.idx_irrelevance; assumption
+        | choice_right h =>
+          intro eq_idx eq_choice; subst eq_idx
+          apply choice_inj at eq_choice
+          have ⟨eq1, eq2⟩ := eq_choice
+          subst eq1 eq2; clear eq_choice
+          apply h2_ih
+          rw [Refine']
+          apply RefineF.idx_irrelevance; assumption
+        | choice_idemp h1 h2 =>
+          intro eq_idx eq_choice; subst eq_idx eq_choice
+          rename_i h1_ih h2_ih
+          apply RefineF.choice_idemp <;>
+          apply RefineF.idx_mono (p1' := p11) <;>
+          first | apply le_top | apply le_refl | apply h1_ih rfl rfl | apply h2_ih rfl rfl
+    | ret h =>
+      intros; rename_i h
+      rw [Refine'] at h
+      apply RefineF.monotone (sim := Refine' (r12.comp r23))
+      · intros; rename_i h; apply Or.intro_left; assumption
+      · rw [← Refine']; apply Refine'.inv_ret_left
+        · rw [Refine'] <;> (try apply RefineF.idx_irrelevance) <;> assumption
+        · rename_i x y _ _ _ _ _ _; intros; exists y
+    | vis h _ =>
+      rename_i p1 p2 α e k1 k2 h_ih
+      intro p22 t3 p21 h'
+      rw [Refine'] at h'
+      apply RefineF.idx_irrelevance (p1' := p1) (p2' := p22) at h'
+      generalize eq_vis : vis e k2 = t2' at h'
+      clear p21; revert p1
+      intro p1 h'
+      induction h' with
+      | coind p1'' p2'' h1' h2' h =>
+        subst eq_vis
+        apply RefineF.coind <;> try assumption
+        apply Or.intro_right; exists p2'', p1'', vis e k2
+        apply And.intro _ (by assumption)
+        rw [Refine']; apply RefineF.vis; assumption
+      | ret h => ctree_elim eq_vis
+      | vis h _ =>
+        rename_i cont _ _ α' e' k1' k2' h_ih'
+        apply vis_hinj at eq_vis
+        have ⟨rr, ⟨eq1, eq2⟩⟩ := eq_vis
+        clear eq_vis
+        subst rr
+        simp [heq_eq_eq] at eq1 eq2
+        subst eq1 eq2
+        apply RefineF.vis; intros
+        apply RefineF.coind 0 0 PartENat.zero_lt_top PartENat.zero_lt_top
+        apply Or.intro_right
+        rename_i a'
+        exists 0, 0, (k2 a')
+        apply And.intro <;> rw [Refine'] <;> apply RefineF.idx_irrelevance
+        · apply cont
+        · apply h
+      | tau_left h ih => ctree_elim eq_vis
+      | tau_right h =>
+        rename_i h_ih
+        subst eq_vis
+        apply RefineF.tau_right
+        apply h_ih rfl
+      | zero => ctree_elim eq_vis
+      | choice_left h =>
+        rename_i h_ih
+        subst eq_vis
+        apply RefineF.choice_left
+        apply h_ih rfl
+      | choice_right h =>
+        rename_i h_ih
+        subst eq_vis
+        apply RefineF.choice_right
+        apply h_ih rfl
+      | choice_idemp h1 h2 => ctree_elim eq_vis
+    | tau_left h ih =>
+      intros; apply RefineF.tau_left; apply ih; assumption
+    | tau_right h =>
+      rename_i h_ih
+      intros; rename_i h'
+      apply Refine'.inv_tau_left at h'
+      apply h_ih; assumption
+    | zero => intros; apply RefineF.zero
+    | choice_left h =>
+      rename_i h_ih
+      intros; rename_i h'
+      apply Refine'.inv_choice_left_left at h'
+      apply h_ih; assumption
+    | choice_right h =>
+      rename_i h_ih
+      intros; rename_i h'
+      apply Refine'.inv_choice_left_right at h'
+      apply h_ih; assumption
+    | choice_idemp h1 h2 =>
+      rename_i h1_ih h2_ih
+      intros
+      apply RefineF.choice_idemp <;>
+      apply RefineF.idx_mono (p1' := ⊤) <;>
+      try (first | apply le_top | apply le_refl | apply h1_ih | apply h2_ih) <;>
+      assumption
+
+theorem Refine.coind (sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop) (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
     (p1 p2 : PartENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : t1 ⊑r⊑ t2 :=
     ⟨p1, ⟨p2, Refine'.fixpoint_induct r sim adm p1 p2 t1 t2 h⟩⟩
 
