@@ -1,0 +1,86 @@
+import CTree.Refinement
+
+namespace CTree
+  /--
+  Equivalent up to tau and choice.
+  -/
+  def Euttc (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
+    t1 ≤r≤ t2 ∧ t2 ≤flip r≤ t1
+
+  @[refl]
+  theorem Euttc.refl {r : Rel ρ ρ} [IsRefl ρ r] : Euttc r t t :=
+    ⟨.refl _, .refl _⟩
+
+  @[symm]
+  theorem Euttc.symm {r : Rel ρ σ} (h : Euttc r t1 t2) : Euttc (flip r) t2 t1 :=
+    ⟨h.2, h.1⟩
+
+  @[trans]
+  theorem Euttc.trans (h1 : Euttc r1 t1 t2) (h2 : Euttc r2 t2 t3) : Euttc (r1.comp r2) t1 t3 :=
+    have heq : Rel.comp (flip r2) (flip r1) = flip (r1.comp r2) := by
+      funext x y
+      simp only [Rel.comp, flip, eq_iff_iff]
+      apply Iff.intro
+      · intro a
+        obtain ⟨w, h⟩ := a
+        obtain ⟨left, right⟩ := h
+        apply Exists.intro
+        · apply And.intro
+          on_goal 2 => {exact left
+          }
+          · simp_all only
+      · intro a
+        obtain ⟨w, h⟩ := a
+        obtain ⟨left, right⟩ := h
+        apply Exists.intro
+        · apply And.intro
+          on_goal 2 => {exact left
+          }
+          · simp_all only
+    ⟨.trans h1.1 h2.1, heq ▸ .trans h2.2 h1.2⟩
+
+  instance : IsEquiv (CTree ε ρ) (Euttc Eq) where
+    refl _ := Euttc.refl
+    symm x y h := by
+      have := Euttc.symm h
+      rw [flip_eq] at this
+      exact this
+    trans _ _ _ h1 h2 := by
+      have := Euttc.trans h1 h2
+      rw [Rel.comp_right_id] at this
+      exact this
+
+  instance : HasEquiv (CTree ε ρ) where
+    Equiv := Euttc Eq
+
+  namespace Euttc
+    theorem choice_idemp (h1 : Euttc r t1 t3) (h2 : Euttc r t2 t3) : Euttc r (t1 ⊕ t2) t3 :=
+      ⟨.choice_idemp h1.1 h2.1, .choice_left h1.2⟩
+
+    theorem choice_idemp_self {t : CTree ε ρ} : (t ⊕ t) ≈ t :=
+      choice_idemp refl refl
+
+    theorem choice_comm {t1 t2 : CTree ε ρ} : (t1 ⊕ t2) ≈ (t2 ⊕ t1) :=
+      ⟨
+        .choice_idemp (.choice_right <| .refl _) (.choice_left <| .refl _),
+        .choice_idemp (.choice_right <| .refl _) (.choice_left <| .refl _)
+      ⟩
+
+    theorem zero_left_id : (zero ⊕ t) ≈ t :=
+      ⟨.choice_idemp .zero_le <| .refl _, .choice_right <| .refl _⟩
+
+    theorem zero_right_id : (t ⊕ zero) ≈ t :=
+      ⟨.choice_idemp (.refl _) .zero_le, .choice_left <| .refl _⟩
+
+    theorem choice_assoc {t1 t2 t3 : CTree ε ρ} : ((t1 ⊕ t2) ⊕ t3) ≈ (t1 ⊕ (t2 ⊕ t3)) :=
+      ⟨
+        .choice_idemp
+          (.choice_idemp (.choice_left <| .refl _) (.choice_right <| .choice_left <| .refl _))
+          (.choice_right <| .choice_right <| .refl _),
+        .choice_idemp
+          (.choice_left <| .choice_left <| .refl _)
+          (.choice_idemp (.choice_left <| .choice_right <| .refl _) (.choice_right <| .refl _))
+      ⟩
+  end Euttc
+
+end CTree

@@ -22,13 +22,12 @@ namespace CTree
   def TraceRefine {ε ρ} (t1 t2 : CTree ε ρ) : Prop :=
     ∀ (tr : Trace ε ρ), IsTraceOf t1 tr → IsTraceOf t2 tr
 
-  instance instCTreeLE : LE (CTree ε ρ) where
-    le := TraceRefine
+  infix:60 " ⊑ " => TraceRefine
 
-  theorem TraceRefine.ret_le {t : CTree ε ρ} (h : .ret v ≤ t) : t.IsTraceOf (.ret v) := by
+  theorem TraceRefine.ret_le {t : CTree ε ρ} (h : .ret v ⊑ t) : t.IsTraceOf (.ret v) := by
     exact h (.ret v) (.ret v)
 
-  theorem TraceRefine.ret_le_choice {t1 t2 : CTree ε ρ} (h : .ret v ≤ t1 ⊕ t2) : t1.IsTraceOf (.ret v) ∨ t2.IsTraceOf (.ret v) := by
+  theorem TraceRefine.ret_le_choice {t1 t2 : CTree ε ρ} (h : .ret v ⊑ t1 ⊕ t2) : t1.IsTraceOf (.ret v) ∨ t2.IsTraceOf (.ret v) := by
     have h := h (.ret v) (.ret v)
     generalize ht : t1 ⊕ t2 = t at *
     cases h
@@ -40,7 +39,7 @@ namespace CTree
       rw [(choice_inj ht).right]
       exact Or.inr h
 
-  theorem TraceRefine.choice_le {t1 t2 t3 : CTree ε ρ} (h : (t1 ⊕ t2) ≤ t3) : t1 ≤ t3 ∧ t2 ≤ t3 := by
+  theorem TraceRefine.choice_le {t1 t2 t3 : CTree ε ρ} (h : (t1 ⊕ t2) ⊑ t3) : t1 ⊑ t3 ∧ t2 ⊑ t3 := by
     apply And.intro
     · intro tr h
       cases h with
@@ -62,12 +61,12 @@ namespace CTree
       | choice_right tr htr => exact h tr (.choice_right _ (.choice_right _ htr))
 
   @[refl]
-  theorem TraceRefine.refl {t : CTree ε ρ} : t ≤ t := by
+  theorem TraceRefine.refl {t : CTree ε ρ} : t ⊑ t := by
     intro tr h
     simp_all only
 
   @[trans]
-  theorem TraceRefine.trans {t1 t2 t3 : CTree ε ρ} (h1 : t1 ≤ t2) (h2 : t2 ≤ t3) : t1 ≤ t3 := by
+  theorem TraceRefine.trans {t1 t2 t3 : CTree ε ρ} (h1 : t1 ⊑ t2) (h2 : t2 ⊑ t3) : t1 ⊑ t3 := by
     intro tr htr
     induction htr with
     | empty => exact .empty
@@ -95,11 +94,7 @@ namespace CTree
     | choice_left _ _ ih => exact ih h1.choice_le.left
     | choice_right _ _ ih => exact ih h1.choice_le.right
 
-  instance instCTreePreorder : Preorder (CTree ε ρ) where
-    le_refl _ := TraceRefine.refl
-    le_trans _ _ _ := TraceRefine.trans
-
-  theorem TraceRefine.choice_idemp {t1 t2 t3 : CTree ε ρ} (h1 : t1 ≤ t3) (h2 : t2 ≤ t3) : (t1 ⊕ t2) ≤ t3 := by
+  theorem TraceRefine.choice_idemp {t1 t2 t3 : CTree ε ρ} (h1 : t1 ⊑ t3) (h2 : t2 ⊑ t3) : (t1 ⊕ t2) ⊑ t3 := by
     intro tr h
     generalize ht : t1 ⊕ t2 = t at *
     cases h
@@ -112,27 +107,21 @@ namespace CTree
       rw [←(choice_inj ht).right] at h
       exact h2 tr h
 
-  theorem TraceRefine.choice_le_iff {t1 t2 t3 : CTree ε ρ} : (t1 ⊕ t2) ≤ t3 ↔ t1 ≤ t3 ∧ t2 ≤ t3 :=
+  theorem TraceRefine.choice_le_iff {t1 t2 t3 : CTree ε ρ} : (t1 ⊕ t2) ⊑ t3 ↔ t1 ⊑ t3 ∧ t2 ⊑ t3 :=
     ⟨TraceRefine.choice_le, λ h => TraceRefine.choice_idemp h.left h.right⟩
 
-  theorem TraceRefine.choice_left {t1 t2 t3 : CTree ε ρ} (h : t1 ≤ t2) : t1 ≤ t2 ⊕ t3 :=
+  theorem TraceRefine.choice_left {t1 t2 t3 : CTree ε ρ} (h : t1 ⊑ t2) : t1 ⊑ t2 ⊕ t3 :=
     λ tr htr => IsTraceOf.choice_left _ (h tr htr)
 
-  theorem TraceRefine.choice_right {t1 t2 t3 : CTree ε ρ} (h : t1 ≤ t3) : t1 ≤ t2 ⊕ t3 :=
+  theorem TraceRefine.choice_right {t1 t2 t3 : CTree ε ρ} (h : t1 ⊑ t3) : t1 ⊑ t2 ⊕ t3 :=
     λ tr htr => IsTraceOf.choice_right _ (h tr htr)
 
-  theorem TraceRefine.zero_le : zero ≤ t := by
+  theorem TraceRefine.zero_le : zero ⊑ t := by
     intro tr htr
     generalize hz : zero = t1 at *
     cases htr
     <;> ctree_elim hz
     exact IsTraceOf.empty
-
-  instance instCTeeBot : Bot (CTree ε ρ) where
-    bot := zero
-
-  instance instCTreeOrderBot : OrderBot (CTree ε ρ) where
-    bot_le _ := TraceRefine.zero_le
 
   theorem IsTraceOf.map_ret {t : CTree ε ρ} (h : t.IsTraceOf (.ret x)) : (f <$> t).IsTraceOf (.ret <| f x) := by
     generalize htr : (Trace.ret x) = tr at *
@@ -162,7 +151,7 @@ namespace CTree
       simp only [Functor.map] at ih
       exact ih htr
 
-  theorem TraceRefine.dest_tau_right {t1 t2 : CTree ε ρ} (h : t1 ≤ t2.tau) : t1 ≤ t2 := by
+  theorem TraceRefine.dest_tau_right {t1 t2 : CTree ε ρ} (h : t1 ⊑ t2.tau) : t1 ⊑ t2 := by
     intro tr htr
     have := h tr htr
     generalize ht2 : t2.tau = t2t at *
@@ -172,31 +161,5 @@ namespace CTree
     case tau h' =>
       rw [tau_inj ht2]
       exact h'
-
-  theorem TraceRefine.congr_map {t1 t2 : CTree ε ρ} (h : t1 ≤ t2) : f <$> t1 ≤ f <$> t2 := by
-    intro tr htr
-    apply dMatchOn t1
-    · intro x heq
-      subst heq
-      have := h (.ret x) (.ret x)
-      generalize htrx : Trace.ret x = trx at *
-      induction this
-      <;> try contradiction
-      case ret =>
-        rw [←Trace.ret.inj htrx]
-        exact htr
-      case tau ih =>
-        simp_all only [Functor.map, map_tau]
-        apply IsTraceOf.tau
-        exact ih h.dest_tau_right trivial
-      case choice_left =>
-        sorry
-      all_goals sorry
-    all_goals sorry
-
-  theorem TraceRefine.map_eq {t1 t2 : CTree ε ρ} (h1 : t1 ≤ t2) (h2 : f <$> t2 ≤ t3) : f <$> t1 ≤ t3 := by
-    trans
-    · exact h1.congr_map
-    · exact h2
 
 end CTree

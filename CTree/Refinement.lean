@@ -1,15 +1,10 @@
 import CTree.Basic
+import CTree.Monad
 import Mathlib.Data.Nat.PartENat
-
 
 namespace CTree
   /--
-    Somewhat failed attemp at defining a direct refinement between `CTree`s without defining traces first.
     The definition uses ideas from the [FreeSim paper](https://dl.acm.org/doi/10.1145/3622857)
-
-    While this definition seems plausible and we can prove reflexivity and an intersting theorem about infinite non-determinism.
-    This nested inductive-coinductive structure is very difficult to work with in practice compared to `TraceRefine` (at least
-    for writing general equational theories, ymmv when proving equivalence of concrete systems).
 
     Note that this is not equivalent to `TraceRefine`, becasuse `TraceRefine` makes no distinction between `zero` and `infND`.
   -/
@@ -58,8 +53,8 @@ namespace CTree
   abbrev Refine (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) :=
     ∃ p1 p2, Refine' r p1 p2 t1 t2
 
-  -- `t1 r⊑ t2` looks better, but somehow clashes with multi-line class instance definition
-  notation:60 t1:61 " ⊑"r:61"⊑ " t2:61 => Refine r t1 t2
+  -- `t1 r≤ t2` looks better, but somehow clashes with multi-line class instance definition
+  notation:60 t1:61 " ≤"r:61"≤ " t2:61 => Refine r t1 t2
 
   theorem RefineF.idx_mono_left {p1' p1 p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
     (h1 : p1' ≤ p1) (h : RefineF r sim p1' p2 t1 t2) : RefineF r sim p1 p2 t1 t2 := by
@@ -894,12 +889,12 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
       try (first | apply le_top | apply le_refl | apply h1_ih | apply h2_ih) <;>
       assumption
 
-theorem Refine.coind (sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop) (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
-    (p1 p2 : PartENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : t1 ⊑r⊑ t2 :=
-    ⟨p1, ⟨p2, Refine'.fixpoint_induct r sim adm p1 p2 t1 t2 h⟩⟩
+  theorem Refine.coind (sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop) (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
+      (p1 p2 : PartENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : t1 ≤r≤ t2 :=
+      ⟨p1, ⟨p2, Refine'.fixpoint_induct r sim adm p1 p2 t1 t2 h⟩⟩
 
   @[refl]
-  theorem Refine.refl {r : Rel ρ ρ} [IsRefl ρ r] (t : CTree ε ρ) : t ⊑r⊑ t := by
+  theorem Refine.refl {r : Rel ρ ρ} [IsRefl ρ r] (t : CTree ε ρ) : t ≤r≤ t := by
     apply Refine.coind (λ p1 p2 t1 t2 => p1 = 0 ∧ p2 = 0 ∧ t1 = t2) _ 0 0 (And.intro rfl <| And.intro rfl rfl)
     intro p1 p2 t t' h
     obtain ⟨hp1, hp2, heq⟩ := h
@@ -940,6 +935,109 @@ theorem Refine.coind (sim : PartENat → PartENat → CTree ε ρ → CTree ε �
         <;> simp_all only [PartENat.zero_lt_top]
         simp_all only [and_self]
 
+  @[trans]
+  theorem Refine.trans {t1 : CTree ε α} {t2 : CTree ε β} {t3 : CTree ε γ}
+    (h1 : t1 ≤r1≤ t2) (h2 : t2 ≤r2≤ t3) : t1 ≤r1.comp r2≤ t3 := by
+    obtain ⟨_, _, h1⟩ := h1
+    obtain ⟨_, _, h2⟩ := h2
+    have := Refine'.trans _ _ _ _ _ _ h1 _ _ _ h2
+    rename_i p1 _ _ p2
+    exists p1, p2
+
+  instance : LE (CTree ε ρ) where
+    le := Refine Eq
+
+  instance : Preorder (CTree ε ρ) where
+    le_refl := Refine.refl
+    le_trans := by
+      intro t1 t2 t3 h1 h2
+      have h3 := Refine.trans h1 h2
+      rw [Rel.comp_right_id] at h3
+      exact h3
+
+  instance : Bot (CTree ε ρ) where
+    bot := zero
+
+  theorem Refine.zero_le : zero ≤ t := by
+    simp only [LE.le, Refine, Refine']
+    exists 0, 0
+    exact RefineF.zero
+
+  instance : OrderBot (CTree ε ρ) where
+    bot_le _ := Refine.zero_le
+
+  namespace Refine
+    theorem choice_idemp (h1 : t1 ≤r≤ t3) (h2 : t2 ≤r≤ t3) : (t1 ⊕ t2) ≤r≤ t3 := by
+      obtain ⟨_, _, h1⟩ := h1
+      obtain ⟨_, _, h2⟩ := h2
+      exists 0, 0
+      simp only [Refine'] at *
+      exact RefineF.choice_idemp (h1.idx_irrelevance _ _) (h2.idx_irrelevance _ _)
+
+    theorem choice_left (h : t1 ≤r≤ t2) : t1 ≤r≤ (t2 ⊕ t3) := by
+      obtain ⟨_, _, h⟩ := h
+      exists 0, 0
+      simp only [Refine'] at *
+      exact RefineF.choice_left (h.idx_irrelevance _ _)
+
+    theorem choice_right (h : t1 ≤r≤ t3) : t1 ≤r≤ (t2 ⊕ t3) := by
+      obtain ⟨_, _, h⟩ := h
+      exists 0, 0
+      simp only [Refine'] at *
+      exact RefineF.choice_right (h.idx_irrelevance _ _)
+
+    theorem congr_map {t1 t2 : CTree ε ρ} {f : ρ → σ} (h : t1 ≤ t2) : t1.map f ≤ t2.map f := by
+      obtain ⟨p1, p2, h⟩ := h
+      apply Refine.coind (λ p1 p2 ft1 ft2 => ∃ t1 t2, ft1 = t1.map f ∧ ft2 = t2.map f ∧ Refine' Eq p1 p2 t1 t2) _ p1 p2
+      · exists t1, t2
+      · intro p1 p2 ft1 ft2 h
+        obtain ⟨t1, t2, hft1, hft2, h⟩ := h
+        simp_all only [Refine']
+        induction h with
+        | coind p1' p2' h1 h2 h =>
+          rename_i t1 t2
+          apply RefineF.coind p1' p2' h1 h2
+          exists t1, t2
+          repeat apply And.intro; rfl
+          rw [Refine'] at h
+          exact h
+        | ret hxy =>
+          simp only [map_ret]; apply RefineF.ret; congr
+        | vis hk =>
+          rename_i k1 k2 _
+          simp only [map_vis]
+          apply RefineF.vis
+          intro a
+          apply RefineF.coind 0 0 bot_lt_top bot_lt_top
+          exists k1 a, k2 a
+          repeat apply And.intro; rfl
+          exact (hk a).idx_irrelevance 0 0
+        | tau_left h ih =>
+          simp only [map_tau]
+          apply RefineF.tau_left
+          sorry
+        | tau_right h ih =>
+          simp only [map_tau]
+          apply RefineF.tau_right
+          sorry
+        | zero =>
+          simp only [map_zero]; exact RefineF.zero
+        | choice_left h ih =>
+          simp only [map_choice]
+          apply RefineF.choice_left
+          sorry
+        | choice_right h ih =>
+          simp only [map_choice]
+          apply RefineF.choice_left
+          sorry
+        | choice_idemp h1 h2 ih1 ih2 =>
+          simp only [map_choice]
+          apply RefineF.choice_idemp
+          · sorry
+          · sorry
+
+  end Refine
+
   inductive IsInfF (sim : CTree ε ρ → Prop) : CTree ε ρ → Prop
   | choice_left (h : sim t1) : IsInfF sim (t1 ⊕ t2)
   | choice_right (h : sim t2) : IsInfF sim (t1 ⊕ t2)
@@ -954,9 +1052,9 @@ theorem Refine.coind (sim : PartENat → PartENat → CTree ε ρ → CTree ε �
       | choice_right h => exact .choice_right (hsim _ h)
       | tau h => exact .tau (hsim _ h)
 
-  theorem infND_refine_left : infND ⊑r⊑ t → IsInf t := by
+  theorem infND_refine_left : infND ≤r≤ t → IsInf t := by
     intro h
-    apply IsInf.fixpoint_induct (λ t => infND ⊑r⊑ t) _ t h
+    apply IsInf.fixpoint_induct (λ t => infND ≤r≤ t) _ t h
     intro t h
     rw [Refine] at h
     obtain ⟨p1, p2, h⟩ := h

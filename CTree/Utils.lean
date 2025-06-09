@@ -25,6 +25,11 @@ instance {r : Rel α α} [IsTrans α r] : IsTrans α (flip r) where
     simp only [flip] at *
     exact IsTrans.trans _ _ _ h2 h1
 
+theorem flip_eq [IsSymm _ r] : flip r = r := by
+  funext x y
+  simp only [flip, eq_iff_iff]
+  apply Iff.intro <;> apply IsSymm.symm
+
 theorem Or.elim4 {motive : Prop} (hor : P1 ∨ P2 ∨ P3 ∨ P4)
   (h1 : P1 → motive) (h2 : P2 → motive) (h3 : P3 → motive) (h4 : P4 → motive) : motive :=
   hor.elim3 h1 h2 (λ hor =>
