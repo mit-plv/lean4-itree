@@ -140,6 +140,10 @@ namespace CTree
       apply elim0_lift i
     · exact And.intro rfl rfl
 
+  theorem parBoth_ret_tau {t : CTree ε ρ} : parAux (.both (ret x) t.tau) = (parAux <| .both (ret x) t).tau := by
+    -- apply PFunctor.M.bisim (λ t1 t2 => t1 = parAux (.both (ret x) t.tau))
+    sorry
+
   theorem par_ret_ret : (ret (ε := ε) x || ret y) ≈ ret (x, y) := by
     simp only [par]
     rw [parBoth_ret_ret, parLeft_ret_ret, parRight_ret_ret]
@@ -155,34 +159,31 @@ namespace CTree
   namespace TraceEq
     theorem parR_ret : ((ret x) ||→ t) ≈ t := by
       apply And.intro
-      · apply Refine.coind (λ p1 p2 t1 t2 => p1 = ⊤ ∧ p2 = ⊤ ∧ (Refine' Eq ⊤ ⊤ t1 t2 ∨ ∃ t, t1 = (ret x) ||→ t ∧ t2 = t)) _ ⊤ ⊤
-        · repeat apply And.intro rfl
-          apply Or.inr
-          exists t
+      · apply Refine.coind (λ p1 p2 t1 t2 => ∃ t, t1 = (ret x) ||→ t ∧ t2 = t) _ ⊤ ⊤
+        -- · repeat apply And.intro rfl
+        · exists t
         · intro p1 p2 _ t h
-          obtain ⟨hp1, hp2, h⟩ := h
-          subst hp1
-          subst hp2
-          match h with
-          | .inl h => sorry
-          | .inr h =>
-            obtain ⟨_, ht1, ht2⟩ := h
-            subst ht1
-            subst ht2
-            apply dMatchOn t
-            · intro v heq
-              subst heq
-              rw [parR]
-              apply RefineF.coind 0 0 ENat.top_pos ENat.top_pos
-              -- apply Euttc.map_trans par_ret_ret
-              -- rw [map_ret]
-              sorry
-            · intro c heq
-              subst heq
-              sorry
-            · sorry
-            · sorry
-            · sorry
+          obtain ⟨_, ht1, ht2⟩ := h
+          -- subst hp1
+          -- subst hp2
+          subst ht1
+          subst ht2
+          apply dMatchOn t
+          · intro v heq
+            subst heq
+            simp only [parR, par, parBoth_ret_ret, parLeft_ret_ret, parRight_ret_ret,
+              Functor.map, map_choice, map_zero, map_ret]
+            apply RefineF.choice_idemp
+            · apply RefineF.choice_idemp
+              <;> exact RefineF.zero
+            · exact RefineF.ret rfl
+          · intro c heq
+            subst heq
+            simp only [parR, par, parBoth_ret_tau]
+            sorry
+          · sorry
+          · sorry
+          · sorry
       · sorry
 
     theorem parR_map : ((map f t1) ||→ t2) ≈ (t1 ||→ t2) := by
