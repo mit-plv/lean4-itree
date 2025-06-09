@@ -91,6 +91,20 @@ namespace CTree
           (.choice_left <| .choice_left <| .refl _)
           (.choice_idemp (.choice_left <| .choice_right <| .refl _) (.choice_right <| .refl _))
       ⟩
+
+    theorem congr_map {t1 t2 : CTree ε ρ} {f : ρ → σ} (h : t1 ≈ t2) : t1.map f ≈ t2.map f :=
+      ⟨
+        .congr_map h.1,
+        by
+          have := Refine.congr_map (f := f) (flip_eq (r := Eq) ▸ h.2)
+          rw [flip_eq]
+          exact this
+      ⟩
+
+    theorem map_trans {t1 t2 : CTree ε ρ} {t3 : CTree ε σ} {f : ρ → σ}
+      (h1 : t1 ≈ t2) (h2 : t2.map f ≈ t3) : t1.map f ≈ t3 :=
+      .eq_trans h1.congr_map h2
+
   end Euttc
 
 end CTree

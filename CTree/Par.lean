@@ -154,11 +154,35 @@ namespace CTree
 
   namespace TraceEq
     theorem parR_ret : ((ret x) ||→ t) ≈ t := by
-      apply dMatchOn t
-      · sorry
-      · sorry
-      · sorry
-      · sorry
+      apply And.intro
+      · apply Refine.coind (λ p1 p2 t1 t2 => p1 = ⊤ ∧ p2 = ⊤ ∧ (Refine' Eq ⊤ ⊤ t1 t2 ∨ ∃ t, t1 = (ret x) ||→ t ∧ t2 = t)) _ ⊤ ⊤
+        · repeat apply And.intro rfl
+          apply Or.inr
+          exists t
+        · intro p1 p2 _ t h
+          obtain ⟨hp1, hp2, h⟩ := h
+          subst hp1
+          subst hp2
+          match h with
+          | .inl h => sorry
+          | .inr h =>
+            obtain ⟨_, ht1, ht2⟩ := h
+            subst ht1
+            subst ht2
+            apply dMatchOn t
+            · intro v heq
+              subst heq
+              rw [parR]
+              apply RefineF.coind 0 0 bot_lt_top bot_lt_top
+              -- apply Euttc.map_trans par_ret_ret
+              -- rw [map_ret]
+              sorry
+            · intro c heq
+              subst heq
+              sorry
+            · sorry
+            · sorry
+            · sorry
       · sorry
 
     theorem parR_map : ((map f t1) ||→ t2) ≈ (t1 ||→ t2) := by
