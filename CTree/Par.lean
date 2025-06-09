@@ -173,7 +173,7 @@ namespace CTree
             · intro v heq
               subst heq
               rw [parR]
-              apply RefineF.coind 0 0 bot_lt_top bot_lt_top
+              apply RefineF.coind 0 0 ENat.top_pos ENat.top_pos
               -- apply Euttc.map_trans par_ret_ret
               -- rw [map_ret]
               sorry

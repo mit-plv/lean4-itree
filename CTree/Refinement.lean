@@ -1,6 +1,6 @@
 import CTree.Basic
 import CTree.Monad
-import Mathlib.Data.Nat.PartENat
+import Mathlib.Data.ENat.Basic
 
 namespace CTree
   /--
@@ -9,9 +9,9 @@ namespace CTree
     Note that this is not equivalent to `TraceRefine`, becasuse `TraceRefine` makes no distinction between `zero` and `infND`.
   -/
   inductive RefineF {ε : Type → Type} {ρ σ : Type}
-    (r : Rel ρ σ) (sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop)
-    : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop
-  | coind {p1 p2 t1 t2} (p1' p2' : PartENat)
+    (r : Rel ρ σ) (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
+    : ENat → ENat → CTree ε ρ → CTree ε σ → Prop
+  | coind {p1 p2 t1 t2} (p1' p2' : ENat)
       (h1 : p1' < p1) (h2 : p2' < p2) (h : sim p1' p2' t1 t2)
       : RefineF r sim p1 p2 t1 t2
   | ret {x y p1 p2} (h : r x y) : RefineF r sim p1 p2 (ret x) (ret y)
@@ -30,7 +30,7 @@ namespace CTree
       (h1 : RefineF r sim ⊤ p2 t1 t3) (h2 : RefineF r sim ⊤ p2 t2 t3)
       : RefineF r sim p1 p2 (t1 ⊕ t2) t3
 
-  def RefineF.monotone (r : Rel ρ σ) (sim sim' : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop)
+  def RefineF.monotone (r : Rel ρ σ) (sim sim' : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
     (hsim : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → sim' p1 p2 t1 t2)
     p1 p2 t1 t2 (h : RefineF r sim p1 p2 t1 t2) : RefineF r sim' p1 p2 t1 t2 := by
     induction h with
@@ -44,7 +44,7 @@ namespace CTree
     | choice_right _ ih => exact .choice_right ih
     | choice_idemp _ _ ih1 ih2 => exact .choice_idemp ih1 ih2
 
-  def Refine' (r : Rel ρ σ) (p1 p2 : PartENat) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
+  def Refine' (r : Rel ρ σ) (p1 p2 : ENat) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
     RefineF r (Refine' r) p1 p2 t1 t2
     greatest_fixpoint monotonicity by
       intro _ _ hsim _ _ _ _ h
@@ -99,15 +99,15 @@ namespace CTree
       · exact ih2 h2
 
   theorem RefineF.idx_mono {t1 : CTree ε ρ} {t2 : CTree ε σ}
-    {p1' p1 p2' p2 : PartENat} (h1 : p1' ≤ p1) (h2 : p2' ≤ p2) (h : RefineF r sim p1' p2' t1 t2)
+    {p1' p1 p2' p2 : ENat} (h1 : p1' ≤ p1) (h2 : p2' ≤ p2) (h : RefineF r sim p1' p2' t1 t2)
     : RefineF r sim p1 p2 t1 t2 := by
-    induction h with
+    cases h with
     | coind p1'' p2'' h1' h2' h =>
       apply RefineF.coind p1'' p2'' _ _ h
       exact lt_of_lt_of_le h1' h1
       exact lt_of_lt_of_le h2' h2
     | ret h => exact RefineF.ret h
-    | vis h _ => exact RefineF.vis h
+    | vis h => exact RefineF.vis h
     | tau_left h =>
       apply RefineF.tau_left
       exact RefineF.idx_mono_right h2 h
@@ -171,7 +171,7 @@ namespace CTree
     ∀ (t2 : CTree ε σ), ((∃ t1', t2 = t1' ⊕ t2') ∨ (∃ t1', t2 = t2' ⊕ t1') ∨ t2 = t2'.tau) →
     ∀ p1' p2', RefineF r (Refine' r) p1' p2' t1 t2 := by
     revert p2 t1 t2 t2'
-    induction p1 using WellFounded.induction PartENat.lt_wf
+    induction p1 using WellFoundedLT.induction
     rename_i ih
     intro _ _ _ _ h
     induction h with
@@ -191,7 +191,7 @@ namespace CTree
     (h : RefineF r (Refine' r) p1 p2 t1 t2)
     : ∀ p1' p2', RefineF r (Refine' r) p1' p2' t1 t2 := by
     revert t1 t2 p1
-    induction p2 using WellFounded.induction PartENat.lt_wf
+    induction p2 using WellFoundedLT.induction
     rename_i p1 ih_p1
     intro p1 t1 t2 h
     induction h with
@@ -225,9 +225,9 @@ namespace CTree
       · apply h1_ih; assumption
       · apply h2_ih; assumption
 
-  theorem Refine'.coind (sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop)
+  theorem Refine'.coind (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
     (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
-    (p1 p2 : PartENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : Refine' r p1 p2 t1 t2 :=
+    (p1 p2 : ENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : Refine' r p1 p2 t1 t2 :=
     Refine'.fixpoint_induct r sim adm p1 p2 t1 t2 h
 
   theorem Refine'.inv_ret_left (r1 : Rel ρ1 σ) (r2 : Rel ρ2 σ) :
@@ -622,22 +622,6 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
       apply RefineF.choice_idemp
       all_goals apply RefineF.idx_mono <;> (try assumption) <;> (try apply le_top); apply le_refl
 
-  theorem vis_hinj (h : vis (ρ := ρ) (ε := ε) (α := α1) e1 k1 = vis (α := α2) e2 k2) :
-    ∃ heq : α1 = α2, (heq ▸ e1) = e2 ∧ (heq ▸ k1) = k2 := by
-    simp only [vis, mk, vis'] at h
-    have ⟨eqα, heq⟩ := Sigma.mk.inj (PFunctor.M.mk_inj h)
-    injection eqα
-    rename_i eqα heq'
-    exists eqα
-    subst eqα
-    simp_all only [heq_eq_eq]
-    apply And.intro True.intro
-    ext
-    rename_i x
-    have : ∀ {A B} (f : A → B) g x, f = g → f x = g x := by intros _ _ _ _ _ h; subst h; rfl
-    apply (this _ _ (ULift.up x)) at heq
-    assumption
-
   theorem Refine'.trans (r12 : Rel ρ1 ρ2) (r23 : Rel ρ2 ρ3) :
     ∀ p11 p12 (t1 : CTree ε ρ1) t2,
       Refine' r12 p11 p12 t1 t2 →
@@ -701,14 +685,13 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
         | vis h _ =>
           intro eq_idx eq_vis
           rename_i cont _ _ α' e' k1' k2' h_ih'
-          apply vis_hinj at eq_vis
-          have ⟨rr, ⟨eq1, eq2⟩⟩ := eq_vis
+          have eq_α := vis_inj_α eq_vis
+          subst eq_α
+          have ⟨eq1, eq2⟩ := vis_inj eq_vis
           clear eq_vis
-          subst rr
-          simp [heq_eq_eq] at eq1 eq2
           subst eq1 eq2
           apply RefineF.vis; intros
-          apply RefineF.coind 0 0 PartENat.zero_lt_top PartENat.zero_lt_top
+          apply RefineF.coind 0 0 ENat.top_pos ENat.top_pos
           apply Or.intro_right
           rename_i a'
           exists 0, 0, (k2' a')
@@ -831,14 +814,13 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
       | ret h => ctree_elim eq_vis
       | vis h _ =>
         rename_i cont _ _ α' e' k1' k2' h_ih'
-        apply vis_hinj at eq_vis
-        have ⟨rr, ⟨eq1, eq2⟩⟩ := eq_vis
+        have eq_α := vis_inj_α eq_vis
+        subst eq_α
+        have ⟨eq1, eq2⟩ := vis_inj eq_vis
         clear eq_vis
-        subst rr
-        simp [heq_eq_eq] at eq1 eq2
         subst eq1 eq2
         apply RefineF.vis; intros
-        apply RefineF.coind 0 0 PartENat.zero_lt_top PartENat.zero_lt_top
+        apply RefineF.coind 0 0 ENat.top_pos ENat.top_pos
         apply Or.intro_right
         rename_i a'
         exists 0, 0, (k2 a')
@@ -889,8 +871,8 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
       try (first | apply le_top | apply le_refl | apply h1_ih | apply h2_ih) <;>
       assumption
 
-  theorem Refine.coind (sim : PartENat → PartENat → CTree ε ρ → CTree ε σ → Prop) (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
-      (p1 p2 : PartENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : t1 ≤r≤ t2 :=
+  theorem Refine.coind (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop) (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
+      (p1 p2 : ENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : t1 ≤r≤ t2 :=
       ⟨p1, ⟨p2, Refine'.fixpoint_induct r sim adm p1 p2 t1 t2 h⟩⟩
 
   @[refl]
@@ -911,14 +893,14 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
       apply RefineF.tau_left
       apply RefineF.tau_right
       apply RefineF.coind 0 0
-      <;> simp_all only [PartENat.zero_lt_top]
+      <;> simp_all only [ENat.top_pos]
       simp_all only [and_self]
     · intro α e k heq
       subst heq
       apply RefineF.vis
       intro a
       apply RefineF.coind 0 0
-      <;> simp_all only [PartENat.zero_lt_top]
+      <;> simp_all only [ENat.top_pos]
       simp_all only [and_self]
     · intro heq
       subst heq
@@ -928,11 +910,11 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
       apply RefineF.choice_idemp
       · apply RefineF.choice_left
         apply RefineF.coind 0 0
-        <;> simp_all only [PartENat.zero_lt_top]
+        <;> simp_all only [ENat.top_pos]
         simp_all only [and_self]
       · apply RefineF.choice_right
         apply RefineF.coind 0 0
-        <;> simp_all only [PartENat.zero_lt_top]
+        <;> simp_all only [ENat.top_pos]
         simp_all only [and_self]
 
   @[trans]
@@ -1099,7 +1081,7 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
           simp only [map_vis]
           apply RefineF.vis
           intro a
-          apply RefineF.coind 0 0 bot_lt_top bot_lt_top
+          apply RefineF.coind 0 0 ENat.top_pos ENat.top_pos
           exists k1 a, k2 a
           repeat apply And.intro; rfl
           exact (hk a).idx_irrelevance 0 0
@@ -1155,7 +1137,7 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
     rw [Refine] at h
     obtain ⟨p1, p2, h⟩ := h
     revert p1
-    induction p2 using WellFounded.induction PartENat.lt_wf
+    induction p2 using WellFoundedLT.induction
     rename_i p2 ihp2
     intro p2 h
     rw [Refine'] at h
