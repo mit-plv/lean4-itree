@@ -1080,19 +1080,22 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
       · exists t1, t2
       · intro p1 p2 ft1 ft2 h
         obtain ⟨t1, t2, hft1, hft2, h⟩ := h
+        revert ft1 ft2
         simp_all only [Refine']
         induction h with
         | coind p1' p2' h1 h2 h =>
           rename_i t1 t2
+          intros
           apply RefineF.coind p1' p2' h1 h2
           exists t1, t2
           repeat apply And.intro; rfl
           rw [Refine'] at h
           exact h
         | ret hxy =>
-          simp only [map_ret]; apply RefineF.ret; congr
+          intros; simp only [map_ret]; apply RefineF.ret; congr
         | vis hk =>
           rename_i k1 k2 _
+          intros
           simp only [map_vis]
           apply RefineF.vis
           intro a
@@ -1101,28 +1104,33 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
           repeat apply And.intro; rfl
           exact (hk a).idx_irrelevance 0 0
         | tau_left h ih =>
+          intros
           simp only [map_tau]
           apply RefineF.tau_left
-          sorry
+          exact ih _ _ rfl rfl
         | tau_right h ih =>
+          intros
           simp only [map_tau]
           apply RefineF.tau_right
-          sorry
+          exact ih _ _ rfl rfl
         | zero =>
-          simp only [map_zero]; exact RefineF.zero
+          intros; simp only [map_zero]; exact RefineF.zero
         | choice_left h ih =>
+          intros
           simp only [map_choice]
           apply RefineF.choice_left
-          sorry
+          exact ih _ _ rfl rfl
         | choice_right h ih =>
+          intros
           simp only [map_choice]
-          apply RefineF.choice_left
-          sorry
+          apply RefineF.choice_right
+          exact ih _ _ rfl rfl
         | choice_idemp h1 h2 ih1 ih2 =>
+          intros
           simp only [map_choice]
           apply RefineF.choice_idemp
-          · sorry
-          · sorry
+          · exact ih1 _ _ rfl rfl
+          · exact ih2 _ _ rfl rfl
 
   end Refine
 
