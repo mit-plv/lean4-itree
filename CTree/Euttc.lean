@@ -76,11 +76,11 @@ namespace CTree
         .choice_idemp (.choice_right <| .refl _) (.choice_left <| .refl _)
       ⟩
 
-    theorem zero_left_id : (zero ⊕ t) ≈ t :=
-      ⟨.choice_idemp .zero_le <| .refl _, .choice_right <| .refl _⟩
+    theorem zero_left_id (h : t1 ≈ t2) : (zero ⊕ t1) ≈ t2 :=
+      ⟨.choice_idemp .zero_le <| h.1, .choice_right <| h.2⟩
 
-    theorem zero_right_id : (t ⊕ zero) ≈ t :=
-      ⟨.choice_idemp (.refl _) .zero_le, .choice_left <| .refl _⟩
+    theorem zero_right_id (h : t1 ≈ t2) : (t1 ⊕ zero) ≈ t2 :=
+      ⟨.choice_idemp h.1 .zero_le, .choice_left <| h.2⟩
 
     theorem choice_assoc {t1 t2 t3 : CTree ε ρ} : ((t1 ⊕ t2) ⊕ t3) ≈ (t1 ⊕ (t2 ⊕ t3)) :=
       ⟨
