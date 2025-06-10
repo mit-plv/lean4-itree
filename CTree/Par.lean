@@ -54,11 +54,11 @@ namespace CTree
 
   def par (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
     parAux (.parS t1 t2)
-  infixr:60 " || " => par
+  infixr:60 " ‖ " => par
 
   def parR (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε β :=
-    Prod.snd <$> (t1 || t2)
-  infixr:60 " ||→ " => parR
+    Prod.snd <$> (t1 ‖ t2)
+  infixr:60 " ‖→ " => parR
 
   macro "simp_corec_full" : tactic => `(tactic|(
     simp_all only [
@@ -98,11 +98,11 @@ namespace CTree
         | apply _fin2_elim i <;> intros)
   ))
 
-  theorem par_ret_ret_eq {ε α β} {x : α} {y : β} : (ret (ε := ε) x || ret y) = ret (x, y) ⊕ (zero ⊕ zero) := by
+  theorem par_ret_ret_eq {ε α β} {x : α} {y : β} : (ret (ε := ε) x ‖ ret y) = ret (x, y) ⊕ (zero ⊕ zero) := by
     simp only [par, parAux]
     crush_corec_eq
 
-  theorem par_ret_ret_equiv {ε α β} {x : α} {y : β} : (ret (ε := ε) x || ret y) ≈ ret (x, y) := by
+  theorem par_ret_ret_equiv {ε α β} {x : α} {y : β} : (ret (ε := ε) x ‖ ret y) ≈ ret (x, y) := by
     apply Euttc.eq_trans (t2 := ret (x, y) ⊕ (zero ⊕ zero))
     · rw [par_ret_ret_eq]
     · apply Euttc.eq_trans (t2 := (ret (x, y) ⊕ zero) ⊕ zero)
@@ -112,9 +112,9 @@ namespace CTree
         exact Euttc.eq_refl
 
   namespace TraceEq
-    theorem parR_ret : ((ret x) ||→ t) ≈ t := by
+    theorem parR_ret : ((ret x) ‖→ t) ≈ t := by
       apply And.intro
-      · apply Refine.coind (λ p1 p2 t1 t2 => ∃ t, t1 = (ret x) ||→ t ∧ t2 = t) _ ⊤ ⊤
+      · apply Refine.coind (λ p1 p2 t1 t2 => ∃ t, t1 = (ret x) ‖→ t ∧ t2 = t) _ ⊤ ⊤
         -- · repeat apply And.intro rfl
         · exists t
         · intro p1 p2 _ t h
@@ -143,13 +143,13 @@ namespace CTree
           · sorry
       · sorry
 
-    theorem parR_map : ((map f t1) ||→ t2) ≈ (t1 ||→ t2) := by
+    theorem parR_map : ((map f t1) ‖→ t2) ≈ (t1 ‖→ t2) := by
       sorry
 
-    theorem parR_assoc : ((t1 ||→ t2) ||→ t3) ≈ (t1 ||→ (t2 ||→ t3)) := by
+    theorem parR_assoc : ((t1 ‖→ t2) ‖→ t3) ≈ (t1 ‖→ (t2 ‖→ t3)) := by
       sorry
 
-    theorem parR_symm : ((t1 ||→ t2) ||→ t3) ≈ ((t2 ||→ t1) ||→ t3) := by
+    theorem parR_symm : ((t1 ‖→ t2) ‖→ t3) ≈ ((t2 ‖→ t1) ‖→ t3) := by
       sorry
   end TraceEq
 
