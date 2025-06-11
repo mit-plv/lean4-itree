@@ -1051,6 +1051,8 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
     theorem dest_tau_both (h : t1.tau ≤r≤ t2.tau) : t1 ≤r≤ t2 :=
       h.dest_tau_left.dest_tau_right
 
+    -- theorem dest_choice_left (h : t1 ⊕ t2 ≤r≤ t3) : := sorry
+
     lemma map_tauN : map f (tauN n t) = tauN n (map f t) := by
       induction n with
       | zero => simp only [tauN, map_tau]
@@ -1113,6 +1115,16 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
           apply RefineF.choice_idemp
           · exact ih1 _ _ rfl rfl
           · exact ih2 _ _ rfl rfl
+
+    theorem vis (h : ∀ a, k1 a ≤r≤ k2 a) : (.vis e k1) ≤r≤ (.vis e k2) := by
+      rw [Refine]
+      exists 0, 0
+      rw [Refine']
+      apply RefineF.vis
+      intro a
+      have ⟨p1, p2, h⟩ := h a
+      rw [Refine'] at h
+      exact RefineF.idx_irrelevance h ⊤ ⊤
 
   end Refine
 

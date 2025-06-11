@@ -105,6 +105,26 @@ namespace CTree
       (h1 : t1 ≈ t2) (h2 : t2.map f ≈ t3) : t1.map f ≈ t3 :=
       .eq_trans h1.congr_map h2
 
+    theorem vis_eq {e : ε α} {k1 k2 : α → CTree ε ρ}
+      (h : ∀ a, k1 a ≈ k2 a) : vis e k1 ≈ vis e k2 :=
+      ⟨.vis λ a => (h a).left, .vis λ a => (h a).right⟩
+
+    def vis1 (e : ε α) : CTree ε ρ :=
+      vis e (λ _ => zero)
+
+    def vis2 (e1 e2 : ε α) : CTree ε ρ :=
+      vis e1 (λ _ => vis e2 (λ _ => zero))
+
+    example : ((vis1 (ρ := ρ) (α := α) e1) ⊕ (vis2 e1 e2)) ≈ vis2 e1 e2 := by
+      apply And.intro
+      · apply Refine.choice_idemp
+        · apply Refine.vis
+          intro a
+          exact Refine.zero_le
+        · exact Refine.refl _
+      · apply Refine.choice_right
+        exact Refine.refl _
+
   end Euttc
 
 end CTree
