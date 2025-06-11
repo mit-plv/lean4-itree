@@ -113,7 +113,7 @@ namespace CTree
       vis e (λ _ => zero)
 
     def vis2 (e1 e2 : ε α) : CTree ε ρ :=
-      vis e1 (λ _ => vis e2 (λ _ => zero))
+      vis e1 (λ _ => vis1 e2)
 
     theorem choice_partial_vis_angelic : ((@vis1 ε ρ α e1) ⊕ (vis2 e1 e2)) ≈ vis2 e1 e2 := by
       apply And.intro
