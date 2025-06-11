@@ -115,7 +115,7 @@ namespace CTree
     def vis2 (e1 e2 : ε α) : CTree ε ρ :=
       vis e1 (λ _ => vis e2 (λ _ => zero))
 
-    example : ((@vis1 ε ρ α e1) ⊕ (vis2 e1 e2)) ≈ vis2 e1 e2 := by
+    theorem choice_partial_vis_angelic : ((@vis1 ε ρ α e1) ⊕ (vis2 e1 e2)) ≈ vis2 e1 e2 := by
       apply And.intro
       · apply Refine.choice_idemp
         · apply Refine.vis
