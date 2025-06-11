@@ -828,7 +828,6 @@ namespace CTree
         PFunctor.M.dest (parAux_def (ParState.bothS t1 t2)) = ⟨a, f'⟩ ∧
           ∀ (i : (P ε (α × β)).B a),
             (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
-    -- simp only [parAux, parAux_def]
     apply dMatchOn t1
     · intro x heq1
       subst heq1
