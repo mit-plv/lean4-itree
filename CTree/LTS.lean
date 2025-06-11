@@ -106,7 +106,12 @@ namespace CTree
         have ⟨he, hk⟩ := vis_inj hp
         subst he hk
         exists vis1 e2
-        -- Need to take two steps here, `choice_right` and `vis`
-        sorry
+        exists (vis1 e1 ⊕ vis e1 fun x => vis1 e2), vis1 e2, 0, 0
+        apply And.intro
+        · simp only [NTauStep]
+        · apply And.intro
+          · apply Step.choice_right
+            exact Step.vis
+          · simp only [NTauStep]
     · simp_all only [and_self]
 end CTree
