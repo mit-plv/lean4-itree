@@ -6,31 +6,29 @@ namespace CTree
       = (parAux (ParState.bothS (ret v) t)).tau
         ⊕ zero
         ⊕ (parAux (ParState.rS (ret v) t)).tau := by
-    conv =>
-      lhs
-      rw [parAux_eq_def, parAux_def]
-      rw [parAux_eq_def, parAux_def]
-      arg 1; arg 2
-      simp only [ret, mk, ret', PFunctor.M.dest_mk]
-    conv =>
-      arg 1; arg 1; arg 3
-      simp only [tau, mk, tau', PFunctor.M.dest_mk]
-    conv =>
-      arg 1; arg 2
-      rw [parAux_eq_def, parAux_def]
-      arg 1
-      rw [parAux_eq_def, parAux_def]
-      simp only [ret, mk, ret', PFunctor.M.dest_mk]
-    conv =>
-      arg 1; arg 2; arg 2
-      rw [parAux_eq_def, parAux_def]
-      arg 2
-      simp only [tau, mk, tau', PFunctor.M.dest_mk]
-    simp only [_fin1Const, _fin0, Fin2.ofNat']
+    rw [parAux_eq_def, parAux_def]
+    rw [parAux_eq_def, parAux_def]
+    congr
+    rw [parAux_eq_def, parAux_def]
+    rw [parAux_eq_def, parAux_def]
+    congr
+    rw [parAux_eq_def, parAux_def]
+    congr
 
   theorem parAux_parS_ret_ret : parAux (.parS (ret (ε := ε) x) (ret y)) = ret (x, y) ⊕ (zero ⊕ zero) := by
     simp only [parAux]
     crush_corec_eq
+
+  theorem parAux_parS_ret_vis
+    : parAux (.parS (ret (ε := ε) x) (vis e k)) = zero ⊕ (zero ⊕ vis e (fun a => parAux <| .parS (ret x) (k a))) := by
+    rw [parAux_eq_def, parAux_def]
+    rw [parAux_eq_def, parAux_def]
+    congr
+    rw [parAux_eq_def, parAux_def]
+    rw [parAux_eq_def, parAux_def]
+    congr
+    rw [parAux_eq_def, parAux_def]
+    congr
 
   inductive IsParR (t : CTree ε β) (t1 : CTree ε α) (t2 : CTree ε β) : Prop
     | lS : t = map Prod.snd (parAux (.lS t1 t2)) → IsParR t t1 t2
@@ -83,7 +81,20 @@ namespace CTree
                   exists c
                   apply And.intro _ rfl
                   exact IsParR.rS rfl
-            · sorry
+            · intro α e k heq
+              subst heq
+              simp only [parAux_parS_ret_vis, map_choice, map_zero, map_vis]
+              apply RefineF.choice_idemp
+              · exact RefineF.zero
+              · apply RefineF.choice_idemp
+                · exact RefineF.zero
+                · apply RefineF.vis
+                  intro a
+                  apply RefineF.coind 0 0 ENat.top_pos ENat.top_pos
+                  repeat apply And.intro rfl _
+                  exists k a
+                  apply And.intro _ rfl
+                  exact IsParR.parS rfl
             · sorry
             · sorry
       · sorry
