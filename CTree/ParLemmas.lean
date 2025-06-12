@@ -143,13 +143,23 @@ namespace CTree
           crush_refine; crush_parR_ret c2
     ))
 
+    inductive IsParRRight (t : CTree ε β) (t1 : CTree ε α) (t2 : CTree ε β) : Prop
+      | rS : t = map Prod.snd (parAux (.rS t1 t2)) → IsParRRight t t1 t2
+      | parS : t = map Prod.snd (parAux (.parS t1 t2)) → IsParRRight t t1 t2
+
+    macro "crush_parR_ret_right " c:term : tactic => `(tactic|(
+      repeat apply And.intro rfl _
+      exists $c
+      apply And.intro _ rfl
+      solve
+      | exact IsParRRight.rS rfl
+      | exact IsParRRight.parS rfl
+    ))
+
     theorem parR_ret : ((ret x) ‖→ t) ≈ t := by
       apply And.intro
       · apply Refine.coind (λ p1 p2 t1 t2 => p1 = 0 ∧ p2 = 0 ∧ ∃ t, IsParR t1 (ret x) t ∧ t2 = t) _ 0 0
-        · repeat apply And.intro rfl _
-          exists t
-          apply And.intro _ rfl
-          exact IsParR.parS rfl
+        · crush_parR_ret t
         · intro p1 p2 t1 t2 ⟨hp1, hp2, t, ht1, ht2⟩
           subst hp1 hp2 ht2
           match ht1 with
@@ -227,57 +237,40 @@ namespace CTree
                 · apply RefineF.choice_right
                   crush_refine; crush_parR_ret c2
       · rw [flip_eq]
-        apply Refine.coind (λ p1 p2 t1 t2 => p1 = 0 ∧ p2 = 0 ∧ ∃ t, IsParR t2 (ret x) t ∧ t1 = t) _ 0 0
-        · repeat apply And.intro rfl _
-          exists t
-          apply And.intro _ rfl
-          exact IsParR.parS rfl
+        apply Refine.coind (λ p1 p2 t1 t2 => p1 = 0 ∧ p2 = 0 ∧ ∃ t, IsParRRight t2 (ret x) t ∧ t1 = t) _ 0 0
+        · crush_parR_ret_right t
         · intro p1 p2 t1 t2 ⟨hp1, hp2, t, ht1, ht2⟩
           subst hp1 hp2 ht2
           match ht1 with
-          | .lS heq =>
-            subst heq
-            -- parR_ret_left_lS t1
-            sorry
           | .rS heq =>
             subst heq
-            -- parR_ret_left_rS t2
-            sorry
-          | .lrS heq =>
-            subst heq
-            simp only [parAux_lrS, map_choice]
-            sorry
-            -- apply RefineF.choice_idemp
-            -- · parR_ret_left_lS t2
-            -- · parR_ret_left_rS t2
-          | .bothS heq =>
-            subst heq
             apply dMatchOn t1
-            · intro v heq
+            · intro y heq
               subst heq
-              simp only [parAux_bothS_ret_ret, map_ret]
-              crush_refine
+              simp only [parAux_rS_ret_ret, map_zero]
+              -- trouble case, must get rid of
+              sorry
             · intro c heq
               subst heq
-              simp only [parAux_bothS_ret_tau, map_tau]
-              repeat (crush_refine; crush_parR_ret c)
+              simp only [parAux_rS_ret_tau, map_tau]
+              crush_refine; crush_parR_ret_right c
             · intro α e k heq
               subst heq
-              simp only [parAux_bothS_ret_vis, map_zero]
-              -- TODO: how did we get to this unprovable case?
-              sorry
+              simp only [parAux_rS_ret_vis, map_vis]
+              crush_refine; intro a
+              crush_refine; crush_parR_ret_right k a
             · intro heq
               subst heq
-              simp only [parAux_bothS_ret_zero, map_zero]
+              simp only [parAux_rS_ret_zero, map_zero]
               crush_refine
             · intro c1 c2 heq
               subst heq
-              simp only [parAux_bothS_ret_choice, map_choice]
+              simp only [parAux_rS_ret_choice, map_choice]
               crush_refine
               · apply RefineF.choice_left
-                crush_refine; crush_parR_ret c1
+                crush_refine; crush_parR_ret_right c1
               · apply RefineF.choice_right
-                crush_refine; crush_parR_ret c2
+                crush_refine; crush_parR_ret_right c2
           | .parS heq =>
             subst heq
             apply dMatchOn t1
@@ -290,15 +283,15 @@ namespace CTree
               subst heq
               simp only [parAux_parS_ret_tau, map_choice, map_tau, map_zero]
               crush_refine
-              apply RefineF.choice_left
-              crush_refine; crush_parR_ret c
+              repeat apply RefineF.choice_right
+              crush_refine; crush_parR_ret_right c
             · intro α e k heq
               subst heq
               simp only [parAux_parS_ret_vis, map_choice, map_zero, map_vis]
               repeat apply RefineF.choice_right
               crush_refine
               intro a
-              crush_refine; crush_parR_ret k a
+              crush_refine; crush_parR_ret_right k a
             · intro heq
               subst heq
               simp only [parAux_parS_ret_zero, map_choice, map_zero]
@@ -307,10 +300,10 @@ namespace CTree
               subst heq
               simp only [parAux_parS_ret_choice, map_choice, map_zero]
               crush_refine
-              · repeat apply RefineF.choice_left
-                crush_refine; crush_parR_ret c1
+              · apply RefineF.choice_right; apply RefineF.choice_right; apply RefineF.choice_left
+                crush_refine; crush_parR_ret_right c1
               · repeat apply RefineF.choice_right
-                crush_refine; crush_parR_ret c2
+                crush_refine; crush_parR_ret_right c2
 
     theorem parR_map : ((map f t1) ‖→ t2) ≈ (t1 ‖→ t2) := by
       sorry
