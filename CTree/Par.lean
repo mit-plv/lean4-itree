@@ -185,15 +185,11 @@ namespace CTree
     | apply _fin2_elim i <;> (intros heq; subst heq)
   ))
 
-  lemma parAux_eq_def_left (ps : ParState ε α β) :
-    ∃ hd k k',
-      (parAux ps).dest = ⟨hd, k⟩ ∧
-      (parAux ps).dest = ⟨hd, k'⟩ ∧
-      ∀ i, ∃ ps, k i = parAux ps ∧ k' i = parAux ps := by
+  macro "parAux_eq_def_left_right " ps:term : tactic => `(tactic|(
     simp only [parAux, corec', PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.dest_corec]
-    match ps with
+    match ($ps) with
     | .lS t1 t2 =>
-      simp only [PFunctor.map, Bind.bind, Sum.bind]
+      simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
       match t1.dest with
       | ⟨.ret _, _⟩ => simp_ctree
       | ⟨.tau, c⟩ => simp_ctree; exists .lS (c _fin0) t2
@@ -206,7 +202,7 @@ namespace CTree
         simp_ctree; rename_i i
         exists .parS (k i) t2
     | .rS t1 t2 =>
-      simp only [PFunctor.map, Bind.bind, Sum.bind]
+      simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
       match t2.dest with
       | ⟨.ret _, _⟩ => simp_ctree
       | ⟨.tau, c⟩ => simp_ctree; exists .rS t1 (c _fin0)
@@ -223,7 +219,7 @@ namespace CTree
       · exists .lS t1 t2
       · exists .rS t1 t2
     | .bothS t1 t2 =>
-      simp only [PFunctor.map, Bind.bind, Sum.bind]
+      simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
       cases t1.dest; rename_i shape1 cont1
       cases t2.dest; rename_i shape2 cont2
       cases shape1 <;> cases shape2 <;> simp_ctree;
@@ -234,65 +230,26 @@ namespace CTree
         | exists .bothS (cont1 _fin0) t2
         | exists .bothS (cont1 _fin1) t2
     | .parS t1 t2 =>
-      simp only [PFunctor.map, Bind.bind, Sum.bind]
+      simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
       simp_ctree
       · exists .bothS t1 t2
       · exists .lrS t1 t2
+  ))
+
+  lemma parAux_eq_def_left (ps : ParState ε α β) :
+    ∃ hd k k',
+      (parAux ps).dest = ⟨hd, k⟩ ∧
+      (parAux ps).dest = ⟨hd, k'⟩ ∧
+      ∀ i, ∃ ps, k i = parAux ps ∧ k' i = parAux ps := by
+    parAux_eq_def_left_right ps
 
   lemma parAux_eq_def_right (ps : ParState ε α β) (hide : f = parAux) :
     ∃ hd k k',
       (parAux ps).dest = ⟨hd, k⟩ ∧
       (parAux_def ps).dest = ⟨hd, k'⟩ ∧
       ∀ i, ∃ ps, k i = parAux ps ∧ k' i = f ps := by
-    simp only [parAux, corec', PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.dest_corec]
     subst hide
-    match ps with
-    | .lS t1 t2 =>
-      simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
-      match t1.dest with
-      | ⟨.ret _, _⟩ => simp_ctree
-      | ⟨.tau, c⟩ => simp_ctree; exists .lS (c _fin0) t2
-      | ⟨.zero, _⟩ => simp_ctree
-      | ⟨.choice, cts⟩ =>
-        simp_ctree
-        · exists .lS (cts _fin0) t2
-        · exists .lS (cts _fin1) t2
-      | ⟨.vis _ e, k⟩ =>
-        simp_ctree; rename_i i
-        exists .parS (k i) t2
-    | .rS t1 t2 =>
-      simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
-      match t2.dest with
-      | ⟨.ret _, _⟩ => simp_ctree
-      | ⟨.tau, c⟩ => simp_ctree; exists .rS t1 (c _fin0)
-      | ⟨.zero, _⟩ => simp_ctree
-      | ⟨.choice, cts⟩ =>
-        simp_ctree
-        · exists .rS t1 (cts _fin0)
-        · exists .rS t1 (cts _fin1)
-      | ⟨.vis _ e, k⟩ =>
-        simp_ctree; rename_i i
-        exists .parS t1 (k i)
-    | .lrS t1 t2 =>
-      simp_ctree
-      · exists .lS t1 t2
-      · exists .rS t1 t2
-    | .bothS t1 t2 =>
-      simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
-      cases t1.dest; rename_i shape1 cont1
-      cases t2.dest; rename_i shape2 cont2
-      cases shape1 <;> cases shape2 <;> simp_ctree;
-      all_goals
-        solve
-        | exists .bothS t1 (cont2 _fin0)
-        | exists .bothS t1 (cont2 _fin1)
-        | exists .bothS (cont1 _fin0) t2
-        | exists .bothS (cont1 _fin1) t2
-    | .parS t1 t2 =>
-      simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
-      simp_ctree
-      · exists .bothS t1 t2
-      · exists .lrS t1 t2
+    parAux_eq_def_left_right ps
 
   lemma parAux_eq_def (ps : ParState ε α β) : parAux ps = parAux_def ps := by
     apply PFunctor.M.bisim (λ t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps))
