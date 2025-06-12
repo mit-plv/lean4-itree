@@ -175,714 +175,174 @@ namespace CTree
       | _, _ => zero
     | .parS t1 t2 => choice (parAux <| .bothS t1 t2) (parAux <| .lrS t1 t2)
 
-  set_option maxHeartbeats 3200000
-  lemma parAux_eq_def_left_lS {t1 : CTree ε α} {t2 : CTree ε β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux (ParState.lS t1 t2)) = ⟨a, f⟩ ∧
-        PFunctor.M.dest (parAux (ParState.lS t1 t2)) = ⟨a, f'⟩ ∧
-          ∀ (i : (P ε (α × β)).B a),
-            (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
-    simp only [parAux]
-    simp_corec_base
-    apply dMatchOn t1
-    · intro v heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro c heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro i
-      apply _fin1_elim i
-      intros heq
-      subst heq
-      exists .lS c t2
-      simp_corec_full
-    · intro α e k heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro a
-      exists .parS (k <| ULift.down a) t2
-      simp_corec_full
-    · intro heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro c1 c2 heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro i
-      apply _fin2_elim i <;> intros
-      on_goal 1 => exists .lS c1 t2
-      on_goal 2=> exists .lS c2 t2
-      all_goals simp_corec_full
-
-  lemma parAux_eq_def_left_rS {t1 : CTree ε α} {t2 : CTree ε β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux (ParState.rS t1 t2)) = ⟨a, f⟩ ∧
-        PFunctor.M.dest (parAux (ParState.rS t1 t2)) = ⟨a, f'⟩ ∧
-          ∀ (i : (P ε (α × β)).B a),
-            (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
-    simp only [parAux]
-    simp_corec_base
-    apply dMatchOn t2
-    · intro v heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro c heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro i
-      apply _fin1_elim i
-      intros heq
-      subst heq
-      exists .rS t1 c
-      simp_corec_full
-    · intro α e k heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro a
-      exists .parS t1 (k <| ULift.down a)
-      simp_corec_full
-    · intro heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro c1 c2 heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro i
-      apply _fin2_elim i <;> intros
-      on_goal 1 => exists .rS t1 c1
-      on_goal 2=> exists .rS t1 c2
-      all_goals simp_corec_full
-
-  lemma parAux_eq_def_left_lrS {t1 : CTree ε α} {t2 : CTree ε β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux (ParState.lrS t1 t2)) = ⟨a, f⟩ ∧
-        PFunctor.M.dest (parAux (ParState.lrS t1 t2)) = ⟨a, f'⟩ ∧
-          ∀ (i : (P ε (α × β)).B a),
-            (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
-    simp only [parAux]
-    simp_corec_base
+  macro "simp_ctree" : tactic => `(tactic|(
+    simp only [ret, tau, zero, vis, choice, mk, ret', tau', zero', vis', choice', PFunctor.M.dest_mk]
     apply exists_and_eq
-    intro i
-    apply _fin2_elim i <;> intros
-    on_goal 1 => exists .lS t1 t2
-    on_goal 2 => exists .rS t1 t2
-    all_goals
-      apply And.intro
-      on_goal 2 => apply Or.inl
-      all_goals simp_corec_full
+    intro i; cases i
+  ))
 
-  lemma parAux_eq_def_left_bothS {t1 : CTree ε α} {t2 : CTree ε β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux (ParState.bothS t1 t2)) = ⟨a, f⟩ ∧
-        PFunctor.M.dest (parAux (ParState.bothS t1 t2)) = ⟨a, f'⟩ ∧
-          ∀ (i : (P ε (α × β)).B a),
-            (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
-    simp only [parAux]
-    simp_corec_base
-    apply exists_and_eq
-    apply dMatchOn t1
-    · intro v1 heq1
-      apply dMatchOn t2
-      · intro v2 heq2 i
-        subst heq1 heq2
-        exact elim0_lift i
-      · intro c heq2 i
-        subst heq1 heq2
-        apply _fin1_elim i
-        intros
-        exists .bothS (ret v1) c
-        simp_corec_full
-      · intro α e k heq2 i
-        subst heq1 heq2
-        exact elim0_lift i
-      · intro heq2 i
-        subst heq1 heq2
-        exact elim0_lift i
-      · intro c1 c2 heq2 i
-        subst heq1 heq2
-        apply _fin2_elim i <;> intros
-        on_goal 1 => exists .bothS (ret v1) c1
-        on_goal 2 => exists .bothS (ret v1) c2
-        all_goals simp_corec_full
-    · intro c1 heq1
-      apply dMatchOn t2
-      · intro v2 heq2 i
-        subst heq1 heq2
-        apply _fin1_elim i
-        intros
-        exists .bothS c1 (ret v2)
-        simp_corec_full
-      · intro c2 heq2 i
-        subst heq1 heq2
-        apply _fin1_elim i
-        intros
-        exists .bothS c1 c2.tau
-        simp_corec_full
-      · intro α e k heq2 i
-        subst heq1 heq2
-        apply _fin1_elim i
-        intros
-        exists .bothS c1 (vis e k)
-        simp_corec_full
-      · intro heq2 i
-        subst heq1 heq2
-        apply _fin1_elim i
-        intros
-        exists .bothS c1 zero
-        simp_corec_full
-      · intro c21 c22 heq2 i
-        subst heq1 heq2
-        apply _fin1_elim i
-        intros
-        exists .bothS c1 (c21 ⊕ c22)
-        simp_corec_full
-    · intro α e k heq1
-      apply dMatchOn t2
-      · intro v2 heq2 i
-        subst heq1 heq2
-        exact elim0_lift i
-      · intro c2 heq2 i
-        subst heq1 heq2
-        apply _fin1_elim i
-        intros
-        exists .bothS (vis e k) c2
-        simp_corec_full
-      · intro α e k heq2 i
-        subst heq1 heq2
-        exact elim0_lift i
-      · intro heq2 i
-        subst heq1 heq2
-        exact elim0_lift i
-      · intro c21 c22 heq2 i
-        subst heq1 heq2
-        apply _fin2_elim i <;> intros
-        on_goal 1 => exists .bothS (vis e k) c21
-        on_goal 2 => exists .bothS (vis e k) c22
-        all_goals simp_corec_full
-    · intro heq1
-      apply dMatchOn t2
-      · intro v2 heq2 i
-        subst heq1 heq2
-        exact elim0_lift i
-      · intro c2 heq2 i
-        subst heq1 heq2
-        apply _fin1_elim i
-        intros
-        exists .bothS zero c2
-        simp_corec_full
-      · intro α e k heq2 i
-        subst heq1 heq2
-        exact elim0_lift i
-      · intro heq2 i
-        subst heq1 heq2
-        exact elim0_lift i
-      · intro c21 c22 heq2 i
-        subst heq1 heq2
-        apply _fin2_elim i <;> intros
-        on_goal 1 => exists .bothS zero c21
-        on_goal 2 => exists .bothS zero c22
-        all_goals simp_corec_full
-    · intro c11 c12 heq1
-      apply dMatchOn t2
-      · intro v2 heq2 i
-        subst heq1 heq2
-        apply _fin2_elim i <;> intros
-        on_goal 1 => exists .bothS c11 (ret v2)
-        on_goal 2 => exists .bothS c12 (ret v2)
-        all_goals simp_corec_full
-      · intro c2 heq2 i
-        subst heq1 heq2
-        apply _fin1_elim i
-        intros
-        exists .bothS (c11 ⊕ c12) c2
-        simp_corec_full
-      · intro α e k heq2 i
-        subst heq1 heq2
-        apply _fin2_elim i <;> intros
-        on_goal 1 => exists .bothS c11 (vis e k)
-        on_goal 2 => exists .bothS c12 (vis e k)
-        all_goals simp_corec_full
-      · intro heq2 i
-        subst heq1 heq2
-        apply _fin2_elim i <;> intros
-        on_goal 1 => exists .bothS c11 zero
-        on_goal 2 => exists .bothS c12 zero
-        all_goals simp_corec_full
-      · intro c21 c22 heq2 i
-        subst heq1 heq2
-        apply _fin2_elim i <;> intros
-        on_goal 1 => exists .bothS c11 (c21 ⊕ c22)
-        on_goal 2 => exists .bothS c12 (c21 ⊕ c22)
-        all_goals simp_corec_full
-
-  lemma parAux_eq_def_left_parS {t1 : CTree ε α} {t2 : CTree ε β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux (ParState.parS t1 t2)) = ⟨a, f⟩ ∧
-          PFunctor.M.dest (parAux (ParState.parS t1 t2)) = ⟨a, f'⟩ ∧
-            ∀ (i : (P ε (α × β)).B a),
-              (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
-    simp only [parAux]
-    simp_corec_base
-    apply exists_and_eq
-    intro i
-    apply _fin2_elim i <;> intros
-    on_goal 1 => exists .bothS t1 t2
-    on_goal 2 => exists .lrS t1 t2
-    all_goals
-      apply And.intro
-      on_goal 2 => apply Or.inl
-      all_goals simp_corec_full
-
-  lemma parAux_eq_def_left {ps : ParState ε α β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux ps) = ⟨a, f⟩ ∧
-        PFunctor.M.dest (parAux ps) = ⟨a, f'⟩ ∧
-          ∀ (i : (P ε (α × β)).B a),
-            (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
+  lemma parAux_eq_def_left (ps : ParState ε α β) :
+    ∃ hd k k',
+      (parAux ps).dest = ⟨hd, k⟩ ∧
+      (parAux ps).dest = ⟨hd, k'⟩ ∧
+      ∀ i, ∃ ps, k i = parAux ps ∧ k' i = parAux ps := by
+    simp only [parAux, corec', PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.dest_corec]
     match ps with
-    | .lS t1 t2 => exact parAux_eq_def_left_lS
-    | .rS t1 t2 => exact parAux_eq_def_left_rS
-    | .lrS t1 t2 => exact parAux_eq_def_left_lrS
-    | .bothS t1 t2 => exact parAux_eq_def_left_bothS
-    | .parS t1 t2 => exact parAux_eq_def_left_parS
+    | .lS t1 t2 =>
+      simp only [PFunctor.map, Bind.bind, Sum.bind]
+      match t1.dest with
+      | ⟨.ret _, _⟩ => simp_ctree; rename_i i; cases i
+      | ⟨.tau, c⟩ =>
+        simp_ctree; rename_i i
+        match i with
+        | (.ofNat' 0) => exists .lS (c _fin0) t2
+      | ⟨.zero, _⟩ => simp_ctree; rename_i i; cases i
+      | ⟨.choice, cts⟩ =>
+        simp_ctree; rename_i i
+        match i with
+        | (.ofNat' 0) => exists .lS (cts _fin0) t2
+        | (.ofNat' 1) => exists .lS (cts _fin1) t2
+      | ⟨.vis _ e, k⟩ =>
+        simp_ctree; rename_i i
+        exists .parS (k {down := i}) t2
+    | .rS t1 t2 =>
+      simp only [PFunctor.map, Bind.bind, Sum.bind]
+      match t2.dest with
+      | ⟨.ret _, _⟩ => simp_ctree; rename_i i; cases i
+      | ⟨.tau, c⟩ =>
+        simp_ctree; rename_i i
+        match i with
+        | (.ofNat' 0) => exists .rS t1 (c _fin0)
+      | ⟨.zero, _⟩ => simp_ctree; rename_i i; cases i
+      | ⟨.choice, cts⟩ =>
+        simp_ctree; rename_i i
+        match i with
+        | (.ofNat' 0) => exists .rS t1 (cts _fin0)
+        | (.ofNat' 1) => exists .rS t1 (cts _fin1)
+      | ⟨.vis _ e, k⟩ =>
+        simp_ctree; rename_i i
+        exists .parS t1 (k {down := i})
+    | .lrS t1 t2 =>
+      simp_ctree; rename_i i
+      match i with
+      | (.ofNat' 0) => exists .lS t1 t2
+      | (.ofNat' 1) => exists .rS t1 t2
+    | .bothS t1 t2 =>
+      simp only [PFunctor.map, Bind.bind, Sum.bind]
+      cases t1.dest; rename_i shape1 cont1
+      cases t2.dest; rename_i shape2 cont2
+      cases shape1 <;> cases shape2 <;>
+      (simp_ctree; rename_i i; try (solve | cases i))
+      all_goals
+        try first
+        | match i with
+          | (.ofNat' 0) => exists .bothS t1 (cont2 _fin0)
+          | (.ofNat' 1) => exists .bothS t1 (cont2 _fin1)
+        | match i with
+          | (.ofNat' 0) => exists .bothS (cont1 _fin0) t2
+          | (.ofNat' 1) => exists .bothS (cont1 _fin1) t2
+      all_goals
+        try first
+        | match i with
+          | (.ofNat' 0) => exists .bothS t1 (cont2 _fin0)
+        | match i with
+          | (.ofNat' 0) => exists .bothS (cont1 _fin0) t2
+    | .parS t1 t2 =>
+      simp only [PFunctor.map, Bind.bind, Sum.bind]
+      simp_ctree; rename_i i
+      match i with
+      | (.ofNat' 0) => exists .bothS t1 t2
+      | (.ofNat' 1) => exists .lrS t1 t2
 
-  lemma parAux_eq_def_right_lS {t1 : CTree ε α} {t2 : CTree ε β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux (ParState.lS t1 t2)) = ⟨a, f⟩ ∧
-        PFunctor.M.dest (parAux_def (ParState.lS t1 t2)) = ⟨a, f'⟩ ∧
-          ∀ (i : (P ε (α × β)).B a),
-            (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
-    simp only [parAux, parAux_def]
-    simp_corec_base
-    apply dMatchOn t1
-    · intro v heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro c heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro i
-      apply _fin1_elim i
-      intros heq
-      subst heq
-      exists .lS c t2
-      simp_corec_full
-    · intro α e k heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro a
-      exists .parS (k <| ULift.down a) t2
-      simp_corec_full
-    · intro heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro c1 c2 heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro i
-      apply _fin2_elim i <;> intros
-      on_goal 1 => exists .lS c1 t2
-      on_goal 2=> exists .lS c2 t2
-      all_goals simp_corec_full
-
-  lemma parAux_eq_def_right_rS {t1 : CTree ε α} {t2 : CTree ε β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux (ParState.rS t1 t2)) = ⟨a, f⟩ ∧
-        PFunctor.M.dest (parAux_def (ParState.rS t1 t2)) = ⟨a, f'⟩ ∧
-          ∀ (i : (P ε (α × β)).B a),
-            (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
-    simp only [parAux, parAux_def]
-    simp_corec_base
-    apply dMatchOn t2
-    · intro v heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro c heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro i
-      apply _fin1_elim i
-      intros heq
-      subst heq
-      exists .rS t1 c
-      simp_corec_full
-    · intro α e k heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro a
-      exists .parS t1 (k <| ULift.down a)
-      simp_corec_full
-    · intro heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro c1 c2 heq
-      subst heq
-      simp_ctree_mk
-      apply exists_and_eq
-      intro i
-      apply _fin2_elim i <;> intros
-      on_goal 1 => exists .rS t1 c1
-      on_goal 2=> exists .rS t1 c2
-      all_goals simp_corec_full
-
-  lemma parAux_eq_def_right_lrS {t1 : CTree ε α} {t2 : CTree ε β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux (ParState.lrS t1 t2)) = ⟨a, f⟩ ∧
-        PFunctor.M.dest (parAux_def (ParState.lrS t1 t2)) = ⟨a, f'⟩ ∧
-          ∀ (i : (P ε (α × β)).B a),
-            (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
-    simp only [parAux, parAux_def]
-    simp_corec_base
-    apply exists_and_eq
-    intro i
-    apply _fin2_elim i <;> intros
-    on_goal 1 => exists .lS t1 t2
-    on_goal 2 => exists .rS t1 t2
-    all_goals
-      apply And.intro
-      on_goal 2 => apply Or.inl
-      all_goals simp_corec_full
-
-  lemma parAux_eq_def_right_bothS_ret {t2 : CTree ε β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux (ParState.bothS (ret (ρ := α) x) t2)) = ⟨a, f⟩ ∧
-        PFunctor.M.dest (parAux_def (ParState.bothS (ret x) t2)) = ⟨a, f'⟩ ∧
-          ∀ (i : (P ε (α × β)).B a),
-            (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
-    simp only [parAux, parAux_def]
-    apply dMatchOn t2
-    · intro v2 heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro c heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      apply _fin1_elim i
-      intros
-      exists .bothS (ret x) c
-      simp_corec_full
-    · intro α e k heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro c1 c2 heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      apply _fin2_elim i <;> intros
-      on_goal 1 => exists .bothS (ret x) c1
-      on_goal 2 => exists .bothS (ret x) c2
-      all_goals simp_corec_full
-
-  lemma parAux_eq_def_right_bothS_tau {c1 : CTree ε α} {t2 : CTree ε β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux (ParState.bothS (tau c1) t2)) = ⟨a, f⟩ ∧
-        PFunctor.M.dest (parAux_def (ParState.bothS (tau c1) t2)) = ⟨a, f'⟩ ∧
-          ∀ (i : (P ε (α × β)).B a),
-            (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
-    simp only [parAux, parAux_def]
-    apply dMatchOn t2
-    · intro y heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      apply _fin1_elim i
-      intros
-      exists .bothS c1 (ret y)
-      simp_corec_full
-    · intro c2 heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      apply _fin1_elim i
-      intros
-      exists .bothS c1 c2.tau
-      simp_corec_full
-    · intro α e k heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      apply _fin1_elim i
-      intros
-      exists .bothS c1 (vis e k)
-      simp_corec_full
-    · intro heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      apply _fin1_elim i
-      intros
-      exists .bothS c1 zero
-      simp_corec_full
-    · intro c21 c22 heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      apply _fin1_elim i
-      intros
-      exists .bothS c1 (c21 ⊕ c22)
-      simp_corec_full
-
-  lemma parAux_eq_def_right_bothS_vis {ε} {α' : Type} {e : ε α'} {k : α' → CTree ε α} {t2 : CTree ε β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux (ParState.bothS (vis e k) t2)) = ⟨a, f⟩ ∧
-        PFunctor.M.dest (parAux_def (ParState.bothS (vis e k) t2)) = ⟨a, f'⟩ ∧
-          ∀ (i : (P ε (α × β)).B a),
-            (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
-    simp only [parAux, parAux_def]
-    apply dMatchOn t2
-    · intro y heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro c2 heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      apply _fin1_elim i
-      intros
-      exists .bothS (vis e k) c2
-      simp_corec_full
-    · intro α e k heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro c21 c22 heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      apply _fin2_elim i <;> intros
-      on_goal 1 => exists .bothS (vis e k) c21
-      on_goal 2 => exists .bothS (vis e k) c22
-      all_goals simp_corec_full
-
-  lemma parAux_eq_def_right_bothS_zero {t2 : CTree ε β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux (ParState.bothS (zero (ρ := α)) t2)) = ⟨a, f⟩ ∧
-        PFunctor.M.dest (parAux_def (ParState.bothS zero t2)) = ⟨a, f'⟩ ∧
-          ∀ (i : (P ε (α × β)).B a),
-            (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
-    simp only [parAux, parAux_def]
-    apply dMatchOn t2
-    · intro v2 heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro c2 heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      apply _fin1_elim i
-      intros
-      exists .bothS zero c2
-      simp_corec_full
-    · intro α e k heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      exact elim0_lift i
-    · intro c21 c22 heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      apply _fin2_elim i <;> intros
-      on_goal 1 => exists .bothS zero c21
-      on_goal 2 => exists .bothS zero c22
-      all_goals simp_corec_full
-
-  lemma parAux_eq_def_right_bothS_choice {c11 c12 : CTree ε α} {t2 : CTree ε β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux (ParState.bothS (c11 ⊕ c12) t2)) = ⟨a, f⟩ ∧
-        PFunctor.M.dest (parAux_def (ParState.bothS (c11 ⊕ c12) t2)) = ⟨a, f'⟩ ∧
-          ∀ (i : (P ε (α × β)).B a),
-            (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
-    simp only [parAux, parAux_def]
-    apply dMatchOn t2
-    · intro v2 heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      apply _fin2_elim i <;> intros
-      on_goal 1 => exists .bothS c11 (ret v2)
-      on_goal 2 => exists .bothS c12 (ret v2)
-      all_goals simp_corec_full
-    · intro c2 heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      apply _fin1_elim i
-      intros
-      exists .bothS (c11 ⊕ c12) c2
-      simp_corec_full
-    · intro α e k heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      apply _fin2_elim i <;> intros
-      on_goal 1 => exists .bothS c11 (vis e k)
-      on_goal 2 => exists .bothS c12 (vis e k)
-      all_goals simp_corec_full
-    · intro heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      apply _fin2_elim i <;> intros
-      on_goal 1 => exists .bothS c11 zero
-      on_goal 2 => exists .bothS c12 zero
-      all_goals simp_corec_full
-    · intro c21 c22 heq2
-      subst heq2
-      simp_corec_base
-      apply exists_and_eq
-      intro i
-      apply _fin2_elim i <;> intros
-      on_goal 1 => exists .bothS c11 (c21 ⊕ c22)
-      on_goal 2 => exists .bothS c12 (c21 ⊕ c22)
-      all_goals simp_corec_full
-
-  lemma parAux_eq_def_right_bothS {t1 : CTree ε α} {t2 : CTree ε β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux (ParState.bothS t1 t2)) = ⟨a, f⟩ ∧
-        PFunctor.M.dest (parAux_def (ParState.bothS t1 t2)) = ⟨a, f'⟩ ∧
-          ∀ (i : (P ε (α × β)).B a),
-            (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
-    apply dMatchOn t1
-    · intro x heq1
-      subst heq1
-      exact parAux_eq_def_right_bothS_ret
-    · intro c1 heq1
-      subst heq1
-      exact parAux_eq_def_right_bothS_tau
-    · intro α e k heq1
-      subst heq1
-      exact parAux_eq_def_right_bothS_vis
-    · intro heq1
-      subst heq1
-      exact parAux_eq_def_right_bothS_zero
-    · intro c11 c12 heq1
-      subst heq1
-      exact parAux_eq_def_right_bothS_choice
-
-  lemma parAux_eq_def_right_parS {t1 : CTree ε α} {t2 : CTree ε β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux (ParState.parS t1 t2)) = ⟨a, f⟩ ∧
-          PFunctor.M.dest (parAux_def (ParState.parS t1 t2)) = ⟨a, f'⟩ ∧
-            ∀ (i : (P ε (α × β)).B a),
-              (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
-    simp only [parAux, parAux_def]
-    simp_corec_base
-    apply exists_and_eq
-    intro i
-    apply _fin2_elim i <;> intros
-    on_goal 1 => exists .bothS t1 t2
-    on_goal 2 => exists .lrS t1 t2
-    all_goals
-      apply And.intro
-      on_goal 2 => apply Or.inl
-      all_goals simp_corec_full
-
-  lemma parAux_eq_def_right {ps : ParState ε α β}
-    : ∃ a f f',
-      PFunctor.M.dest (parAux ps) = ⟨a, f⟩ ∧
-        PFunctor.M.dest (parAux_def ps) = ⟨a, f'⟩ ∧
-          ∀ (i : (P ε (α × β)).B a),
-            (fun t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) (f i) (f' i) := by
+  lemma parAux_eq_def_right (ps : ParState ε α β) (hide : f = parAux) :
+    ∃ hd k k',
+      (parAux ps).dest = ⟨hd, k⟩ ∧
+      (parAux_def ps).dest = ⟨hd, k'⟩ ∧
+      ∀ i, ∃ ps, k i = parAux ps ∧ k' i = f ps := by
+    simp only [parAux, corec', PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.dest_corec]
+    subst hide
     match ps with
-    | .lS t1 t2 => exact parAux_eq_def_right_lS
-    | .rS t1 t2 => exact parAux_eq_def_right_rS
-    | .lrS t1 t2 => exact parAux_eq_def_right_lrS
-    | .bothS t1 t2 => exact parAux_eq_def_right_bothS
-    | .parS t1 t2 => exact parAux_eq_def_right_parS
+    | .lS t1 t2 =>
+      simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
+      match t1.dest with
+      | ⟨.ret _, _⟩ => simp_ctree; rename_i i; cases i
+      | ⟨.tau, c⟩ =>
+        simp_ctree; rename_i i
+        match i with
+        | (.ofNat' 0) => exists .lS (c _fin0) t2
+      | ⟨.zero, _⟩ => simp_ctree; rename_i i; cases i
+      | ⟨.choice, cts⟩ =>
+        simp_ctree; rename_i i
+        match i with
+        | (.ofNat' 0) => exists .lS (cts _fin0) t2
+        | (.ofNat' 1) => exists .lS (cts _fin1) t2
+      | ⟨.vis _ e, k⟩ =>
+        simp_ctree; rename_i i
+        exists .parS (k {down := i}) t2
+    | .rS t1 t2 =>
+      simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
+      match t2.dest with
+      | ⟨.ret _, _⟩ => simp_ctree; rename_i i; cases i
+      | ⟨.tau, c⟩ =>
+        simp_ctree; rename_i i
+        match i with
+        | (.ofNat' 0) => exists .rS t1 (c _fin0)
+      | ⟨.zero, _⟩ => simp_ctree; rename_i i; cases i
+      | ⟨.choice, cts⟩ =>
+        simp_ctree; rename_i i
+        match i with
+        | (.ofNat' 0) => exists .rS t1 (cts _fin0)
+        | (.ofNat' 1) => exists .rS t1 (cts _fin1)
+      | ⟨.vis _ e, k⟩ =>
+        simp_ctree; rename_i i
+        exists .parS t1 (k {down := i})
+    | .lrS t1 t2 =>
+      simp_ctree; rename_i i
+      match i with
+      | (.ofNat' 0) => exists .lS t1 t2
+      | (.ofNat' 1) => exists .rS t1 t2
+    | .bothS t1 t2 =>
+      simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
+      cases t1.dest; rename_i shape1 cont1
+      cases t2.dest; rename_i shape2 cont2
+      cases shape1 <;> cases shape2 <;>
+      (simp_ctree; rename_i i; try (solve | cases i))
+      all_goals
+        try first
+        | match i with
+          | (.ofNat' 0) => exists .bothS t1 (cont2 _fin0)
+          | (.ofNat' 1) => exists .bothS t1 (cont2 _fin1)
+        | match i with
+          | (.ofNat' 0) => exists .bothS (cont1 _fin0) t2
+          | (.ofNat' 1) => exists .bothS (cont1 _fin1) t2
+      all_goals
+        try first
+        | match i with
+          | (.ofNat' 0) => exists .bothS t1 (cont2 _fin0)
+        | match i with
+          | (.ofNat' 0) => exists .bothS (cont1 _fin0) t2
+    | .parS t1 t2 =>
+      simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
+      simp_ctree; rename_i i
+      match i with
+      | (.ofNat' 0) => exists .bothS t1 t2
+      | (.ofNat' 1) => exists .lrS t1 t2
 
-  theorem parAux_eq_def (ps : ParState ε α β) : parAux ps = parAux_def ps := by
-    apply PFunctor.M.bisim (λ t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps)) _
-    · exists ps
-      apply And.intro rfl (.inr rfl)
-    · intro t1 t2 ⟨ps, ⟨h1, h2⟩⟩
-      cases h2 <;> (rename_i h2; subst h1 h2)
-      · exact parAux_eq_def_left
-      · exact parAux_eq_def_right
+  lemma parAux_eq_def (ps : ParState ε α β) : parAux ps = parAux_def ps := by
+    apply PFunctor.M.bisim (λ t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps))
+    on_goal 2 => exists ps; exact And.intro rfl (.inr rfl)
+    clear ps
+    intro t1 t2 ⟨ps, ⟨h1, h2⟩⟩
+    cases h2 <;> (rename_i h2; subst h1 h2)
+    · have ⟨hd, k, k', h1, h2, h3⟩ := parAux_eq_def_left ps
+      refine ⟨hd, k, k', h1, h2, ?_⟩
+      intro i
+      have ⟨ps, h3, h3'⟩ := h3 i
+      exact ⟨ps, h3, .inl h3'⟩
+    · have ⟨hd, k, k', h1, h2, h3⟩ := parAux_eq_def_right ps rfl
+      refine ⟨hd, k, k', h1, h2, ?_⟩
+      intro i
+      have ⟨ps, h3, h3'⟩ := h3 i
+      exact ⟨ps, h3, .inl h3'⟩
 
 end CTree
