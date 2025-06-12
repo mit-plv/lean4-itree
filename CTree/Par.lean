@@ -178,7 +178,11 @@ namespace CTree
   macro "simp_ctree" : tactic => `(tactic|(
     simp only [ret, tau, zero, vis, choice, mk, ret', tau', zero', vis', choice', PFunctor.M.dest_mk]
     apply exists_and_eq
-    intro i; cases i
+    intro i
+    try first
+    | exact elim0_lift i
+    | apply _fin1_elim i; intro heq; subst heq
+    | apply _fin2_elim i <;> (intros heq; subst heq)
   ))
 
   lemma parAux_eq_def_left (ps : ParState ε α β) :
@@ -191,68 +195,49 @@ namespace CTree
     | .lS t1 t2 =>
       simp only [PFunctor.map, Bind.bind, Sum.bind]
       match t1.dest with
-      | ⟨.ret _, _⟩ => simp_ctree; rename_i i; cases i
-      | ⟨.tau, c⟩ =>
-        simp_ctree; rename_i i
-        match i with
-        | (.ofNat' 0) => exists .lS (c _fin0) t2
-      | ⟨.zero, _⟩ => simp_ctree; rename_i i; cases i
+      | ⟨.ret _, _⟩ => simp_ctree
+      | ⟨.tau, c⟩ => simp_ctree; exists .lS (c _fin0) t2
+      | ⟨.zero, _⟩ => simp_ctree
       | ⟨.choice, cts⟩ =>
-        simp_ctree; rename_i i
-        match i with
-        | (.ofNat' 0) => exists .lS (cts _fin0) t2
-        | (.ofNat' 1) => exists .lS (cts _fin1) t2
+        simp_ctree
+        · exists .lS (cts _fin0) t2
+        · exists .lS (cts _fin1) t2
       | ⟨.vis _ e, k⟩ =>
         simp_ctree; rename_i i
-        exists .parS (k {down := i}) t2
+        exists .parS (k i) t2
     | .rS t1 t2 =>
       simp only [PFunctor.map, Bind.bind, Sum.bind]
       match t2.dest with
-      | ⟨.ret _, _⟩ => simp_ctree; rename_i i; cases i
-      | ⟨.tau, c⟩ =>
-        simp_ctree; rename_i i
-        match i with
-        | (.ofNat' 0) => exists .rS t1 (c _fin0)
-      | ⟨.zero, _⟩ => simp_ctree; rename_i i; cases i
+      | ⟨.ret _, _⟩ => simp_ctree
+      | ⟨.tau, c⟩ => simp_ctree; exists .rS t1 (c _fin0)
+      | ⟨.zero, _⟩ => simp_ctree
       | ⟨.choice, cts⟩ =>
-        simp_ctree; rename_i i
-        match i with
-        | (.ofNat' 0) => exists .rS t1 (cts _fin0)
-        | (.ofNat' 1) => exists .rS t1 (cts _fin1)
+        simp_ctree
+        · exists .rS t1 (cts _fin0)
+        · exists .rS t1 (cts _fin1)
       | ⟨.vis _ e, k⟩ =>
         simp_ctree; rename_i i
-        exists .parS t1 (k {down := i})
+        exists .parS t1 (k i)
     | .lrS t1 t2 =>
-      simp_ctree; rename_i i
-      match i with
-      | (.ofNat' 0) => exists .lS t1 t2
-      | (.ofNat' 1) => exists .rS t1 t2
+      simp_ctree
+      · exists .lS t1 t2
+      · exists .rS t1 t2
     | .bothS t1 t2 =>
       simp only [PFunctor.map, Bind.bind, Sum.bind]
       cases t1.dest; rename_i shape1 cont1
       cases t2.dest; rename_i shape2 cont2
-      cases shape1 <;> cases shape2 <;>
-      (simp_ctree; rename_i i; try (solve | cases i))
+      cases shape1 <;> cases shape2 <;> simp_ctree;
       all_goals
-        try first
-        | match i with
-          | (.ofNat' 0) => exists .bothS t1 (cont2 _fin0)
-          | (.ofNat' 1) => exists .bothS t1 (cont2 _fin1)
-        | match i with
-          | (.ofNat' 0) => exists .bothS (cont1 _fin0) t2
-          | (.ofNat' 1) => exists .bothS (cont1 _fin1) t2
-      all_goals
-        try first
-        | match i with
-          | (.ofNat' 0) => exists .bothS t1 (cont2 _fin0)
-        | match i with
-          | (.ofNat' 0) => exists .bothS (cont1 _fin0) t2
+        solve
+        | exists .bothS t1 (cont2 _fin0)
+        | exists .bothS t1 (cont2 _fin1)
+        | exists .bothS (cont1 _fin0) t2
+        | exists .bothS (cont1 _fin1) t2
     | .parS t1 t2 =>
       simp only [PFunctor.map, Bind.bind, Sum.bind]
-      simp_ctree; rename_i i
-      match i with
-      | (.ofNat' 0) => exists .bothS t1 t2
-      | (.ofNat' 1) => exists .lrS t1 t2
+      simp_ctree
+      · exists .bothS t1 t2
+      · exists .lrS t1 t2
 
   lemma parAux_eq_def_right (ps : ParState ε α β) (hide : f = parAux) :
     ∃ hd k k',
@@ -265,68 +250,49 @@ namespace CTree
     | .lS t1 t2 =>
       simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
       match t1.dest with
-      | ⟨.ret _, _⟩ => simp_ctree; rename_i i; cases i
-      | ⟨.tau, c⟩ =>
-        simp_ctree; rename_i i
-        match i with
-        | (.ofNat' 0) => exists .lS (c _fin0) t2
-      | ⟨.zero, _⟩ => simp_ctree; rename_i i; cases i
+      | ⟨.ret _, _⟩ => simp_ctree
+      | ⟨.tau, c⟩ => simp_ctree; exists .lS (c _fin0) t2
+      | ⟨.zero, _⟩ => simp_ctree
       | ⟨.choice, cts⟩ =>
-        simp_ctree; rename_i i
-        match i with
-        | (.ofNat' 0) => exists .lS (cts _fin0) t2
-        | (.ofNat' 1) => exists .lS (cts _fin1) t2
+        simp_ctree
+        · exists .lS (cts _fin0) t2
+        · exists .lS (cts _fin1) t2
       | ⟨.vis _ e, k⟩ =>
         simp_ctree; rename_i i
-        exists .parS (k {down := i}) t2
+        exists .parS (k i) t2
     | .rS t1 t2 =>
       simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
       match t2.dest with
-      | ⟨.ret _, _⟩ => simp_ctree; rename_i i; cases i
-      | ⟨.tau, c⟩ =>
-        simp_ctree; rename_i i
-        match i with
-        | (.ofNat' 0) => exists .rS t1 (c _fin0)
-      | ⟨.zero, _⟩ => simp_ctree; rename_i i; cases i
+      | ⟨.ret _, _⟩ => simp_ctree
+      | ⟨.tau, c⟩ => simp_ctree; exists .rS t1 (c _fin0)
+      | ⟨.zero, _⟩ => simp_ctree
       | ⟨.choice, cts⟩ =>
-        simp_ctree; rename_i i
-        match i with
-        | (.ofNat' 0) => exists .rS t1 (cts _fin0)
-        | (.ofNat' 1) => exists .rS t1 (cts _fin1)
+        simp_ctree
+        · exists .rS t1 (cts _fin0)
+        · exists .rS t1 (cts _fin1)
       | ⟨.vis _ e, k⟩ =>
         simp_ctree; rename_i i
-        exists .parS t1 (k {down := i})
+        exists .parS t1 (k i)
     | .lrS t1 t2 =>
-      simp_ctree; rename_i i
-      match i with
-      | (.ofNat' 0) => exists .lS t1 t2
-      | (.ofNat' 1) => exists .rS t1 t2
+      simp_ctree
+      · exists .lS t1 t2
+      · exists .rS t1 t2
     | .bothS t1 t2 =>
       simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
       cases t1.dest; rename_i shape1 cont1
       cases t2.dest; rename_i shape2 cont2
-      cases shape1 <;> cases shape2 <;>
-      (simp_ctree; rename_i i; try (solve | cases i))
+      cases shape1 <;> cases shape2 <;> simp_ctree;
       all_goals
-        try first
-        | match i with
-          | (.ofNat' 0) => exists .bothS t1 (cont2 _fin0)
-          | (.ofNat' 1) => exists .bothS t1 (cont2 _fin1)
-        | match i with
-          | (.ofNat' 0) => exists .bothS (cont1 _fin0) t2
-          | (.ofNat' 1) => exists .bothS (cont1 _fin1) t2
-      all_goals
-        try first
-        | match i with
-          | (.ofNat' 0) => exists .bothS t1 (cont2 _fin0)
-        | match i with
-          | (.ofNat' 0) => exists .bothS (cont1 _fin0) t2
+        solve
+        | exists .bothS t1 (cont2 _fin0)
+        | exists .bothS t1 (cont2 _fin1)
+        | exists .bothS (cont1 _fin0) t2
+        | exists .bothS (cont1 _fin1) t2
     | .parS t1 t2 =>
       simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
-      simp_ctree; rename_i i
-      match i with
-      | (.ofNat' 0) => exists .bothS t1 t2
-      | (.ofNat' 1) => exists .lrS t1 t2
+      simp_ctree
+      · exists .bothS t1 t2
+      · exists .lrS t1 t2
 
   lemma parAux_eq_def (ps : ParState ε α β) : parAux ps = parAux_def ps := by
     apply PFunctor.M.bisim (λ t1 t2 => ∃ ps, t1 = parAux ps ∧ (t2 = parAux ps ∨ t2 = parAux_def ps))
