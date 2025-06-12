@@ -45,7 +45,6 @@ namespace CTree
           apply RefineF.choice_right
           exact RefineF.idx_mono_right bot_le this
     | choice_left _ ih =>
-
       sorry
     | choice_right => sorry
 
