@@ -193,13 +193,11 @@ namespace CTree
     (p1 p2 : ENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : Refine' r p1 p2 t1 t2 :=
     Refine'.fixpoint_induct r sim adm p1 p2 t1 t2 h
 
-  theorem Refine'.inv_ret_left (r1 : Rel ρ1 σ) (r2 : Rel ρ2 σ) :
-    ∀ p1 p2 x (t : CTree ε σ),
-      Refine' r1 p1 p2 (.ret x) t →
-    ∀ y,
-      (∀ z, r1 x z → r2 y z) →
-      Refine' r2 p1 p2 (.ret y) t := by
-    intro _ _ x _ h y _
+  theorem Refine'.inv_ret_left {r1 : Rel ρ1 σ} {r2 : Rel ρ2 σ}
+    {p1 p2 x} {t : CTree ε σ}
+    (h : Refine' r1 p1 p2 (.ret x) t)
+    : ∀ y, (∀ z, r1 x z → r2 y z) → Refine' r2 p1 p2 (.ret y) t := by
+    intro y hyz
     apply Refine'.coind (fun p1 p2 t1 t2 => ∃ x y t', t' = ret x ∧ Refine' r1 p1 p2 t' t2 ∧ (∀ z, r1 x z → r2 y z) ∧ ret y = t1)
     on_goal 2 =>
       exact ⟨x, ⟨y, ⟨.ret x, by simp_all only [implies_true, and_self]⟩⟩⟩
@@ -251,13 +249,11 @@ namespace CTree
       rename_i eq_ret _ _
       ctree_elim eq_ret
 
-  theorem Refine'.inv_ret_right (r1 : Rel ρ σ1) (r2 : Rel ρ σ2) :
-    ∀ p1 p2 x (t : CTree ε ρ),
-      Refine' r1 p1 p2 t (.ret x) →
-    ∀ y,
-      (∀ z, r1 z x → r2 z y) →
-      Refine' r2 p1 p2 t (.ret y) := by
-    intro _ _ x _ h y _
+  theorem Refine'.inv_ret_right {r1 : Rel ρ σ1} {r2 : Rel ρ σ2}
+    {p1 p2 x} {t : CTree ε ρ}
+    (h : Refine' r1 p1 p2 t (.ret x))
+    : ∀ y, (∀ z, r1 z x → r2 z y) → Refine' r2 p1 p2 t (.ret y) := by
+    intro y hyz
     apply Refine'.coind (fun p1 p2 t1 t2 => ∃ x y t', t' = ret x ∧ Refine' r1 p1 p2 t1 t' ∧ (∀ z, r1 z x → r2 z y) ∧ ret y = t2)
     on_goal 2 => exact ⟨x, ⟨y, ⟨ret x, by simp_all only [implies_true, and_self]⟩⟩⟩
     clear *-
@@ -307,11 +303,8 @@ namespace CTree
       · apply h1_ih <;> assumption
       · apply h2_ih <;> assumption
 
-  theorem Refine'.inv_tau_left (r : Rel ρ σ) :
-    ∀ p1 p2 t' (t : CTree ε σ),
-      Refine' r p1 p2 (.tau t') t →
-      Refine' r p1 p2 t' t := by
-    intro _ _ t' _ h
+  theorem Refine'.inv_tau_left {r : Rel ρ σ} {p1 p2 t'} {t : CTree ε σ}
+    (h : Refine' r p1 p2 (.tau t') t) : Refine' r p1 p2 t' t := by
     apply Refine'.coind (fun p1 p2 t1 t2 => ∃ t'', t'' = tau t1 ∧ Refine' r p1 p2 t'' t2)
     on_goal 2 => exact ⟨t'.tau, by simp_all only [and_self]⟩
     clear *-
@@ -367,11 +360,8 @@ namespace CTree
       intros t eq_tau
       ctree_elim eq_tau
 
-theorem Refine'.inv_tau_right (r : Rel ρ σ) :
-    ∀ p1 p2 t' (t : CTree ε ρ),
-      Refine' r p1 p2 t (.tau t') →
-      Refine' r p1 p2 t t' := by
-    intro _ _ t' _ h
+  theorem Refine'.inv_tau_right {r : Rel ρ σ} {p1 p2 t'} {t : CTree ε ρ}
+    (h : Refine' r p1 p2 t (.tau t')) : Refine' r p1 p2 t t' := by
     apply Refine'.coind (fun p1 p2 t1 t2 => ∃ t'', t'' = tau t2 ∧ Refine' r p1 p2 t1 t'')
     on_goal 2 => exact ⟨t'.tau, by simp_all only [and_self]⟩
     clear *-
@@ -425,11 +415,9 @@ theorem Refine'.inv_tau_right (r : Rel ρ σ) :
       · apply h1_ih; assumption
       · apply h2_ih; assumption
 
-  theorem Refine'.inv_zero_right (r1 : Rel ρ σ1) (r2 : Rel ρ σ2) :
-    ∀ p1 p2 (t1 : CTree ε ρ),
-      Refine' r1 p1 p2 t1 zero →
-    ∀ t2, Refine' r2 p1 p2 t1 t2 := by
-    intro _ _ _ h t2
+  theorem Refine'.inv_zero_right {r1 : Rel ρ σ1} {r2 : Rel ρ σ2} {p1 p2} {t1 : CTree ε ρ}
+    (h : Refine' r1 p1 p2 t1 zero) : ∀ t2, Refine' r2 p1 p2 t1 t2 := by
+    intro t2
     apply Refine'.coind (fun p1 p2 t1 t2 => ∃ t, t = zero ∧ Refine' r1 p1 p2 t1 t)
     on_goal 2 => exact ⟨zero, And.intro rfl h⟩
     clear *-
@@ -465,11 +453,8 @@ theorem Refine'.inv_tau_right (r : Rel ρ σ) :
       apply RefineF.choice_idemp <;>
       first | apply h1_ih rfl | apply h2_ih rfl
 
-theorem Refine'.inv_choice_left_left (r : Rel ρ σ) :
-    ∀ p1 p2 t1 t2 (t : CTree ε σ),
-      Refine' r p1 p2 (t1 ⊕ t2) t →
-      Refine' r p1 p2 t1 t := by
-    intro _ _ t1 t2 _ h
+  theorem Refine'.inv_choice_left_left {r : Rel ρ σ} {p1 p2 t1 t2} {t : CTree ε σ}
+    (h : Refine' r p1 p2 (t1 ⊕ t2) t) : Refine' r p1 p2 t1 t := by
     apply Refine'.coind (fun p1 p2 t1 t2 => ∃ t' t'', t'' = t1 ⊕ t' ∧ Refine' r p1 p2 t'' t2)
     on_goal 2 => exact ⟨t2, ⟨t1 ⊕ t2, by simp_all only [and_self]⟩⟩
     clear *-
@@ -525,11 +510,8 @@ theorem Refine'.inv_choice_left_left (r : Rel ρ σ) :
       apply RefineF.choice_idemp
       all_goals apply RefineF.idx_mono <;> (try assumption) <;> (try apply le_top); apply le_refl
 
-theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
-    ∀ p1 p2 t1 t2 (t : CTree ε σ),
-      Refine' r p1 p2 (t1 ⊕ t2) t →
-      Refine' r p1 p2 t2 t := by
-    intro _ _ t1 t2 _ h
+  theorem Refine'.inv_choice_left_right {r : Rel ρ σ} {p1 p2 t1 t2} {t : CTree ε σ}
+    (h : Refine' r p1 p2 (t1 ⊕ t2) t) : Refine' r p1 p2 t2 t := by
     apply Refine'.coind (fun p1 p2 t1 t2 => ∃ t' t'', t'' = t' ⊕ t1 ∧ Refine' r p1 p2 t'' t2)
     on_goal 2 => exact ⟨t1, ⟨t1 ⊕ t2, by simp_all only [and_self]⟩⟩
     clear *-
@@ -585,13 +567,13 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
       apply RefineF.choice_idemp
       all_goals apply RefineF.idx_mono <;> (try assumption) <;> (try apply le_top); apply le_refl
 
-  theorem Refine'.trans (r12 : Rel ρ1 ρ2) (r23 : Rel ρ2 ρ3) :
-    ∀ p11 p12 (t1 : CTree ε ρ1) t2,
-      Refine' r12 p11 p12 t1 t2 →
-    ∀ p21 p22 t3,
+  theorem Refine'.trans {r12 : Rel ρ1 ρ2} {r23 : Rel ρ2 ρ3}
+    {p11 p12} {t1 : CTree ε ρ1} {t2}
+    (h : Refine' r12 p11 p12 t1 t2)
+    : ∀ {p21 p22 t3},
       Refine' r23 p21 p22 t2 t3 →
       Refine' (r12.comp r23) p11 p22 t1 t3 := by
-    intros p11 p12 t1 t2 h1 p21 p22 t3 h2
+    intros p21 p22 t3 h2
     apply Refine'.coind (λ p11 p22 t1 t3 => Refine' (r12.comp r23) p11 p22 t1 t3 ∨ ∃ p12 p21 t2, Refine' r12 p11 p12 t1 t2 ∧ Refine' r23 p21 p22 t2 t3)
     on_goal 2 => apply Or.intro_right; exists p12, p21, t2
     clear *-
@@ -885,7 +867,7 @@ theorem Refine'.inv_choice_left_right (r : Rel ρ σ) :
     (h1 : t1 ≤r1≤ t2) (h2 : t2 ≤r2≤ t3) : t1 ≤r1.comp r2≤ t3 := by
     obtain ⟨_, _, h1⟩ := h1
     obtain ⟨_, _, h2⟩ := h2
-    have := Refine'.trans _ _ _ _ _ _ h1 _ _ _ h2
+    have := Refine'.trans h1 h2
     rename_i p1 _ _ p2
     exists p1, p2
 
