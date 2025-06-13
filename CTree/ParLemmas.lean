@@ -2,13 +2,7 @@ import CTree.Par
 
 namespace CTree
   macro "crush_parAux_eq" : tactic => `(tactic|(
-    try rw [parAux_eq_def, parAux_def]
-    try rw [parAux_eq_def, parAux_def]
-    try congr
-    try rw [parAux_eq_def, parAux_def]
-    try rw [parAux_eq_def, parAux_def]
-    try congr
-    try rw [parAux_eq_def, parAux_def]
+    rw [parAux_eq_def, parAux_def]
     try congr
   ))
 
@@ -17,27 +11,27 @@ namespace CTree
       = (parAux (ParState.bothS (ret v) t)).tau
         ⊕ zero
         ⊕ (parAux (ParState.rS (ret v) t)).tau := by
-    crush_parAux_eq
+    repeat crush_parAux_eq
 
   theorem parAux_parS_ret_ret : parAux (ret (ε := ε) x ‖ₛ ret y) = ret (x, y) ⊕ (zero ⊕ zero) := by
-    crush_parAux_eq
+    repeat crush_parAux_eq
 
   theorem parAux_parS_ret_vis
     : parAux (ret (ε := ε) x ‖ₛ vis e k) = zero ⊕ (zero ⊕ vis e (fun a => parAux <| ret x ‖ₛ k a)) := by
-    crush_parAux_eq
+    repeat crush_parAux_eq
 
   theorem parAux_parS_ret_zero
     : parAux (ret (ε := ε) x ‖ₛ zero (ρ := β)) = zero ⊕ (zero ⊕ zero) := by
-    crush_parAux_eq
+    repeat crush_parAux_eq
 
   theorem parAux_parS_ret_choice
     : parAux (ret (ε := ε) x ‖ₛ c1 ⊕ c2)
       = (parAux (ret x ⋈ c1) ⊕ parAux (ret x ⋈ c2))
         ⊕ (zero ⊕ (parAux (ret x ▷ c1) ⊕ parAux (ret x ▷ c2))) := by
-    crush_parAux_eq
+    repeat crush_parAux_eq
 
   theorem parAux_parS_ret : parAux (ret (ε := ε) x ‖ₛ t) = parAux (ret x ⋈ t) ⊕ zero ⊕ parAux (ret x ▷ t) := by
-    crush_parAux_eq
+    repeat crush_parAux_eq
 
   theorem parAux_lS_ret : parAux (ret (ε := ε) x ◁ t) = zero := by
     crush_parAux_eq
@@ -46,15 +40,13 @@ namespace CTree
     crush_parAux_eq
 
   theorem parAux_rS_ret_tau : parAux (ret (ε := ε) x ▷ tau t) = (parAux (ret (ε := ε) x ▷ t)).tau := by
-    rw [parAux_eq_def, parAux_def]
-    congr
+    crush_parAux_eq
 
   theorem parAux_rS_ret_zero : parAux (ret (ε := ε) x ▷ zero (ρ := β)) = zero := by
     crush_parAux_eq
 
   theorem parAux_rS_ret_choice : parAux (ret (ε := ε) x ▷ c1 ⊕ c2) = parAux (ret x ▷ c1) ⊕ parAux (ret x ▷ c2) := by
-    rw [parAux_eq_def, parAux_def]
-    congr
+    crush_parAux_eq
 
   theorem parAux_rS_ret_vis : parAux (ret x ▷ vis e k) = vis e λ a => parAux (ret x ‖ₛ k a) := by
     crush_parAux_eq
@@ -66,8 +58,7 @@ namespace CTree
     crush_parAux_eq
 
   theorem parAux_bothS_ret_tau : parAux (ret (ε := ε) x ⋈ tau t) = (parAux (ret x ⋈ t)).tau := by
-    rw [parAux_eq_def, parAux_def]
-    congr
+    crush_parAux_eq
 
   theorem parAux_bothS_ret_vis : parAux (ret (ε := ε) x ⋈ vis e k) = zero := by
     crush_parAux_eq
@@ -76,8 +67,7 @@ namespace CTree
     crush_parAux_eq
 
   theorem parAux_bothS_ret_choice : parAux (ret (ε := ε) x ⋈ c1 ⊕ c2) = parAux (ret x ⋈ c1) ⊕ parAux (ret x ⋈ c2) := by
-    rw [parAux_eq_def, parAux_def]
-    congr
+    crush_parAux_eq
 
   theorem parAux_parS : parAux (t1 ‖ₛ t2) = parAux (t1 ⋈ t2) ⊕ parAux (t1 ◁▷ t2) := by
     crush_parAux_eq
@@ -229,24 +219,26 @@ namespace CTree
               · apply RefineF.choice_right
                 crush_refine; crush_parR_ret c2
 
+    -- try and add paco reasoning principles
     theorem le_parR_ret : t ≤Eq≤ ((ret x) ‖→ t) := by
-      apply Refine.coind (λ p1 p2 t1 t2 => p1 = 0 ∧ p2 = 0 ∧ ∃ t, t2 = map Prod.snd (parAux (.bothS (ret x) t) ⊕ zero ⊕ parAux (.rS (ret x) t)) ∧ t1 = t) _ 0 0
-      · repeat apply And.intro rfl _
-        exists t
-        apply And.intro _ rfl
-        rw [parR, par, parAux_parS_ret]
-        rfl
-      · intro p1 p2 t1 t2 ⟨hp1, hp2, t, ht1, ht2⟩
-        subst hp1 hp2 ht1 ht2
-        apply dMatchOn t1
-        · intro y heq
-          subst heq
-          simp only [parAux_bothS_ret_ret, map_choice, map_ret]
+      -- revert t x; pcofix CIH
+      -- CIH : ∀ t x, r Eq p1 p2 t (ret x ‖→ t)
+      -- goal : RefineF (upgfp RefineF r) Eq p1 p2 t (ret x ‖→ t)
+      apply Refine.coind (λ p1 p2 t1 t2 => Refine' Eq p1 p2 t1 t2 ∨ (p1 = 0 ∧ p2 = 0 ∧ ∃ x, t2 = ret x ‖→ t1)) _ 0 0
+      · right; exact And.intro rfl <| And.intro rfl <| ⟨x, rfl⟩
+      · clear *-
+        intro p1 p2 t1 t2 h
+        cases h <;> rename_i h
+        on_goal 1 => rw [Refine'] at *; apply RefineF.monotone (h := h); intros; left; assumption
+        have ⟨hp1, hp2, x, ht⟩ := h
+        clear h
+        subst hp1 hp2 ht
+        apply t1.dMatchOn <;> (intros; rename_i h; subst h; rw [parR, par, Functor.map, instFunctor])
+        all_goals (rw [parAux_eq_def, parAux_def])
+        · simp only [parAux_bothS_ret_ret, map_choice, map_ret]
           apply RefineF.choice_left
           crush_refine
-        · intro c heq
-          subst heq
-          simp only [parAux_bothS_ret_tau, parAux_rS_ret_tau, map_choice, map_tau]
+        · simp only [parAux_bothS_ret_tau, parAux_rS_ret_tau, map_choice, map_tau]
           sorry
         · sorry
         · sorry
