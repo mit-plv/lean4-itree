@@ -1,7 +1,145 @@
 import CTree.Par
 
-namespace CTree
+namespace Lean.Order
+  open PartialOrder CompleteLattice
+  -- typeclass to register hints for monotonicity
+  class PacoMon [PartialOrder α] (f : α → α)
+  where
+    mon : monotone f
 
+  -- \meet
+  instance [CompleteLattice α] : Min α where
+    min x y := inf (λ z => z = x ∨ z = y)
+
+  instance [CompleteLattice α] : Top α where
+    top := sup (λ _ => True)
+
+  theorem top_spec [CompleteLattice α] (x : α) : x ⊑ ⊤ := by
+    apply le_sup; constructor
+
+  theorem meet_spec [CompleteLattice α] (x y : α) : z ⊑ x ⊓ y ↔ z ⊑ x ∧ z ⊑ y := by
+    constructor <;> simp only [min, inf_spec]
+    · intro h
+      exact And.intro (h _ <| Or.intro_left _ rfl) <| (h _ <| Or.intro_right _ rfl)
+    · intro ⟨hx, hy⟩
+      intros; rename_i h
+      cases h <;> (rename_i h; subst h; assumption)
+
+  theorem meet_le_left [CompleteLattice α] (x : α) : x ⊑ z → x ⊓ y ⊑ z := by
+    simp only [min, inf_spec]
+    intros
+    apply rel_trans _ (by assumption)
+    apply sup_le
+    intros; rename_i h; apply h; left; rfl
+
+  theorem meet_le_right [CompleteLattice α] (y : α) : y ⊑ z → x ⊓ y ⊑ z := by
+    simp only [min, inf_spec]
+    intros
+    apply rel_trans _ (by assumption)
+    apply sup_le
+    intros; rename_i h; apply h; right; rfl
+
+  theorem meet_top [CompleteLattice α] (x : α) : x ⊓ ⊤ = x := by
+    apply rel_antisymm
+    · exact meet_le_left _ rel_refl
+    · rw [meet_spec]; apply And.intro rel_refl (top_spec _)
+
+  theorem meet_comm [CompleteLattice α] (x y : α) : x ⊓ y = y ⊓ x := by
+    apply rel_antisymm <;> (rw [meet_spec]; apply And.intro)
+    all_goals solve
+      | apply meet_le_left; apply rel_refl
+      | apply meet_le_right; apply rel_refl
+
+  theorem meet_assoc [CompleteLattice α] (x y z : α) : x ⊓ y ⊓ z = x ⊓ (y ⊓ z) := by
+    apply rel_antisymm <;> (rw [meet_spec]; apply And.intro)
+    · apply meet_le_left; apply meet_le_left; apply rel_refl
+    · rw [meet_spec]; apply And.intro
+      · apply meet_le_left; apply meet_le_right; apply rel_refl
+      · apply meet_le_right; apply rel_refl
+    · rw [meet_spec]; apply And.intro
+      · apply meet_le_left; apply rel_refl
+      · apply meet_le_right; apply meet_le_left; apply rel_refl
+    · apply meet_le_right; apply meet_le_right; apply rel_refl
+
+  -- parametric least fixed point, we don't "monotonize" f (⌈f⌉) as in paco for now
+  -- version in paco: lfp (λ x => inf (fun z => ∃ y, z = f y ∧ r ⊓ x ⊑ y)
+  def plfp [cola : CompleteLattice α] (f : α → α) r :=
+    lfp (λ x => f (r ⊓ x))
+
+  -- "unfolded" plfp, r ⊓ plfp f r
+  def uplfp [CompleteLattice α] (f : α → α) r :=
+    r ⊓ (plfp f r)
+
+  instance [CompleteLattice α] (f : α → α) [PacoMon f] r : PacoMon (λ x => f (r ⊓ x))
+  where
+    mon := by
+      simp only [monotone, plfp]
+      intros
+      apply PacoMon.mon
+      rw [meet_spec]
+      apply And.intro
+      · apply meet_le_left; apply rel_refl
+      · apply meet_le_right; assumption
+
+  instance [CompleteLattice α] (f : α → α) [PacoMon f] : PacoMon (plfp f)
+  where
+    mon := by
+      simp only [monotone, plfp]
+      intros
+      apply le_sup; intros; apply sup_le; intros
+      rename_i h; apply h
+      rename_i h' _; apply rel_trans _ h'; apply PacoMon.mon
+      rw [meet_spec]; apply And.intro
+      · apply rel_trans _ (by assumption)
+        apply meet_le_left; apply rel_refl
+      · apply meet_le_right; apply rel_refl
+
+  theorem plfp_init_aux [CompleteLattice α] (f : α → α) :
+    lfp f = plfp f ⊤ := by
+    apply rel_antisymm <;>
+    (apply le_sup; intros; apply sup_le; intros; rename_i h; apply h) <;>
+    (rename_i h' _; apply rel_trans _ h'; simp only) <;>
+    (rw [meet_comm, meet_top]; apply rel_refl)
+
+  theorem plfp_init [CompleteLattice α] (f : α → α) {mon} :
+    lfp_monotone f mon = plfp f ⊤ := by
+    delta lfp_monotone
+    apply plfp_init_aux
+
+  theorem plfp_unfold[CompleteLattice α] (f : α → α) [PacoMon f] :
+    plfp f r = f (uplfp f r) := by
+    rw [plfp, lfp_fix]
+    rw [← plfp]
+    · rfl
+    · apply PacoMon.mon
+
+  theorem plfp_acc_aux [CompleteLattice α] (f : α → α) [PacoMon f] r x :
+    plfp f r ⊑ x ↔ plfp f (r ⊓ x) ⊑ x := by
+    constructor <;> (intro h; apply rel_trans _ h)
+    · apply PacoMon.mon; exact meet_le_left _ rel_refl
+    · apply lfp_le_of_le
+      apply rel_trans
+      on_goal 2 => rw [plfp_unfold]; apply rel_refl
+      apply PacoMon.mon
+      rw [uplfp, meet_spec]
+      apply And.intro
+      · rw [meet_spec]
+        exact And.intro (meet_le_left _ rel_refl) (meet_le_right _ h)
+      · exact meet_le_right _ rel_refl
+
+  theorem plfp_acc [CompleteLattice α] (f : α → α) [mon : PacoMon f] l r
+    (obg : ∀ φ, φ ⊑ r → φ ⊑ l → plfp f φ ⊑ l) : plfp f r ⊑ l := by
+    rw [plfp_acc_aux]
+    apply obg
+    · apply meet_le_left _ rel_refl
+    · apply meet_le_right _ rel_refl
+
+  def extract_mon [CompleteLattice α] (f : α → α) {mon} (heq : lfp_monotone f mon = x) : PacoMon f := by
+    constructor; assumption
+  def extract_rel [CompleteLattice α] (f : α → α) {mon : monotone f} : rel (α := α) = rel := rfl
+end Lean.Order
+
+namespace CTree
   inductive IsParR (t : CTree ε β) (t1 : CTree ε α) (t2 : CTree ε β) : Prop
     | lS : t = map Prod.snd (parAux (t1 ◁ t2)) → IsParR t t1 t2
     | rS : t = map Prod.snd (parAux (t1 ▷ t2)) → IsParR t t1 t2
@@ -149,30 +287,42 @@ namespace CTree
               · apply RefineF.choice_right
                 crush_refine; crush_parR_ret c2
 
-    -- try and add paco reasoning principles
-    theorem le_parR_ret : t ≤Eq≤ ((ret x) ‖→ t) := by
-      -- revert t x; pcofix CIH
-      -- CIH : ∀ t x, r Eq p1 p2 t (ret x ‖→ t)
-      -- goal : RefineF (upgfp RefineF r) Eq p1 p2 t (ret x ‖→ t)
-      apply Refine.coind (λ p1 p2 t1 t2 => Refine' Eq p1 p2 t1 t2 ∨ (p1 = 0 ∧ p2 = 0 ∧ ∃ x, t2 = ret x ‖→ t1)) _ 0 0
-      · right; exact And.intro rfl <| And.intro rfl <| ⟨x, rfl⟩
-      · clear *-
-        intro p1 p2 t1 t2 h
-        cases h <;> rename_i h
-        on_goal 1 => rw [Refine'] at *; apply RefineF.monotone (h := h); intros; left; assumption
-        have ⟨hp1, hp2, x, ht⟩ := h
-        clear h
-        subst hp1 hp2 ht
-        apply t1.dMatchOn <;> (intros; rename_i h; subst h; rw [parR, par, Functor.map, instFunctor])
-        all_goals (rw [parAux_eq_def, parAux_def])
-        · simp only [parAux_bothS_ret_ret, map_choice, map_ret]
-          apply RefineF.choice_left
-          crush_refine
-        · simp only [parAux_bothS_ret_tau, parAux_rS_ret_tau, map_choice, map_tau]
-          sorry
-        · sorry
-        · sorry
-        · sorry
+    -- set_option pp.explicit true
+    theorem le_parR_ret : t ≤Eq≤ ((ret (ρ := ρ) x) ‖→ t) := by
+      exists 0
+      generalize hp1 : (0 : ℕ∞) = p1
+      exists 0
+      generalize hp2 : (0 : ℕ∞) = p2
+      generalize ht2 : (ret x ‖→ t) = t2
+      generalize heq : Refine' Eq = a
+      delta Refine' at heq
+      have acc := @Lean.Order.plfp_acc (mon := @Lean.Order.extract_mon (heq := heq))
+      subst heq
+      rw [@Lean.Order.plfp_init]
+      simp only [
+        Lean.Order.instCompleteLatticePi,
+        Lean.Order.instOrderPi,
+        Lean.Order.ReverseImplicationOrder,
+        Lean.Order.ReverseImplicationOrder.instCompleteLattice,
+        Lean.Order.ReverseImplicationOrder.instOrder
+      ] at *
+      apply acc
+      on_goal 3 =>
+        intro p1 p2 t1 t2
+        exact (0 = p1 ∧ 0 = p2 ∧ ∃ x, ret (ρ := ρ) x ‖→ t1 = t2)
+      on_goal 2 => and_intros <;> first | exists ?_; assumption | assumption
+      clear acc
+      clear *-
+      intro φ dummy cih' p1 p2 t1 t2 ⟨hp1, hp2, x, ht2⟩
+      clear dummy
+      subst hp1 hp2 ht2
+      have cih : ∀ t1 (x : ρ), φ 0 0 t1 (ret x ‖→ t1) := by
+        intros; apply cih'; and_intros <;> try rfl
+        exists ?_; rfl
+      clear cih'
+      -- now the goal looks exactly like how paco would've rearranged it
+      -- how can we encapsulate this pattern into a tactic?
+      sorry
 
     theorem parR_ret : ((ret x) ‖→ t) ≈ t := by
       apply And.intro
@@ -342,4 +492,5 @@ namespace CTree
     theorem parR_symm : ((t1 ‖→ t2) ‖→ t3) ≈ ((t2 ‖→ t1) ‖→ t3) := by
       sorry
   end Euttc
+  #print Refine'
 end CTree
