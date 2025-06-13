@@ -52,6 +52,12 @@ namespace CTree
         .inr <| choice' (rec <| .bothS t1 t2) (rec <| .lrS t1 t2)
     ) ps
 
+    infixr:60 " ◁ " => ParState.lS
+    infixr:60 " ▷ " => ParState.rS
+    infixr:60 " ◁▷ " => ParState.lrS
+    infixr:60 " ⋈ " => ParState.bothS
+    infixr:60 " ‖ₛ " => ParState.parS
+
   def par (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
     parAux (.parS t1 t2)
   infixr:60 " ‖ " => par

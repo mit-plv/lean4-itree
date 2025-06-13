@@ -13,78 +13,78 @@ namespace CTree
   ))
 
   theorem parAux_parS_ret_tau {v : α} {t : CTree ε β}
-    : parAux (.parS (ret v) t.tau)
+    : parAux (ret v ‖ₛ t.tau)
       = (parAux (ParState.bothS (ret v) t)).tau
         ⊕ zero
         ⊕ (parAux (ParState.rS (ret v) t)).tau := by
     crush_parAux_eq
 
-  theorem parAux_parS_ret_ret : parAux (.parS (ret (ε := ε) x) (ret y)) = ret (x, y) ⊕ (zero ⊕ zero) := by
+  theorem parAux_parS_ret_ret : parAux (ret (ε := ε) x ‖ₛ ret y) = ret (x, y) ⊕ (zero ⊕ zero) := by
     crush_parAux_eq
 
   theorem parAux_parS_ret_vis
-    : parAux (.parS (ret (ε := ε) x) (vis e k)) = zero ⊕ (zero ⊕ vis e (fun a => parAux <| .parS (ret x) (k a))) := by
+    : parAux (ret (ε := ε) x ‖ₛ vis e k) = zero ⊕ (zero ⊕ vis e (fun a => parAux <| ret x ‖ₛ k a)) := by
     crush_parAux_eq
 
   theorem parAux_parS_ret_zero
-    : parAux (.parS (ret (ε := ε) x) (zero (ρ := β))) = zero ⊕ (zero ⊕ zero) := by
+    : parAux (ret (ε := ε) x ‖ₛ zero (ρ := β)) = zero ⊕ (zero ⊕ zero) := by
     crush_parAux_eq
 
   theorem parAux_parS_ret_choice
-    : parAux (.parS (ret (ε := ε) x) (c1 ⊕ c2))
-      = (parAux (.bothS (ret x) c1) ⊕ parAux (.bothS (ret x) c2))
-        ⊕ (zero ⊕ (parAux (.rS (ret x) c1) ⊕ parAux (.rS (ret x) c2))) := by
+    : parAux (ret (ε := ε) x ‖ₛ c1 ⊕ c2)
+      = (parAux (ret x ⋈ c1) ⊕ parAux (ret x ⋈ c2))
+        ⊕ (zero ⊕ (parAux (ret x ▷ c1) ⊕ parAux (ret x ▷ c2))) := by
     crush_parAux_eq
 
-  theorem parAux_parS_ret : parAux (.parS (ret (ε := ε) x) t) = parAux (.bothS (ret x) t) ⊕ zero ⊕ parAux (.rS (ret x) t) := by
+  theorem parAux_parS_ret : parAux (ret (ε := ε) x ‖ₛ t) = parAux (ret x ⋈ t) ⊕ zero ⊕ parAux (ret x ▷ t) := by
     crush_parAux_eq
 
-  theorem parAux_lS_ret : parAux (.lS (ret (ε := ε) x) t) = zero := by
+  theorem parAux_lS_ret : parAux (ret (ε := ε) x ◁ t) = zero := by
     crush_parAux_eq
 
-  theorem parAux_rS_ret_ret : parAux (.rS (ret (ε := ε) x) (ret y)) = zero := by
+  theorem parAux_rS_ret_ret : parAux (ret (ε := ε) x ▷ ret y) = zero := by
     crush_parAux_eq
 
-  theorem parAux_rS_ret_tau : parAux (.rS (ret (ε := ε) x) (tau t)) = (parAux (.rS (ret (ε := ε) x) t)).tau := by
+  theorem parAux_rS_ret_tau : parAux (ret (ε := ε) x ▷ tau t) = (parAux (ret (ε := ε) x ▷ t)).tau := by
     rw [parAux_eq_def, parAux_def]
     congr
 
-  theorem parAux_rS_ret_zero : parAux (.rS (ret (ε := ε) x) (zero (ρ := β))) = zero := by
+  theorem parAux_rS_ret_zero : parAux (ret (ε := ε) x ▷ zero (ρ := β)) = zero := by
     crush_parAux_eq
 
-  theorem parAux_rS_ret_choice : parAux (.rS (ret (ε := ε) x) (c1 ⊕ c2)) = parAux (.rS (ret x) c1) ⊕ parAux (.rS (ret x) c2) := by
+  theorem parAux_rS_ret_choice : parAux (ret (ε := ε) x ▷ c1 ⊕ c2) = parAux (ret x ▷ c1) ⊕ parAux (ret x ▷ c2) := by
     rw [parAux_eq_def, parAux_def]
     congr
 
-  theorem parAux_rS_ret_vis : parAux (.rS (ret x) (vis e k)) = vis e λ a => parAux (.parS (ret x) (k a)) := by
+  theorem parAux_rS_ret_vis : parAux (ret x ▷ vis e k) = vis e λ a => parAux (ret x ‖ₛ k a) := by
     crush_parAux_eq
 
-  theorem parAux_lrS : parAux (.lrS t1 t2) = parAux (.lS t1 t2) ⊕ parAux (.rS t1 t2) := by
+  theorem parAux_lrS : parAux (t1 ◁▷ t2) = parAux (t1 ◁ t2) ⊕ parAux (t1 ▷ t2) := by
     crush_parAux_eq
 
-  theorem parAux_bothS_ret_ret : parAux (.bothS (ret (ε := ε) x) (ret y)) = ret (x, y) := by
+  theorem parAux_bothS_ret_ret : parAux (ret (ε := ε) x ⋈ ret y) = ret (x, y) := by
     crush_parAux_eq
 
-  theorem parAux_bothS_ret_tau : parAux (.bothS (ret (ε := ε) x) (tau t)) = (parAux (.bothS (ret x) t)).tau := by
+  theorem parAux_bothS_ret_tau : parAux (ret (ε := ε) x ⋈ tau t) = (parAux (ret x ⋈ t)).tau := by
     rw [parAux_eq_def, parAux_def]
     congr
 
-  theorem parAux_bothS_ret_vis : parAux (.bothS (ret (ε := ε) x) (vis e k)) = zero := by
+  theorem parAux_bothS_ret_vis : parAux (ret (ε := ε) x ⋈ vis e k) = zero := by
     crush_parAux_eq
 
-  theorem parAux_bothS_ret_zero : parAux (.bothS (ret (ε := ε) x) (zero (ρ := β))) = zero := by
+  theorem parAux_bothS_ret_zero : parAux (ret (ε := ε) x ⋈ zero (ρ := β)) = zero := by
     crush_parAux_eq
 
-  theorem parAux_bothS_ret_choice : parAux (.bothS (ret (ε := ε) x) (c1 ⊕ c2)) = parAux (.bothS (ret x) c1) ⊕ parAux (.bothS (ret x) c2) := by
+  theorem parAux_bothS_ret_choice : parAux (ret (ε := ε) x ⋈ c1 ⊕ c2) = parAux (ret x ⋈ c1) ⊕ parAux (ret x ⋈ c2) := by
     rw [parAux_eq_def, parAux_def]
     congr
 
   inductive IsParR (t : CTree ε β) (t1 : CTree ε α) (t2 : CTree ε β) : Prop
-    | lS : t = map Prod.snd (parAux (.lS t1 t2)) → IsParR t t1 t2
-    | rS : t = map Prod.snd (parAux (.rS t1 t2)) → IsParR t t1 t2
-    | lrS : t = map Prod.snd (parAux (.lrS t1 t2)) → IsParR t t1 t2
-    | bothS : t = map Prod.snd (parAux (.bothS t1 t2)) → IsParR t t1 t2
-    | parS : t = map Prod.snd (parAux (.parS t1 t2)) → IsParR t t1 t2
+    | lS : t = map Prod.snd (parAux (t1 ◁ t2)) → IsParR t t1 t2
+    | rS : t = map Prod.snd (parAux (t1 ▷ t2)) → IsParR t t1 t2
+    | lrS : t = map Prod.snd (parAux (t1 ◁▷ t2)) → IsParR t t1 t2
+    | bothS : t = map Prod.snd (parAux (t1 ⋈ t2)) → IsParR t t1 t2
+    | parS : t = map Prod.snd (parAux (t1 ‖ₛ t2)) → IsParR t t1 t2
 
   namespace Euttc
     macro "crush_refine" : tactic => `(tactic|(
@@ -256,6 +256,7 @@ namespace CTree
         exact le_parR_ret
 
     theorem parR_map : ((map f t1) ‖→ t2) ≈ (t1 ‖→ t2) := by
+      simp only [parR, par, Functor.map]
       sorry
 
     theorem parR_assoc : ((t1 ‖→ t2) ‖→ t3) ≈ (t1 ‖→ (t2 ‖→ t3)) := by
