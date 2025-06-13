@@ -79,6 +79,9 @@ namespace CTree
     rw [parAux_eq_def, parAux_def]
     congr
 
+  theorem parAux_parS : parAux (t1 ‖ₛ t2) = parAux (t1 ⋈ t2) ⊕ parAux (t1 ◁▷ t2) := by
+    crush_parAux_eq
+
   inductive IsParR (t : CTree ε β) (t1 : CTree ε α) (t2 : CTree ε β) : Prop
     | lS : t = map Prod.snd (parAux (t1 ◁ t2)) → IsParR t t1 t2
     | rS : t = map Prod.snd (parAux (t1 ▷ t2)) → IsParR t t1 t2
@@ -255,9 +258,93 @@ namespace CTree
       · rw [flip_eq]
         exact le_parR_ret
 
-    theorem parR_map : ((map f t1) ‖→ t2) ≈ (t1 ‖→ t2) := by
-      simp only [parR, par, Functor.map]
+    macro "crush_parR_map_both_le " t1:term ", " t2:term : tactic => `(tactic|(
+      repeat apply And.intro rfl _
+      exists $t1, $t2
+      try simp only [map_ret, and_self]
+    ))
+
+    theorem parR_map_both_le : map Prod.snd (parAux (map f t1 ⋈ t2)) ≤Eq≤ map Prod.snd (parAux (t1 ⋈ t2)) := by
+      apply Refine.coind
+        (λ p1 p2 t1 t2 =>
+          p1 = 0 ∧ p2 = 0 ∧ ∃ t1' t2', t1 = map Prod.snd (parAux (map f t1' ⋈ t2')) ∧ t2 = map Prod.snd (parAux (t1' ⋈ t2'))
+        ) _ 0 0
+      · crush_parR_map_both_le t1, t2
+      · intro p1 p2 t1' t2' ⟨hp1, hp2, t1, t2, ht1, ht2⟩
+        subst hp1 hp2 ht1 ht2
+        apply dMatchOn t1
+        · intro x heq
+          subst heq
+          apply dMatchOn t2
+          · intro y heq
+            subst heq
+            simp only [map_ret, parAux_bothS_ret_ret]
+            crush_refine
+          · intro c heq
+            subst heq
+            simp only [map_ret, parAux_bothS_ret_tau, map_tau]
+            crush_refine; crush_parR_map_both_le ret x, c
+          · intro α e k heq
+            subst heq
+            simp only [map_ret, parAux_bothS_ret_vis, map_vis, map_zero]
+            crush_refine
+          · intro heq
+            subst heq
+            simp only [map_ret, parAux_bothS_ret_zero, map_zero]
+            crush_refine
+          · intro c1 c2 heq
+            subst heq
+            simp only [map_ret, parAux_bothS_ret_choice, map_choice]
+            crush_refine
+            · apply RefineF.choice_left
+              crush_refine; crush_parR_map_both_le ret x, c1
+            · apply RefineF.choice_right
+              crush_refine; crush_parR_map_both_le ret x, c2
+        · intro c heq
+          subst heq
+          sorry
+          -- apply dMatchOn t2
+          -- · intro y heq
+          --   subst heq
+          --   simp only [map_tau, parAux_bothS_tau_ret]
+          --   crush_refine
+          -- · intro c heq
+          --   subst heq
+          --   simp only [map_ret, parAux_bothS_ret_tau, map_tau]
+          --   crush_refine; crush_parR_map_both_le ret x, c
+          -- · intro α e k heq
+          --   subst heq
+          --   simp only [map_ret, parAux_bothS_ret_vis, map_vis, map_zero]
+          --   crush_refine
+          -- · intro heq
+          --   subst heq
+          --   simp only [map_ret, parAux_bothS_ret_zero, map_zero]
+          --   crush_refine
+          -- · intro c1 c2 heq
+          --   subst heq
+          --   simp only [map_ret, parAux_bothS_ret_choice, map_choice]
+          --   crush_refine
+          --   · apply RefineF.choice_left
+          --     crush_refine; crush_parR_map_both_le ret x, c1
+          --   · apply RefineF.choice_right
+          --     crush_refine; crush_parR_map_both_le ret x, c2
+        · sorry
+        · sorry
+        · sorry
+
+    theorem parR_map_le : ((map f t1) ‖→ t2) ≤Eq≤ (t1 ‖→ t2) := by
+      simp only [parR, par, Functor.map, parAux_parS, map_choice]
       sorry
+
+    theorem le_parR_map : (t1 ‖→ t2) ≤Eq≤ ((map f t1) ‖→ t2) := by
+      simp only [parR, par, Functor.map, parAux_parS, map_choice]
+      sorry
+
+    theorem parR_map : ((map f t1) ‖→ t2) ≈ (t1 ‖→ t2) := by
+      apply And.intro
+      · exact parR_map_le
+      · rw [flip_eq]
+        exact le_parR_map
 
     theorem parR_assoc : ((t1 ‖→ t2) ‖→ t3) ≈ (t1 ‖→ (t2 ‖→ t3)) := by
       sorry
