@@ -330,6 +330,21 @@ namespace CTree
   theorem parAux_bothS_ret_choice : parAux (ret (ε := ε) x ⋈ c1 ⊕ c2) = parAux (ret x ⋈ c1) ⊕ parAux (ret x ⋈ c2) := by
     crush_parAux_eq
 
+  theorem parAux_bothS_tau_ret : parAux (tau (ε := ε) t ⋈ ret y) = (parAux (t ⋈ ret y)).tau := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_tau_tau : parAux (tau (ε := ε) t1 ⋈ tau t2) = (parAux (t1 ⋈ tau t2)).tau := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_tau_vis : parAux (tau t ⋈ vis e k) = (parAux (t ⋈ vis e k)).tau := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_tau_zero : parAux (tau t ⋈ zero (ρ := β)) = (parAux (t ⋈ zero)).tau := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_tau_choice : parAux (tau (ε := ε) t ⋈ c1 ⊕ c2) = ((parAux (t ⋈ c1 ⊕ c2))).tau := by
+    crush_parAux_eq
+
   /-!
     Lemmas for `‖ₛ`
   -/
