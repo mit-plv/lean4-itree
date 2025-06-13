@@ -56,75 +56,34 @@ namespace CTree
   -- `t1 r≤ t2` looks better, but somehow clashes with multi-line class instance definition
   notation:60 t1:61 " ≤"r:61"≤ " t2:61 => Refine r t1 t2
 
-  theorem RefineF.idx_mono_left {p1' p1 p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
-    (h1 : p1' ≤ p1) (h : RefineF r sim p1' p2 t1 t2) : RefineF r sim p1 p2 t1 t2 := by
-    induction h with
-    | coind p1'' p2'' h1' h2 h =>
-      apply RefineF.coind p1'' p2'' _ h2 h
-      exact lt_of_lt_of_le h1' h1
-    | ret h => exact RefineF.ret h
-    | vis h => exact RefineF.vis h
-    | tau_left h => exact RefineF.tau_left h
-    | tau_right h ih =>
-      apply RefineF.tau_right
-      exact ih h1
-    | zero => exact RefineF.zero
-    | choice_left h ih =>
-      apply RefineF.choice_left
-      exact ih h1
-    | choice_right h ih =>
-      apply RefineF.choice_right
-      exact ih h1
-    | choice_idemp h1' h2' => exact RefineF.choice_idemp h1' h2'
-
-  theorem RefineF.idx_mono_right {p1 p2' p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
-    (h2 : p2' ≤ p2) (h : RefineF r sim p1 p2' t1 t2) : RefineF r sim p1 p2 t1 t2 := by
-    induction h with
-    | coind p1'' p2'' h1 h2' h =>
-      apply RefineF.coind p1'' p2'' h1 _ h
-      exact lt_of_lt_of_le h2' h2
-    | ret h => exact RefineF.ret h
-    | vis h => exact RefineF.vis h
-    | tau_left h ih =>
-      apply RefineF.tau_left
-      exact ih h2
-    | tau_right h =>
-      exact RefineF.tau_right h
-    | zero => exact RefineF.zero
-    | choice_left h => exact RefineF.choice_left h
-    | choice_right h => exact RefineF.choice_right h
-    | choice_idemp _ _ ih1 ih2 =>
-      apply RefineF.choice_idemp
-      · exact ih1 h2
-      · exact ih2 h2
-
   theorem RefineF.idx_mono {t1 : CTree ε ρ} {t2 : CTree ε σ}
     {p1' p1 p2' p2 : ENat} (h1 : p1' ≤ p1) (h2 : p2' ≤ p2) (h : RefineF r sim p1' p2' t1 t2)
     : RefineF r sim p1 p2 t1 t2 := by
-    cases h with
+    revert p1 p2
+    induction h with
     | coind p1'' p2'' h1' h2' h =>
-      apply RefineF.coind p1'' p2'' _ _ h
+      intros _ _ h1 h2; apply RefineF.coind p1'' p2'' _ _ h
       exact lt_of_lt_of_le h1' h1
       exact lt_of_lt_of_le h2' h2
-    | ret h => exact RefineF.ret h
-    | vis h => exact RefineF.vis h
-    | tau_left h =>
-      apply RefineF.tau_left
-      exact RefineF.idx_mono_right h2 h
-    | tau_right h =>
-      apply RefineF.tau_right
-      exact RefineF.idx_mono_left h1 h
-    | zero => exact RefineF.zero
-    | choice_left h =>
-      apply RefineF.choice_left
-      exact RefineF.idx_mono_left h1 h
-    | choice_right h =>
-      apply RefineF.choice_right
-      exact RefineF.idx_mono_left h1 h
-    | choice_idemp h1' h2' =>
-      apply RefineF.choice_idemp
-      · exact RefineF.idx_mono_right h2 h1'
-      · exact RefineF.idx_mono_right h2 h2'
+    | ret h => intros; exact RefineF.ret h
+    | vis h => intros; exact RefineF.vis h
+    | tau_left h ih =>
+      intros _ _ _ h2; apply RefineF.tau_left
+      exact ih le_top h2
+    | tau_right h ih =>
+      intros _ _ h1 _; apply RefineF.tau_right
+      exact ih h1 le_top
+    | zero => intros; exact RefineF.zero
+    | choice_left h ih =>
+      intros _ _ h1 _; apply RefineF.choice_left
+      exact ih h1 le_top
+    | choice_right h ih =>
+      intros _ _ h1 _; apply RefineF.choice_right
+      exact ih h1 le_top
+    | choice_idemp h1' h2' ih1 ih2 =>
+      intros _ _ h1 h2; apply RefineF.choice_idemp
+      · exact ih1 le_top h2
+      · exact ih2 le_top h2
 
   macro "crush_cont_aux" ih:term ", " h_ih:term : tactic => `(tactic|(
     first
@@ -167,17 +126,17 @@ namespace CTree
     By *continue* we mean that `t2'` shows up as a choice within `t2` or is a `tau` step behind `t2`.
   -/
   theorem RefineF.cont_right {p1 p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
-    (h : RefineF r (Refine' r) p1 p2 t1 t2') :
+    {hsim : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2}
+    (h : RefineF r sim p1 p2 t1 t2') :
     ∀ (t2 : CTree ε σ), ((∃ t1', t2 = t1' ⊕ t2') ∨ (∃ t1', t2 = t2' ⊕ t1') ∨ t2 = t2'.tau) →
-    ∀ p1' p2', RefineF r (Refine' r) p1' p2' t1 t2 := by
+    ∀ p1' p2', RefineF r sim p1' p2' t1 t2 := by
     revert p2 t1 t2 t2'
     induction p1 using WellFoundedLT.induction
     rename_i ih
     intro _ _ _ _ h
     induction h with
     | coind p1'' p2'' h1' h2' h =>
-      rw [Refine'] at h
-      apply ih <;> assumption
+      apply ih _ h1' (hsim _ _ _ _ h); assumption
     | ret => crush_cont _, _
     | vis hk _ => crush_cont _, _
     | tau_left h => crush_cont _, _
@@ -187,9 +146,10 @@ namespace CTree
     | choice_right h h_ih => crush_cont ih, h_ih
     | choice_idemp _ _ => crush_cont _, _
 
-  theorem RefineF.idx_irrelevance {p1 p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
-    (h : RefineF r (Refine' r) p1 p2 t1 t2)
-    : ∀ p1' p2', RefineF r (Refine' r) p1' p2' t1 t2 := by
+  theorem RefineF.idx_irrelevance_gen {p1 p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
+    {hsim : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2}
+    (h : RefineF r sim p1 p2 t1 t2)
+    : ∀ p1' p2', RefineF r sim p1' p2' t1 t2 := by
     revert t1 t2 p1
     induction p2 using WellFoundedLT.induction
     rename_i p1 ih_p1
@@ -197,8 +157,7 @@ namespace CTree
     induction h with
     | coind p1'' p2'' h1' h2' h =>
       intro p1' p2'
-      rw [Refine'] at h
-      exact ih_p1 p2'' h2' h p1' p2'
+      exact ih_p1 p2'' h2' (hsim _ _ _ _ h) p1' p2'
     | ret h =>
       intros; apply RefineF.ret; assumption
     | vis h _ =>
@@ -218,12 +177,16 @@ namespace CTree
       intros
       apply RefineF.cont_right <;> try assumption
       exact (.inl ⟨_, by rfl⟩)
-    | choice_idemp h1 h2 =>
-      rename_i h1_ih h2_ih
+    | choice_idemp h1 h2 ih1 ih2 =>
       intro p1 t1
       apply RefineF.choice_idemp
-      · apply h1_ih; assumption
-      · apply h2_ih; assumption
+      · apply ih1; assumption
+      · apply ih2; assumption
+
+  theorem RefineF.idx_irrelevance {p1 p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
+    (h : RefineF r (Refine' r) p1 p2 t1 t2)
+    : ∀ p1' p2', RefineF r (Refine' r) p1' p2' t1 t2 := by
+    apply h.idx_irrelevance_gen; intros; rw [← Refine']; assumption
 
   theorem Refine'.coind (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
     (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)

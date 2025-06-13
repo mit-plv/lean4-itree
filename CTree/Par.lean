@@ -249,12 +249,11 @@ namespace CTree
       ∀ i, ∃ ps, k i = parAux ps ∧ k' i = parAux ps := by
     parAux_eq_def_left_right ps
 
-  lemma parAux_eq_def_right (ps : ParState ε α β) (hide : f = parAux) :
+  lemma parAux_eq_def_right (ps : ParState ε α β) :
     ∃ hd k k',
       (parAux ps).dest = ⟨hd, k⟩ ∧
       (parAux_def ps).dest = ⟨hd, k'⟩ ∧
-      ∀ i, ∃ ps, k i = parAux ps ∧ k' i = f ps := by
-    subst hide
+      ∀ i, ∃ ps, k i = parAux ps ∧ k' i = parAux ps := by
     parAux_eq_def_left_right ps
 
   lemma parAux_eq_def (ps : ParState ε α β) : parAux ps = parAux_def ps := by
@@ -268,7 +267,7 @@ namespace CTree
       intro i
       have ⟨ps, h3, h3'⟩ := h3 i
       exact ⟨ps, h3, .inl h3'⟩
-    · have ⟨hd, k, k', h1, h2, h3⟩ := parAux_eq_def_right ps rfl
+    · have ⟨hd, k, k', h1, h2, h3⟩ := parAux_eq_def_right ps
       refine ⟨hd, k, k', h1, h2, ?_⟩
       intro i
       have ⟨ps, h3, h3'⟩ := h3 i
