@@ -286,9 +286,45 @@ namespace CTree
           · apply RefineF.choice_right
             crush_refine; crush_parR_map_both_le c12, ret y
 
+    -- theorem parR_map_lS_le : map Prod.snd (parAux (map f t1 ◁ t2)) ≤Eq≤ map Prod.snd (parAux (t1 ◁ t2)) := by
+    --   apply Refine.coind
+    --     (λ p1 p2 t1 t2 =>
+    --       p1 = 0 ∧ p2 = 0 ∧ ∃ t1' t2', t1 = map Prod.snd (parAux (map f t1' ◁ t2')) ∧ t2 = map Prod.snd (parAux (t1' ◁ t2'))
+    --     ) _ 0 0
+    --   · repeat apply And.intro rfl _
+    --     exists t1, t2
+    --   · intro p1 p2 t1' t2' ⟨hp1, hp2, t1, t2, ht1, ht2⟩
+    --     subst hp1 hp2 ht1 ht2
+    --     apply dMatchOn t1
+    --     case vis =>
+    --       intro α e k heq
+    --       subst heq
+    --       simp only [parAux_lS_vis, map_vis]
+    --       crush_refine
+    --       intro a
+    --       -- TODO: this cannot be separated out into a separate lemma. Need to prove this with in the greater par lemma.
+    --       sorry
+    --     all_goals sorry
+
+    -- theorem parR_map_rS_le : map Prod.snd (parAux (map f t1 ▷ t2)) ≤Eq≤ map Prod.snd (parAux (t1 ▷ t2)) := by
+    --   sorry
+
+    -- theorem parR_map_lrS_le : map Prod.snd (parAux (map f t1 ◁▷ t2)) ≤Eq≤ map Prod.snd (parAux (t1 ◁▷ t2)) := by
+    --   simp only [parAux_lrS, map_choice]
+    --   apply Refine.choice_idemp
+    --   · apply Refine.choice_left
+    --     exact parR_map_lS_le
+    --   · apply Refine.choice_right
+    --     exact parR_map_rS_le
+
     theorem parR_map_le : ((map f t1) ‖→ t2) ≤Eq≤ (t1 ‖→ t2) := by
       simp only [parR, par, Functor.map, parAux_parS, map_choice]
       sorry
+      -- apply Refine.choice_idemp
+      -- · apply Refine.choice_left
+      --   exact parR_map_both_le
+      -- · apply Refine.choice_right
+      --   exact parR_map_lrS_le
 
     theorem le_parR_map : (t1 ‖→ t2) ≤Eq≤ ((map f t1) ‖→ t2) := by
       simp only [parR, par, Functor.map, parAux_parS, map_choice]

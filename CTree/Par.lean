@@ -285,11 +285,26 @@ namespace CTree
   theorem parAux_lS_ret : parAux (ret (ε := ε) x ◁ t) = zero := by
     crush_parAux_eq
 
+  theorem parAux_lS_vis : parAux (vis e k ◁ t2) = vis e λ a => (parAux (k a ‖ₛ t2)) := by
+    crush_parAux_eq
+
+  theorem parAux_lS_tau : parAux (tau t1 ◁ t2) = (parAux (t1 ◁ t2)).tau := by
+    crush_parAux_eq
+
+  theorem parAux_lS_zero : parAux (@zero ε ρ ◁ t2) = zero := by
+    crush_parAux_eq
+
+  theorem parAux_lS_choice : parAux ((c1 ⊕ c2) ◁ t2) = parAux (c1 ◁ t2) ⊕ parAux (c2 ◁ t2) := by
+    crush_parAux_eq
+
   /-!
     Lemmas for `▷`
   -/
 
   theorem parAux_rS_ret_ret : parAux (ret (ε := ε) x ▷ ret y) = zero := by
+    crush_parAux_eq
+
+  theorem parAux_rS_ret_vis : parAux (ret x ▷ vis e k) = vis e λ a => parAux (ret x ‖ₛ k a) := by
     crush_parAux_eq
 
   theorem parAux_rS_ret_tau : parAux (ret (ε := ε) x ▷ tau t) = (parAux (ret (ε := ε) x ▷ t)).tau := by
@@ -299,9 +314,6 @@ namespace CTree
     crush_parAux_eq
 
   theorem parAux_rS_ret_choice : parAux (ret (ε := ε) x ▷ c1 ⊕ c2) = parAux (ret x ▷ c1) ⊕ parAux (ret x ▷ c2) := by
-    crush_parAux_eq
-
-  theorem parAux_rS_ret_vis : parAux (ret x ▷ vis e k) = vis e λ a => parAux (ret x ‖ₛ k a) := by
     crush_parAux_eq
 
   /-!
@@ -400,18 +412,18 @@ namespace CTree
   theorem parAux_parS_ret : parAux (ret (ε := ε) x ‖ₛ t) = parAux (ret x ⋈ t) ⊕ zero ⊕ parAux (ret x ▷ t) := by
     repeat crush_parAux_eq
 
-  theorem parAux_parS_ret_tau {v : α} {t : CTree ε β}
-    : parAux (ret v ‖ₛ t.tau)
-      = (parAux (ParState.bothS (ret v) t)).tau
-        ⊕ zero
-        ⊕ (parAux (ParState.rS (ret v) t)).tau := by
-    repeat crush_parAux_eq
-
   theorem parAux_parS_ret_ret : parAux (ret (ε := ε) x ‖ₛ ret y) = ret (x, y) ⊕ (zero ⊕ zero) := by
     repeat crush_parAux_eq
 
   theorem parAux_parS_ret_vis
     : parAux (ret (ε := ε) x ‖ₛ vis e k) = zero ⊕ (zero ⊕ vis e (fun a => parAux <| ret x ‖ₛ k a)) := by
+    repeat crush_parAux_eq
+
+  theorem parAux_parS_ret_tau {v : α} {t : CTree ε β}
+    : parAux (ret v ‖ₛ t.tau)
+      = (parAux (ParState.bothS (ret v) t)).tau
+        ⊕ zero
+        ⊕ (parAux (ParState.rS (ret v) t)).tau := by
     repeat crush_parAux_eq
 
   theorem parAux_parS_ret_zero
