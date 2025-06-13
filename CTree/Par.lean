@@ -315,34 +315,79 @@ namespace CTree
     Lemmas for `⋈`
   -/
 
-  theorem parAux_bothS_ret_ret : parAux (ret (ε := ε) x ⋈ ret y) = ret (x, y) := by
+  theorem parAux_bothS_ret_ret : parAux (@ret ε ρ x ⋈ ret y) = ret (x, y) := by
     crush_parAux_eq
 
-  theorem parAux_bothS_ret_tau : parAux (ret (ε := ε) x ⋈ tau t) = (parAux (ret x ⋈ t)).tau := by
+  theorem parAux_bothS_ret_vis : parAux (@ret ε ρ x ⋈ vis e k) = zero := by
     crush_parAux_eq
 
-  theorem parAux_bothS_ret_vis : parAux (ret (ε := ε) x ⋈ vis e k) = zero := by
+  theorem parAux_bothS_ret_tau : parAux (@ret ε ρ x ⋈ tau t) = (parAux (ret x ⋈ t)).tau := by
     crush_parAux_eq
 
-  theorem parAux_bothS_ret_zero : parAux (ret (ε := ε) x ⋈ zero (ρ := β)) = zero := by
+  theorem parAux_bothS_ret_zero : parAux (@ret ε ρ x ⋈ @zero ε σ) = zero := by
     crush_parAux_eq
 
-  theorem parAux_bothS_ret_choice : parAux (ret (ε := ε) x ⋈ c1 ⊕ c2) = parAux (ret x ⋈ c1) ⊕ parAux (ret x ⋈ c2) := by
+  theorem parAux_bothS_ret_choice : parAux (@ret ε ρ x ⋈ c1 ⊕ c2) = parAux (ret x ⋈ c1) ⊕ parAux (ret x ⋈ c2) := by
     crush_parAux_eq
 
-  theorem parAux_bothS_tau_ret : parAux (tau (ε := ε) t ⋈ ret y) = (parAux (t ⋈ ret y)).tau := by
+  theorem parAux_bothS_vis_ret : parAux (vis e k ⋈ ret y) = zero := by
     crush_parAux_eq
 
-  theorem parAux_bothS_tau_tau : parAux (tau (ε := ε) t1 ⋈ tau t2) = (parAux (t1 ⋈ tau t2)).tau := by
+  theorem parAux_bothS_vis_vis : parAux (vis e k ⋈ vis e k) = zero := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_vis_tau : parAux (vis e k ⋈ tau t) = (parAux (vis e k ⋈ t)).tau := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_vis_zero : parAux (vis e k ⋈ zero (ρ := σ)) = zero := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_vis_choice : parAux (vis e k ⋈ c1 ⊕ c2) = parAux (vis e k ⋈ c1) ⊕ parAux (vis e k ⋈ c2) := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_tau_ret : parAux (tau t ⋈ ret y) = (parAux (t ⋈ ret y)).tau := by
     crush_parAux_eq
 
   theorem parAux_bothS_tau_vis : parAux (tau t ⋈ vis e k) = (parAux (t ⋈ vis e k)).tau := by
     crush_parAux_eq
 
-  theorem parAux_bothS_tau_zero : parAux (tau t ⋈ zero (ρ := β)) = (parAux (t ⋈ zero)).tau := by
+  theorem parAux_bothS_tau_tau : parAux (tau t1 ⋈ tau t2) = (parAux (t1 ⋈ tau t2)).tau := by
     crush_parAux_eq
 
-  theorem parAux_bothS_tau_choice : parAux (tau (ε := ε) t ⋈ c1 ⊕ c2) = ((parAux (t ⋈ c1 ⊕ c2))).tau := by
+  theorem parAux_bothS_tau_zero : parAux (tau t ⋈ zero (ρ := σ)) = (parAux (t ⋈ zero)).tau := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_tau_choice : parAux (tau t ⋈ c1 ⊕ c2) = (parAux (t ⋈ c1 ⊕ c2)).tau := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_zero_ret : parAux (@zero ε ρ ⋈ ret y) = zero := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_zero_vis : parAux (@zero ε ρ ⋈ vis e k) = zero := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_zero_tau : parAux (@zero ε ρ ⋈ tau t2) = (parAux (zero ⋈ t2)).tau := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_zero_zero : parAux (@zero ε ρ ⋈ @zero ε σ) = zero := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_zero_choice : parAux (@zero ε ρ ⋈ c1 ⊕ c2) = parAux (zero ⋈ c1) ⊕ parAux (zero ⋈ c2):= by
+    crush_parAux_eq
+
+  theorem parAux_bothS_choice_ret : parAux ((c1 ⊕ c2) ⋈ ret y) = parAux (c1 ⋈ ret y) ⊕ parAux (c2 ⋈ ret y) := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_choice_vis : parAux ((c1 ⊕ c2) ⋈ vis e k) = parAux (c1 ⋈ vis e k) ⊕ parAux (c2 ⋈ vis e k) := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_choice_tau : parAux ((c1 ⊕ c2) ⋈ tau t2) = (parAux ((c1 ⊕ c2) ⋈ t2)).tau := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_choice_zero : parAux ((c1 ⊕ c2) ⋈ zero (ρ := σ)) = parAux (c1 ⋈ zero) ⊕ parAux (c2 ⋈ zero) := by
+    crush_parAux_eq
+
+  theorem parAux_bothS_choice_choice : parAux ((c1 ⊕ c2) ⋈ c1 ⊕ c2) = parAux (c1 ⋈ c1 ⊕ c2) ⊕ parAux (c2 ⋈ c1 ⊕ c2) := by
     crush_parAux_eq
 
   /-!
