@@ -35,15 +35,16 @@ namespace CTree
         | vis => contradiction
         | tau =>
           apply RefineF.tau_right
-          exact RefineF.idx_mono_right bot_le this
+          -- apply RefineF.idx_mono
+          exact RefineF.idx_mono bot_le bot_le this
         | choice_left _ ih =>
           have := ih this hl
           apply RefineF.choice_left
-          exact RefineF.idx_mono_right bot_le this
+          exact RefineF.idx_mono bot_le bot_le this
         | choice_right _ ih =>
           have := ih this hl
           apply RefineF.choice_right
-          exact RefineF.idx_mono_right bot_le this
+          exact RefineF.idx_mono bot_le bot_le this
     | choice_left _ ih =>
       sorry
     | choice_right => sorry
