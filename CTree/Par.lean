@@ -333,7 +333,7 @@ namespace CTree
   theorem parAux_bothS_vis_ret : parAux (vis e k ⋈ ret y) = zero := by
     crush_parAux_eq
 
-  theorem parAux_bothS_vis_vis : parAux (vis e k ⋈ vis e k) = zero := by
+  theorem parAux_bothS_vis_vis : parAux (vis e1 k1 ⋈ vis e2 k2) = zero := by
     crush_parAux_eq
 
   theorem parAux_bothS_vis_tau : parAux (vis e k ⋈ tau t) = (parAux (vis e k ⋈ t)).tau := by
@@ -387,7 +387,7 @@ namespace CTree
   theorem parAux_bothS_choice_zero : parAux ((c1 ⊕ c2) ⋈ zero (ρ := σ)) = parAux (c1 ⋈ zero) ⊕ parAux (c2 ⋈ zero) := by
     crush_parAux_eq
 
-  theorem parAux_bothS_choice_choice : parAux ((c1 ⊕ c2) ⋈ c1 ⊕ c2) = parAux (c1 ⋈ c1 ⊕ c2) ⊕ parAux (c2 ⋈ c1 ⊕ c2) := by
+  theorem parAux_bothS_choice_choice : parAux ((c11 ⊕ c12) ⋈ c21 ⊕ c22) = parAux (c11 ⋈ c21 ⊕ c22) ⊕ parAux (c12 ⋈ c21 ⊕ c22) := by
     crush_parAux_eq
 
   /-!

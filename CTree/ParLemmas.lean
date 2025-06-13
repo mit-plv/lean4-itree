@@ -186,6 +186,39 @@ namespace CTree
       try simp only [map_ret, and_self]
     ))
 
+    macro "simp_parAux_bothS" : tactic => `(tactic|(
+      simp only [
+        parAux_bothS_ret_ret, parAux_bothS_ret_vis, parAux_bothS_ret_tau, parAux_bothS_ret_zero, parAux_bothS_ret_choice,
+        parAux_bothS_vis_ret, parAux_bothS_vis_vis, parAux_bothS_vis_tau, parAux_bothS_vis_zero, parAux_bothS_vis_choice,
+        parAux_bothS_tau_ret, parAux_bothS_tau_vis, parAux_bothS_tau_tau, parAux_bothS_tau_zero, parAux_bothS_tau_choice,
+        parAux_bothS_zero_ret, parAux_bothS_zero_vis, parAux_bothS_zero_tau, parAux_bothS_zero_zero, parAux_bothS_zero_choice,
+        parAux_bothS_choice_ret, parAux_bothS_choice_vis, parAux_bothS_choice_tau, parAux_bothS_choice_zero, parAux_bothS_choice_choice,
+        map_vis, map_ret, map_tau, map_zero, map_choice
+      ]
+    ))
+
+    open Lean
+
+    macro "crush_match" t:term " with " simp_rule:tactic : tactic => `(tactic|(
+      apply dMatchOn $t
+      case' ret =>
+        intro $(mkIdent `y) heq
+        subst heq
+      case' vis =>
+        intro $(mkIdent `α2) $(mkIdent `e2) $(mkIdent `k2) heq
+        subst heq
+      case' tau =>
+        intro $(mkIdent `t2) heq
+        subst heq
+      case' zero =>
+        intro heq
+        subst heq
+      case' choice =>
+        intro $(mkIdent `c21) $(mkIdent `c22) heq
+        subst heq
+      all_goals try ($simp_rule; crush_refine)
+    ))
+
     theorem parR_map_both_le : map Prod.snd (parAux (map f t1 ⋈ t2)) ≤Eq≤ map Prod.snd (parAux (t1 ⋈ t2)) := by
       apply Refine.coind
         (λ p1 p2 t1 t2 =>
@@ -197,62 +230,61 @@ namespace CTree
         apply dMatchOn t1
         · intro x heq
           subst heq
-          apply dMatchOn t2
-          · intro y heq
-            subst heq
-            simp only [map_ret, parAux_bothS_ret_ret]
-            crush_refine
-          · intro c heq
-            subst heq
-            simp only [map_ret, parAux_bothS_ret_tau, map_tau]
-            crush_refine; crush_parR_map_both_le ret x, c
-          · intro α e k heq
-            subst heq
-            simp only [map_ret, parAux_bothS_ret_vis, map_vis, map_zero]
-            crush_refine
-          · intro heq
-            subst heq
-            simp only [map_ret, parAux_bothS_ret_zero, map_zero]
-            crush_refine
-          · intro c1 c2 heq
-            subst heq
-            simp only [map_ret, parAux_bothS_ret_choice, map_choice]
-            crush_refine
-            · apply RefineF.choice_left
-              crush_refine; crush_parR_map_both_le ret x, c1
-            · apply RefineF.choice_right
-              crush_refine; crush_parR_map_both_le ret x, c2
-        · intro c heq
+          crush_match t2 with simp_parAux_bothS
+          · apply RefineF.choice_left
+            crush_refine; crush_parR_map_both_le ret x, c21
+          · apply RefineF.choice_right
+            crush_refine; crush_parR_map_both_le ret x, c22
+          · crush_parR_map_both_le ret x, t2
+        · intro t1 heq
           subst heq
-          sorry
-          -- apply dMatchOn t2
-          -- · intro y heq
-          --   subst heq
-          --   simp only [map_tau, parAux_bothS_tau_ret]
-          --   crush_refine
-          -- · intro c heq
-          --   subst heq
-          --   simp only [map_ret, parAux_bothS_ret_tau, map_tau]
-          --   crush_refine; crush_parR_map_both_le ret x, c
-          -- · intro α e k heq
-          --   subst heq
-          --   simp only [map_ret, parAux_bothS_ret_vis, map_vis, map_zero]
-          --   crush_refine
-          -- · intro heq
-          --   subst heq
-          --   simp only [map_ret, parAux_bothS_ret_zero, map_zero]
-          --   crush_refine
-          -- · intro c1 c2 heq
-          --   subst heq
-          --   simp only [map_ret, parAux_bothS_ret_choice, map_choice]
-          --   crush_refine
-          --   · apply RefineF.choice_left
-          --     crush_refine; crush_parR_map_both_le ret x, c1
-          --   · apply RefineF.choice_right
-          --     crush_refine; crush_parR_map_both_le ret x, c2
-        · sorry
-        · sorry
-        · sorry
+          crush_match t2 with simp_parAux_bothS
+          · crush_parR_map_both_le t1, c21 ⊕ c22
+          · crush_parR_map_both_le t1, zero
+          · crush_parR_map_both_le t1, tau t2
+          · crush_parR_map_both_le t1, vis e2 k2
+          · crush_parR_map_both_le t1, ret y
+        · intro α1 e1 k1 heq
+          subst heq
+          crush_match t2 with simp_parAux_bothS
+          all_goals rw [←map_vis (e := e1) (k := k1) (f := f)]
+          · apply RefineF.choice_left
+            crush_refine; crush_parR_map_both_le vis e1 k1, c21
+          · apply RefineF.choice_right
+            crush_refine; crush_parR_map_both_le vis e1 k1, c22
+          · crush_parR_map_both_le vis e1 k1, t2
+        · intro heq
+          subst heq
+          crush_match t2 with simp_parAux_bothS
+          · apply RefineF.choice_left
+            crush_refine; crush_parR_map_both_le zero, c21
+            simp only [map_zero, and_self]
+          · apply RefineF.choice_right
+            crush_refine; crush_parR_map_both_le zero, c22
+            simp only [map_zero, and_self]
+          · crush_parR_map_both_le zero, t2
+            simp only [map_zero, and_self]
+        · intro c11 c12 heq
+          subst heq
+          crush_match t2 with simp_parAux_bothS
+          · apply RefineF.choice_left
+            crush_refine; crush_parR_map_both_le c11, c21 ⊕ c22
+          · apply RefineF.choice_right
+            crush_refine; crush_parR_map_both_le c12, c21 ⊕ c22
+          · apply RefineF.choice_left
+            crush_refine; crush_parR_map_both_le c11, zero
+          · apply RefineF.choice_right
+            crush_refine; crush_parR_map_both_le c12, zero
+          · rw [←map_choice (c1 := c11) (c2 := c12) (f := f)]
+            crush_parR_map_both_le c11 ⊕ c12, t2
+          · apply RefineF.choice_left
+            crush_refine; crush_parR_map_both_le c11, vis e2 k2
+          · apply RefineF.choice_right
+            crush_refine; crush_parR_map_both_le c12, vis e2 k2
+          · apply RefineF.choice_left
+            crush_refine; crush_parR_map_both_le c11, ret y
+          · apply RefineF.choice_right
+            crush_refine; crush_parR_map_both_le c12, ret y
 
     theorem parR_map_le : ((map f t1) ‖→ t2) ≤Eq≤ (t1 ‖→ t2) := by
       simp only [parR, par, Functor.map, parAux_parS, map_choice]
