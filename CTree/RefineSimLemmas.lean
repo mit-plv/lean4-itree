@@ -54,6 +54,28 @@ lemma WeakStep.choice_left_right (h : WeakStep t2 l t3) : WeakStep (t1 ⊕ t2) l
     refine ⟨?_, htau_n⟩
     exact Step.choice_right htau
 
+lemma Step.zero_of_val (h : Step t1 (.val v) t2) : t2 = zero := by
+  generalize hl : Label.val v = l at *
+  induction h with
+  | ret => rfl
+  | vis | tau => contradiction
+  | choice_left _ ih => exact ih hl
+  | choice_right _ ih => exact ih hl
+
+lemma refine_ret_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
+  (href : Refine' Eq p1 p2 t1 t2) :
+  Step t1 (.val v) zero → Refine' Eq p1 p2 (ret v) t2 := by
+  intro hstep
+  generalize hl : Label.val v = l at *
+  generalize hz : zero = z at *
+  induction hstep
+  <;> try contradiction
+  case ret => rw [Label.val.inj hl]; exact href
+  case choice_left _ ih =>
+    apply ih href.inv_choice_left_left <;> assumption
+  case choice_right _ ih =>
+    apply ih href.inv_choice_left_right <;> assumption
+
 -- Fundamental lemma: tau steps in refinement correspond to weak steps
 lemma refine_tau_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
   (href : Refine' Eq p1 p2 t1 t2) :
@@ -65,6 +87,24 @@ lemma refine_tau_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
   | tau => exact href.inv_tau_left
   | choice_left h ih => exact ih href.inv_choice_left_left hl
   | choice_right h ih => exact ih href.inv_choice_left_right hl
+
+lemma refine_ntau_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
+  (href : Refine' Eq p1 p2 t1 t2) :
+  ∀ t1' n, NTauStep n t1 t1' → Refine' Eq p1 p2 t1' t2 := by
+  intro t1' n hstep
+  revert t1
+  induction n with
+  | zero =>
+    intro t1 href hstep
+    simp only [NTauStep] at hstep
+    rw [←hstep]
+    exact href
+  | succ n ih =>
+    intro t1 href hstep
+    simp only [NTauStep] at hstep
+    obtain ⟨t2, htau, htau_n⟩ := hstep
+    apply ih _ htau_n
+    exact refine_tau_correspondence href _ htau
 
 -- Lemma for event steps
 lemma refine_event_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
