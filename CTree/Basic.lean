@@ -122,6 +122,13 @@ namespace CTree
       simp only at this
       exact this
 
+  macro "subst_vis_inj " h:term : tactic => `(tactic|(
+    have hα := vis_inj_α $h
+    subst hα
+    have ⟨he, hk⟩ := vis_inj $h
+    subst he hk
+  ))
+
   theorem tau_inj (h : tau t1 = tau t2) : t1 = t2 := by
     simp only [tau, mk, tau'] at h
     have := eq_of_heq (Sigma.mk.inj (PFunctor.M.mk_inj h)).right

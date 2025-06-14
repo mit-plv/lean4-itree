@@ -1183,7 +1183,39 @@ namespace CTree
   theorem Refine'.inv_vis_left
     (h : Refine' r p1 p2 (vis e k1) t2)
     : ∃ k2, ContainsVis e k2 t2 ∧ ∀ a, Refine' r p1 p2 (k1 a) (k2 a) := by
-
-    sorry
+    simp only [Refine'] at *
+    generalize ht1 : vis e k1 = t1 at *
+    revert p2 t1 t2
+    induction p1 using WellFounded.induction ENat.instWellFoundedLT.wf
+    rename_i p1 ih_p1
+    intro p2 t1 t2 ht2 h
+    induction h
+    <;> ctree_elim ht2
+    case coind p1' p2' hp1 hp2 h =>
+      simp only [Refine'] at *
+      obtain ⟨k2, hcont, href⟩ := ih_p1 p1' hp1 _ ht2 (h.idx_irrelevance _ _) (p2 := p2)
+      exists k2
+      apply And.intro hcont
+      intro a
+      exact (href a).idx_irrelevance _ _
+    case vis h _ =>
+      subst_vis_inj ht2
+      rename_i k2 _
+      exists k2
+      apply And.intro .vis
+      intro a
+      exact (h a).idx_irrelevance _ _
+    case tau_right h ih =>
+      have ⟨k2, hcont, href⟩ := ih ih_p1 ht2
+      exists k2
+      exact And.intro (.tau hcont) (λ a => (href a).idx_irrelevance _ _)
+    case choice_left h ih =>
+      have ⟨k2, hcont, href⟩ := ih ih_p1 ht2
+      exists k2
+      exact And.intro (.choice_left hcont) (λ a => (href a).idx_irrelevance _ _)
+    case choice_right h ih =>
+      have ⟨k2, hcont, href⟩ := ih ih_p1 ht2
+      exists k2
+      exact And.intro (.choice_right hcont) (λ a => (href a).idx_irrelevance _ _)
 
 end CTree
