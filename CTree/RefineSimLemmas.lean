@@ -1,0 +1,209 @@
+import CTree.Refinement
+import CTree.LTS
+
+namespace CTree
+
+/-!
+# Key Lemmas for Refinement-Simulation Equivalence
+
+This file contains the detailed proofs of the key lemmas needed to establish
+the equivalence between coinductive refinement and weak simulation.
+-/
+
+lemma WeakStep.choice_left_left (h : WeakStep t1 l t3) : WeakStep (t1 ⊕ t2) l t3 := by
+  obtain ⟨t1Tau, t3Tau, n1, n2, htau1, hs, htau2⟩ := h
+  match n1 with
+  | 0 =>
+    simp only [NTauStep] at htau1
+    subst htau1
+    exists  t1 ⊕ t2, t3Tau, 0, n2
+    apply And.intro
+    · simp only [NTauStep]
+    · refine ⟨?_, htau2⟩
+      exact Step.choice_left hs
+  | n + 1 =>
+    simp only [NTauStep] at htau1
+    obtain ⟨t2, htau, htau_n⟩ := htau1
+    rename_i t2'
+    exists t1Tau, t3Tau, n + 1, n2
+    refine ⟨?_, hs, htau2⟩
+    simp only [NTauStep]
+    exists t2
+    refine ⟨?_, htau_n⟩
+    exact Step.choice_left htau
+
+lemma WeakStep.choice_left_right (h : WeakStep t2 l t3) : WeakStep (t1 ⊕ t2) l t3 := by
+  obtain ⟨t1Tau, t3Tau, n1, n2, htau1, hs, htau2⟩ := h
+  match n1 with
+  | 0 =>
+    simp only [NTauStep] at htau1
+    subst htau1
+    exists  t1 ⊕ t2, t3Tau, 0, n2
+    apply And.intro
+    · simp only [NTauStep]
+    · refine ⟨?_, htau2⟩
+      exact Step.choice_right hs
+  | n + 1 =>
+    simp only [NTauStep] at htau1
+    obtain ⟨t2, htau, htau_n⟩ := htau1
+    rename_i t2'
+    exists t1Tau, t3Tau, n + 1, n2
+    refine ⟨?_, hs, htau2⟩
+    simp only [NTauStep]
+    exists t2
+    refine ⟨?_, htau_n⟩
+    exact Step.choice_right htau
+
+-- Fundamental lemma: tau steps in refinement correspond to weak steps
+lemma refine_tau_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
+  (href : Refine' Eq p1 p2 t1 t2) :
+  ∀ t1', Step t1 .tau t1' → Refine' Eq p1 p2 t1' t2 := by
+  intro t1' hstep
+  generalize hl : Label.tau = l at *
+  induction hstep with
+  | ret | vis => contradiction
+  | tau => exact href.inv_tau_left
+  | choice_left h ih => exact ih href.inv_choice_left_left hl
+  | choice_right h ih => exact ih href.inv_choice_left_right hl
+
+-- Lemma for event steps
+lemma refine_event_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
+  (href : Refine' Eq p1 p2 t1 t2) :
+  ∀ {α} {e : ε α} {a : α} t1', Step t1 (.event α e a) t1' →
+  ∃ t2', WeakStep t2 (.event α e a) t2' ∧ Refine' Eq p1 p2 t1' t2' := by
+  intro α e a t1' hstep
+  generalize hl : Label.event α e a = l at *
+  revert href
+  induction hstep with
+  | ret | tau => contradiction
+  | vis =>
+    intro href
+    have ⟨ha, _, _⟩ := Label.event.inj hl
+    subst ha
+    have ⟨k2, hcont, href⟩ := href.inv_vis_left
+    exists k2 a
+    induction hcont with
+    | vis =>
+      rename_i href'
+      have ⟨_, _, ha⟩ := Label.event.inj hl
+      subst ha
+      apply And.intro _ (href' a)
+      rename_i e _ _ _ _ _
+      exists vis e k2, k2 a, 0, 0
+      apply And.intro _; apply And.intro
+      exact Step.vis
+      all_goals simp only [NTauStep]
+    | tau _ ih =>
+      have := Refine.dest_tau_right (by rw [Refine]; exists p1, p2)
+      rw [Refine] at this
+      obtain ⟨p1', p2', h⟩ := this
+      rw [Refine'] at *
+      have ⟨hs, h⟩ := ih (RefineF.idx_irrelevance h _ _)
+      apply And.intro
+      · obtain ⟨t3, t4, n1, n2, htau1, hs, htau2⟩ := hs
+        exists t3, t4, n1 + 1, n2
+        apply And.intro
+        · simp only [NTauStep]
+          rename_i t2 _ _
+          exists t2
+          apply And.intro _ htau1
+          exact Step.tau
+        · apply And.intro hs htau2
+      · rw [Refine'] at h
+        exact h
+    | choice_left h ih =>
+      have ⟨_, _, ha⟩ := Label.event.inj hl
+      subst ha
+      have := Refine'.of_ContainsVis h (r := Eq) (p1 := p1) (p2 := p2)
+      rename_i href' _ _ _ _ _
+      apply And.intro
+      · have ⟨hws, _⟩ := ih (Refine'.vis_trans href' this)
+        exact hws.choice_left_left
+      · exact href' a
+    | choice_right h ih =>
+      have ⟨_, _, ha⟩ := Label.event.inj hl
+      subst ha
+      have := Refine'.of_ContainsVis h (r := Eq) (p1 := p1) (p2 := p2)
+      rename_i href' _ _ _ _ _
+      apply And.intro
+      · have ⟨hws, _⟩ := ih (Refine'.vis_trans href' this)
+        exact hws.choice_left_right
+      · exact href' a
+  | choice_left h ih =>
+    intro h
+    exact ih hl h.inv_choice_left_left
+  | choice_right h ih =>
+    intro h
+    exact ih hl h.inv_choice_left_right
+
+-- -- The key insight: construct simulation from refinement step-by-step
+-- def refine_to_sim_rel : Rel (CTree ε ρ) (CTree ε ρ) :=
+--   λ t1 t2 => ∃ p1 p2, Refine' Eq p1 p2 t1 t2
+
+-- theorem refine_to_sim_rel_is_simulation : IsWeakSimulation refine_to_sim_rel := by
+--   unfold IsWeakSimulation refine_to_sim_rel
+--   intro p1 q1 ⟨pp1, pp2, href⟩ l p2 hstep
+
+--   cases l with
+--   | tau =>
+--     -- Tau step case
+--     have ⟨n, q2, hntau, pp1', pp2', href'⟩ := refine_tau_correspondence href hstep
+--     use n, q2
+--     exact hntau
+
+--   | val v =>
+--     -- Value step case: p1 = ret v, p2 = zero
+--     cases hstep with
+--     | ret =>
+--       -- Need q1 to weakly step to zero with val v
+--       rw [Refine'] at href
+--       induction href with
+--       | ret heq =>
+--         -- q1 = ret v (since heq : v = v)
+--         use zero
+--         use ret v, zero, 0, 0
+--         exact ⟨rfl, Step.ret, rfl⟩
+--       | coind p1' p2' h1 h2 h =>
+--         -- Use inner refinement
+--         sorry
+--       | tau_right h =>
+--         -- q1 = q1'.tau, need to handle this
+--         sorry
+--       | choice_left h =>
+--         -- q1 = q1₁ ⊕ q1₂, ret v refines q1₁
+--         sorry
+--       | choice_right h =>
+--         -- q1 = q1₁ ⊕ q1₂, ret v refines q1₂
+--         sorry
+--       all_goals sorry
+
+--   | event α e a =>
+--     -- Event step case
+--     have ⟨q2, hstep_q, pp1', pp2', href'⟩ := refine_event_correspondence href hstep
+--     use q2
+--     use q1, q2, 0, 0
+--     exact ⟨rfl, hstep_q, rfl⟩
+
+
+-- -- The reverse direction: construct refinement from simulation
+-- theorem sim_to_refine_construction {sim : Rel (CTree ε ρ) (CTree ε ρ)}
+--   (hsim : IsWeakSimulation sim) :
+--   ∀ t1 t2, sim t1 t2 → ∃ p1 p2, Refine' Eq p1 p2 t1 t2 := by
+--   intro t1 t2 hrel
+
+--   -- Use coinduction with the simulation relation itself
+--   apply Refine.coind sim _ 0 0 hrel
+
+--   -- Prove admissibility: sim t1 t2 → RefineF Eq sim 0 0 t1 t2
+--   intro p1 p2 s1 s2 hrel_inner
+
+--   -- We need to analyze the structure of s1 and show appropriate refinement rule
+--   -- This requires case analysis on what s1 can be
+
+--   -- Key insight: use the contrapositive approach
+--   -- If s1 can make a step, then by simulation, s2 can make a weak step
+--   -- We then construct the appropriate refinement rule
+
+--   sorry -- This requires detailed structural analysis
+
+end CTree

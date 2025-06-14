@@ -32,7 +32,7 @@ namespace CTree
 
   def RefineF.monotone (r : Rel ρ σ) (sim sim' : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
     (hsim : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → sim' p1 p2 t1 t2)
-    p1 p2 t1 t2 (h : RefineF r sim p1 p2 t1 t2) : RefineF r sim' p1 p2 t1 t2 := by
+    {p1 p2 t1 t2} (h : RefineF r sim p1 p2 t1 t2) : RefineF r sim' p1 p2 t1 t2 := by
     induction h with
     | coind _ _ h1 h2 h => exact .coind _ _ h1 h2 (hsim _ _ _ _ h)
     | ret h => exact .ret h
@@ -1133,5 +1133,57 @@ namespace CTree
       apply ih2 ihp2
       rw [←(choice_inj hinf).right]
       simp only [←infND_eq]
+
+  theorem Refine'.tau_left (h : Refine' r p1 p2 t1 t2) : Refine' r p1 p2 t1.tau t2 := by
+    rw [Refine'] at *
+    exact RefineF.idx_irrelevance (RefineF.tau_left (RefineF.idx_irrelevance h ⊤ ⊤) (p1 := p1)) p1 p2
+
+  theorem Refine'.tau_right (h : Refine' r p1 p2 t1 t2) : Refine' r p1 p2 t1 t2.tau := by
+    rw [Refine'] at *
+    exact RefineF.idx_irrelevance (RefineF.tau_right (RefineF.idx_irrelevance h ⊤ ⊤) (p2 := p2)) p1 p2
+
+  theorem Refine'.choice_left (h : Refine' r p1 p2 t1 t2) : Refine' r p1 p2 t1 (t2 ⊕ t3) := by
+    have ⟨_, _, h⟩ := Refine.choice_left ⟨p1, p2, h⟩ (t3 := t3)
+    rw [Refine'] at *
+    exact RefineF.idx_irrelevance h p1 p2
+
+  theorem Refine'.choice_right (h : Refine' r p1 p2 t1 t3) : Refine' r p1 p2 t1 (t2 ⊕ t3) := by
+    have ⟨_, _, h⟩ := Refine.choice_right ⟨p1, p2, h⟩ (t2 := t2)
+    rw [Refine'] at *
+    exact RefineF.idx_irrelevance h p1 p2
+
+  theorem Refine'.vis_trans [IsRefl _ r] [IsTrans _ r]
+    (hk : ∀ a, Refine' r p1 p2 (k1 a) (k2 a)) (h : Refine' r p1 p2 (vis e k2) t)
+    : Refine' r p1 p2 (vis e k1) t := by
+    have : Refine' r p1 p2 (vis e k1) (vis e k2) := by
+      simp only [Refine'] at *
+      apply RefineF.vis
+      intro a
+      exact RefineF.idx_irrelevance (hk a) ⊤ ⊤
+    have := Refine'.trans this h
+    rw [Rel.comp_self] at this
+    exact this
+
+  inductive ContainsVis {α : Type} (e : ε α) (k : α → CTree ε ρ) : CTree ε ρ → Prop
+  | vis : ContainsVis e k (vis e k)
+  | tau {t} : ContainsVis e k t → ContainsVis e k t.tau
+  | choice_left {t1 t2} : ContainsVis e k t1 → ContainsVis e k (t1 ⊕ t2)
+  | choice_right {t1 t2} : ContainsVis e k t2 → ContainsVis e k (t1 ⊕ t2)
+
+  theorem Refine'.of_ContainsVis {t : CTree ε ρ} [IsRefl ρ r] (h : ContainsVis e k t) : Refine' r p1 p2 (vis e k) t := by
+    induction h with
+    | vis =>
+      have ⟨_, _, h⟩ := Refine.refl (r := r) (vis e k)
+      rw [Refine'] at *
+      exact RefineF.idx_irrelevance h p1 p2
+    | tau _ ih => exact Refine'.tau_right ih
+    | choice_left _ ih => exact Refine'.choice_left ih
+    | choice_right _ ih => exact Refine'.choice_right ih
+
+  theorem Refine'.inv_vis_left
+    (h : Refine' r p1 p2 (vis e k1) t2)
+    : ∃ k2, ContainsVis e k2 t2 ∧ ∀ a, Refine' r p1 p2 (k1 a) (k2 a) := by
+
+    sorry
 
 end CTree
