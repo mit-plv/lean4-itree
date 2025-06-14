@@ -10,6 +10,33 @@ This file contains the detailed proofs of the key lemmas needed to establish
 the equivalence between coinductive refinement and weak simulation.
 -/
 
+lemma Step.zero_of_val (h : Step t1 (.val v) t2) : t2 = zero := by
+  generalize hl : Label.val v = l at *
+  induction h with
+  | ret => rfl
+  | vis | tau => contradiction
+  | choice_left _ ih => exact ih hl
+  | choice_right _ ih => exact ih hl
+
+lemma NTauStep.ret (h : NTauStep n (ret x) t) : n = 0 := by
+  match n with
+  | 0 => rfl
+  | n + 1 =>
+    simp only [NTauStep] at h
+    obtain ⟨_, htau, _⟩ := h
+    generalize hret : CTree.ret x = tret at *
+    cases htau <;> ctree_elim hret
+
+lemma WeakStep.ret_val (h : WeakStep (ret x) (.val y) t) : x = y := by
+  obtain ⟨t2, t3, n1, n2, htau1, hs, htau2⟩ := h
+  rw [htau1.ret] at htau1
+  simp only [NTauStep] at htau1
+  subst htau1
+  generalize hret : ret x = hret at *
+  cases hs
+  <;> ctree_elim hret
+  exact ret_inj hret
+
 lemma WeakStep.choice_left_left (h : WeakStep t1 l t3) : WeakStep (t1 ⊕ t2) l t3 := by
   obtain ⟨t1Tau, t3Tau, n1, n2, htau1, hs, htau2⟩ := h
   match n1 with
@@ -54,13 +81,33 @@ lemma WeakStep.choice_left_right (h : WeakStep t2 l t3) : WeakStep (t1 ⊕ t2) l
     refine ⟨?_, htau_n⟩
     exact Step.choice_right htau
 
-lemma Step.zero_of_val (h : Step t1 (.val v) t2) : t2 = zero := by
-  generalize hl : Label.val v = l at *
+lemma weak_step_of_ContainsRet (h : ContainsRet v t) : WeakStep t (.val v) zero := by
   induction h with
-  | ret => rfl
-  | vis | tau => contradiction
-  | choice_left _ ih => exact ih hl
-  | choice_right _ ih => exact ih hl
+  | ret =>
+    exists ret v, zero, 0, 0
+    apply And.intro
+    · simp only [NTauStep]
+    · apply And.intro .ret
+      simp only [NTauStep]
+  | tau _ ih =>
+    have ⟨t1, t2, n1, n2, htau1, hs, htau2⟩ := ih
+    have := hs.zero_of_val
+    subst this
+    exists t1, zero, n1 + 1, 0
+    apply And.intro
+    · simp only [NTauStep]
+      rename_i t2 _
+      exists t2
+      exact And.intro .tau htau1
+    · apply And.intro hs
+      simp only [NTauStep]
+  | choice_left _ ih =>
+    exact WeakStep.choice_left_left ih
+  | choice_right _ ih =>
+    exact WeakStep.choice_left_right ih
+
+lemma weak_step_of_refine_ret (h : Refine' Eq p1 p2 (ret v) t) : WeakStep t (.val v) zero :=
+  weak_step_of_ContainsRet h.dest_ret_left
 
 lemma refine_ret_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
   (href : Refine' Eq p1 p2 t1 t2) :

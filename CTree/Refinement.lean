@@ -1218,4 +1218,33 @@ namespace CTree
       exists k2
       exact And.intro (.choice_right hcont) (λ a => (href a).idx_irrelevance _ _)
 
+  inductive ContainsRet (v : ρ) : CTree ε ρ → Prop
+  | ret : ContainsRet v (ret v)
+  | tau {t} : ContainsRet v t → ContainsRet v t.tau
+  | choice_left {t1 t2} : ContainsRet v t1 → ContainsRet v (t1 ⊕ t2)
+  | choice_right {t1 t2} : ContainsRet v t2 → ContainsRet v (t1 ⊕ t2)
+
+  theorem Refine'.dest_ret_left
+    (h : Refine' Eq p1 p2 (ret v) t2) : ContainsRet v t2 := by
+    simp only [Refine'] at *
+    generalize ht1 : ret v = t1 at *
+    revert p2 t1 t2
+    induction p1 using WellFounded.induction ENat.instWellFoundedLT.wf
+    rename_i p1 ih_p1
+    intro p2 t1 t2 ht2 h
+    induction h
+    <;> ctree_elim ht2
+    case coind p1' p2' hp1 hp2 h =>
+      simp only [Refine'] at *
+      exact ih_p1 p1' hp1 _ ht2 (h.idx_irrelevance _ _) (p2 := p2)
+    case ret h =>
+      rw [←h, ret_inj ht2]
+      exact .ret
+    case tau_right h ih =>
+      exact .tau <| ih ih_p1 ht2
+    case choice_left h ih =>
+      exact .choice_left <| ih ih_p1 ht2
+    case choice_right h ih =>
+      exact .choice_right <| ih ih_p1 ht2
+
 end CTree
