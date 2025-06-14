@@ -223,4 +223,52 @@ lemma refine_event_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
     intro h
     exact ih hl h.inv_choice_left_right
 
+  lemma RefineF.ret_of_weak_step {x : ρ} (h : t.WeakStep (Label.val x) t') : RefineF Eq sim p1 p2 (CTree.ret x) t := by
+    obtain ⟨t1, t2, n1, n2, htau1, hs, htau2⟩ := h
+    revert t
+    induction n1 with
+    | zero =>
+      intro t htau
+      simp only [NTauStep] at htau
+      subst htau
+      generalize hl : Label.val x = l at *
+      induction hs <;> try contradiction
+      case ret =>
+        rw [Label.val.inj hl]
+        exact RefineF.ret rfl
+      case choice_left ih =>
+        apply RefineF.choice_left
+        apply @RefineF.idx_mono _ _ _ _ _ _ _ p1 p1 p2 ⊤
+        · exact le_refl _
+        · exact le_top
+        · apply ih <;> assumption
+      case choice_right ih =>
+        apply RefineF.choice_right
+        apply @RefineF.idx_mono _ _ _ _ _ _ _ p1 p1 p2 ⊤
+        · exact le_refl _
+        · exact le_top
+        · apply ih <;> assumption
+    | succ n ih =>
+      intro t htau
+      simp only [NTauStep] at htau
+      obtain ⟨t', htau, htau_n⟩ := htau
+      have := ih htau_n
+      generalize hl : Label.tau = l at *
+      induction htau <;> try contradiction
+      case tau =>
+        apply RefineF.tau_right
+        exact RefineF.idx_mono (le_refl _) le_top this
+      case choice_left ih =>
+        apply RefineF.choice_left
+        apply RefineF.idx_mono (p1' := p1) (p1 := p1) (p2' := p2) (p2 := ⊤)
+        · exact le_refl _
+        · exact le_top
+        · apply ih <;> assumption
+      case choice_right ih =>
+        apply RefineF.choice_right
+        apply RefineF.idx_mono (p1' := p1) (p1 := p1) (p2' := p2) (p2 := ⊤)
+        · exact le_refl _
+        · exact le_top
+        · apply ih <;> assumption
+
 end CTree

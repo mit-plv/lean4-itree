@@ -26,7 +26,8 @@ namespace CTree
         subst heq
         have := hsim (ret x) c.tau h (.val x) zero .ret
         simp only at this
-        sorry
+        obtain ⟨_, h, _⟩ := this
+        exact RefineF.ret_of_weak_step h
       · sorry
       · sorry
       · sorry
