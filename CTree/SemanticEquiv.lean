@@ -24,6 +24,8 @@ namespace CTree
         exact hws.ret_val
       · intro c heq
         subst heq
+        have := hsim (ret x) c.tau h (.val x) zero .ret
+        simp only at this
         sorry
       · sorry
       · sorry
