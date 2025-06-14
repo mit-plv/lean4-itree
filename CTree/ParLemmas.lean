@@ -2,11 +2,6 @@ import CTree.Par
 
 namespace Lean.Order
   open PartialOrder CompleteLattice
-  -- typeclass to register hints for monotonicity
-  class PacoMon [PartialOrder α] (f : α → α)
-  where
-    mon : monotone f
-
   -- \meet
   instance [CompleteLattice α] : Min α where
     min x y := inf (λ z => z = x ∨ z = y)
@@ -60,20 +55,47 @@ namespace Lean.Order
       · apply meet_le_left; apply rel_refl
       · apply meet_le_right; apply meet_le_left; apply rel_refl
     · apply meet_le_right; apply meet_le_right; apply rel_refl
+end Lean.Order
+
+namespace Paco
+  open Lean.Order PartialOrder CompleteLattice
+
+  -- typeclass to register hints for monotonicity
+  class PacoMon [Lean.Order.PartialOrder α] (f : α → α)
+  where
+    mon : monotone f
 
   -- parametric least fixed point, we don't "monotonize" f (⌈f⌉) as in paco for now
   -- version in paco: lfp (λ x => inf (fun z => ∃ y, z = f y ∧ r ⊓ x ⊑ y)
-  def plfp [cola : CompleteLattice α] (f : α → α) r :=
+  def plfp [Lean.Order.CompleteLattice α] (f : α → α) r :=
     lfp (λ x => f (r ⊓ x))
 
   -- "unfolded" plfp, r ⊓ plfp f r
-  def uplfp [CompleteLattice α] (f : α → α) r :=
+  def uplfp [Lean.Order.CompleteLattice α] (f : α → α) r :=
     r ⊓ (plfp f r)
 
-  instance [CompleteLattice α] (f : α → α) [PacoMon f] r : PacoMon (λ x => f (r ⊓ x))
+  -- note that we don't require monotonicity for f
+  -- this is the version in paco
+  instance [Lean.Order.CompleteLattice α] (f : α → α) r : PacoMon (λ x => inf (λ z => ∃ y, z = f y ∧ r ⊓ x ⊑ y))
   where
     mon := by
-      simp only [monotone, plfp]
+      simp only [monotone]
+      intros _ _ h
+      apply le_sup; intro z ⟨y, heq, h'⟩
+      subst heq
+      apply Lean.Order.sup_le; intro _ le
+      apply le
+      exists y; apply And.intro rfl
+      apply rel_trans _ h'
+      rw [meet_spec]
+      apply And.intro
+      · apply meet_le_left _ rel_refl
+      · apply meet_le_right _ h
+
+  instance [Lean.Order.CompleteLattice α] (f : α → α) [PacoMon f] r : PacoMon (λ x => f (r ⊓ x))
+  where
+    mon := by
+      simp only [monotone]
       intros
       apply PacoMon.mon
       rw [meet_spec]
@@ -81,12 +103,12 @@ namespace Lean.Order
       · apply meet_le_left; apply rel_refl
       · apply meet_le_right; assumption
 
-  instance [CompleteLattice α] (f : α → α) [PacoMon f] : PacoMon (plfp f)
+  instance [Lean.Order.CompleteLattice α] (f : α → α) [PacoMon f] : PacoMon (plfp f)
   where
     mon := by
       simp only [monotone, plfp]
       intros
-      apply le_sup; intros; apply sup_le; intros
+      apply le_sup; intros; apply Lean.Order.sup_le; intros
       rename_i h; apply h
       rename_i h' _; apply rel_trans _ h'; apply PacoMon.mon
       rw [meet_spec]; apply And.intro
@@ -94,26 +116,24 @@ namespace Lean.Order
         apply meet_le_left; apply rel_refl
       · apply meet_le_right; apply rel_refl
 
-  theorem plfp_init_aux [CompleteLattice α] (f : α → α) :
-    lfp f = plfp f ⊤ := by
+  theorem plfp_init_aux [Lean.Order.CompleteLattice α] (f : α → α) : lfp f = plfp f ⊤ := by
     apply rel_antisymm <;>
-    (apply le_sup; intros; apply sup_le; intros; rename_i h; apply h) <;>
+    (apply le_sup; intros; apply Lean.Order.sup_le; intros; rename_i h; apply h) <;>
     (rename_i h' _; apply rel_trans _ h'; simp only) <;>
     (rw [meet_comm, meet_top]; apply rel_refl)
 
-  theorem plfp_init [CompleteLattice α] (f : α → α) {mon} :
-    lfp_monotone f mon = plfp f ⊤ := by
+  theorem plfp_init [Lean.Order.CompleteLattice α] (f : α → α) {mon} : lfp_monotone f mon = plfp f ⊤ := by
     delta lfp_monotone
     apply plfp_init_aux
 
-  theorem plfp_unfold[CompleteLattice α] (f : α → α) [PacoMon f] :
+  theorem plfp_unfold [Lean.Order.CompleteLattice α] (f : α → α) [PacoMon f] :
     plfp f r = f (uplfp f r) := by
     rw [plfp, lfp_fix]
     rw [← plfp]
     · rfl
     · apply PacoMon.mon
 
-  theorem plfp_acc_aux [CompleteLattice α] (f : α → α) [PacoMon f] r x :
+  theorem plfp_acc_aux [Lean.Order.CompleteLattice α] (f : α → α) [mon : PacoMon f] r x :
     plfp f r ⊑ x ↔ plfp f (r ⊓ x) ⊑ x := by
     constructor <;> (intro h; apply rel_trans _ h)
     · apply PacoMon.mon; exact meet_le_left _ rel_refl
@@ -127,17 +147,81 @@ namespace Lean.Order
         exact And.intro (meet_le_left _ rel_refl) (meet_le_right _ h)
       · exact meet_le_right _ rel_refl
 
-  theorem plfp_acc [CompleteLattice α] (f : α → α) [mon : PacoMon f] l r
+  theorem plfp_acc [Lean.Order.CompleteLattice α] (f : α → α) {mon : monotone f} l r
     (obg : ∀ φ, φ ⊑ r → φ ⊑ l → plfp f φ ⊑ l) : plfp f r ⊑ l := by
-    rw [plfp_acc_aux]
+    rw [plfp_acc_aux (mon := {mon := by assumption})]
     apply obg
     · apply meet_le_left _ rel_refl
     · apply meet_le_right _ rel_refl
 
-  def extract_mon [CompleteLattice α] (f : α → α) {mon} (heq : lfp_monotone f mon = x) : PacoMon f := by
-    constructor; assumption
-  def extract_rel [CompleteLattice α] (f : α → α) {mon : monotone f} : rel (α := α) = rel := rfl
-end Lean.Order
+  -- tactics
+  open Lean Lean.Elab
+
+  inductive paco_mark
+  | mk_paco_mark
+
+  private def mp (p : P) (pq : P → Q) : Q := pq p
+  macro "pcofix_set_mark" : tactic => `(tactic|(
+    apply mp paco_mark.mk_paco_mark; intros
+  ))
+
+  elab "pcofix_intro_acc" : tactic =>
+    Tactic.withMainContext do
+      let goalType ← Tactic.getMainTarget
+      let goalHead := goalType.getAppFn
+      match goalHead with
+      | .const c _ =>
+        let expanded ← Meta.deltaExpand goalType (c == ·)
+        unless expanded.isAppOf ``Lean.Order.lfp_monotone do
+          throwError "{c} is not constructed with lfp_monotone"
+        Tactic.liftMetaTactic fun mvarId => do
+          return [← mvarId.replaceTargetDefEq expanded]
+        let args := expanded.getAppArgs
+        -- let plfp_args := args[4:]
+        let plfp_acc := .const ``plfp_acc [1]
+        let mon := {name := `mon, val:= .expr args[3]!}
+        let accBody ← Term.elabAppArgs plfp_acc #[mon] #[] none (explicit := true) false
+        let accType ← Meta.inferType accBody
+        let accName := (← getLCtx).getUnusedName `acc
+        let markId := (← getLCtx).findDecl? λ decl =>
+          match decl.type with
+          | .const ``paco_mark _ => some decl.fvarId
+          | _ => none
+        let markId ← do
+          match markId with
+          | some id => pure id
+          | none => throwError "unreachable"
+        Tactic.liftMetaTactic fun mvarId => do
+          let (_, mvarId) ← mvarId.revertAfter markId
+          let mvarId ← mvarId.clear markId
+          let mvarIdNew ← mvarId.assert accName accType accBody
+          let (_, mvarIdNew) ← mvarIdNew.intro1P
+          return [mvarIdNew]
+        Tactic.evalTactic <| ← `(tactic|
+          rw [@plfp_init];
+          simp only [
+            Lean.Order.instCompleteLatticePi,
+            Lean.Order.instOrderPi,
+            Lean.Order.ReverseImplicationOrder,
+            Lean.Order.ReverseImplicationOrder.instCompleteLattice,
+            Lean.Order.ReverseImplicationOrder.instOrder
+          ] at *)
+      | _ => throwError "{goalHead} is not a defined constant"
+
+  elab "pcofix_wrap" : tactic =>
+    Tactic.withMainContext do
+      let accDecl := (← getLCtx).lastDecl
+      let accId ← do
+        match accDecl with
+        | some decl => pure decl.fvarId
+        | none => throwError "unreachable"
+      Tactic.liftMetaTactic fun mvarId => do
+        let (_, mvarId) ← mvarId.intros
+        mvarId.apply (.fvar accId) {}
+end Paco
+
+namespace Lean.Expr
+end Lean.Expr
 
 namespace CTree
   inductive IsParR (t : CTree ε β) (t1 : CTree ε α) (t2 : CTree ε β) : Prop
@@ -289,36 +373,20 @@ namespace CTree
 
     -- set_option pp.explicit true
     theorem le_parR_ret : t ≤Eq≤ ((ret (ρ := ρ) x) ‖→ t) := by
-      exists 0
-      generalize hp1 : (0 : ℕ∞) = p1
-      exists 0
-      generalize hp2 : (0 : ℕ∞) = p2
-      generalize ht2 : (ret x ‖→ t) = t2
-      generalize heq : Refine' Eq = a
-      delta Refine' at heq
-      have acc := @Lean.Order.plfp_acc (mon := @Lean.Order.extract_mon (heq := heq))
-      subst heq
-      rw [@Lean.Order.plfp_init]
-      simp only [
-        Lean.Order.instCompleteLatticePi,
-        Lean.Order.instOrderPi,
-        Lean.Order.ReverseImplicationOrder,
-        Lean.Order.ReverseImplicationOrder.instCompleteLattice,
-        Lean.Order.ReverseImplicationOrder.instOrder
-      ] at *
-      apply acc
+      exists 0, 0
+      revert t x
+      pcofix_set_mark; pcofix_intro_acc; pcofix_wrap
       on_goal 3 =>
         intro p1 p2 t1 t2
-        exact (0 = p1 ∧ 0 = p2 ∧ ∃ x, ret (ρ := ρ) x ‖→ t1 = t2)
-      on_goal 2 => and_intros <;> first | exists ?_; assumption | assumption
+        exact (∃ x, 0 = p1 ∧ 0 = p2 ∧ ret (ρ := ρ) x ‖→ t1 = t2)
+      on_goal 2 => repeat first | apply And.intro | exists ?_ | rfl
       clear acc
       clear *-
-      intro φ dummy cih' p1 p2 t1 t2 ⟨hp1, hp2, x, ht2⟩
+      intro φ dummy cih' p1 p2 t1 t2 ⟨x, hp1, hp2, ht2⟩
       clear dummy
       subst hp1 hp2 ht2
       have cih : ∀ t1 (x : ρ), φ 0 0 t1 (ret x ‖→ t1) := by
-        intros; apply cih'; and_intros <;> try rfl
-        exists ?_; rfl
+        intros; apply cih'; exists ?_; and_intros <;> rfl
       clear cih'
       -- now the goal looks exactly like how paco would've rearranged it
       -- how can we encapsulate this pattern into a tactic?
@@ -492,5 +560,4 @@ namespace CTree
     theorem parR_symm : ((t1 ‖→ t2) ‖→ t3) ≈ ((t2 ‖→ t1) ‖→ t3) := by
       sorry
   end Euttc
-  #print Refine'
 end CTree
