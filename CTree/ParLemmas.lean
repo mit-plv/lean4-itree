@@ -160,10 +160,10 @@ namespace Paco
   private inductive paco_mark
   | mk_paco_mark
 
-  private def mp (p : P) (pq : P → Q) : Q := pq p
+  private def mp P Q (p : P) (pq : P → Q) : Q := pq p
 
   macro "pcofix_set_mark" : tactic => `(tactic|(
-    apply mp paco_mark.mk_paco_mark
+    apply mp _ _ paco_mark.mk_paco_mark
     intros
   ))
 
@@ -184,14 +184,10 @@ namespace Paco
         let accBody ← Term.elabAppArgs plfp_acc #[mon] #[] none (explicit := true) false
         let accType ← Meta.inferType accBody
         let accName := (← getLCtx).getUnusedName `acc
-        let markId := (← getLCtx).findDecl? λ decl =>
+        let some markId := (← getLCtx).findDecl? (λ decl =>
           match decl.type with
           | .const ``paco_mark _ => some decl.fvarId
-          | _ => none
-        let markId ← do
-          match markId with
-          | some id => pure id
-          | none => throwError "unreachable"
+          | _ => none) | throwError "unreachable"
         -- accType and accBody should not have dependencies below markId
         let (_, hasDep) := (← getLCtx).foldr (λ ldecl (found, hasDep) =>
           let fvar := ldecl.fvarId
@@ -207,10 +203,9 @@ namespace Paco
           let mvarIdNew ← mvarId.assert accName accType accBody
           let (_, mvarIdNew) ← mvarIdNew.intro1P
           return [mvarIdNew]
-        Tactic.evalTactic <| ← `(tactic|try rw [@plfp_init])
+        Tactic.evalTactic <| ← `(tactic|rw [@plfp_init])
       | _ => throwError "{goalHead} is not a defined constant"
 
-  def test := ∃ x, x = 1
   elab "pcofix_wrap" : tactic =>
     Tactic.withMainContext do
       let goalType ← Tactic.getMainTarget
@@ -220,39 +215,84 @@ namespace Paco
           let packer : Meta.ArgsPacker := {varNamess := #[varNames]}
           let ty := conc.getAppArgs[0]!
           pure (packer, ← Meta.ArgsPacker.uncurryType packer #[goalType], ty)
-      let funcExpr ← Meta.withLocalDecl `x BinderInfo.default packedGoalType λ x => do
+      let toPacked ← Meta.withLocalDecl `x BinderInfo.default packedGoalType λ x => do
         let body ← Meta.ArgsPacker.curry packer x
         Meta.mkLambdaFVars #[x] body
-      let accArg ← Meta.forallTelescope accArgType λ accArgs _ => do
+      let (accArg, unpacker, converter) ← Meta.forallTelescope accArgType λ accArgs _ => do
         Meta.forallTelescope packedGoalType λ packedArg goalConc => do
           let goalArgs := goalConc.getAppArgs[4:].toArray
           assert! (goalArgs.size == accArgs.size)
-          let zipped := Array.zip accArgs goalArgs
-          let anded ← Array.foldlM (λ (acc : Expr) (ab : Expr × Expr) => do
-            let eq ← Meta.mkEq ab.1 ab.2
-            pure (mkAnd eq acc)) (.const ``True []) zipped
-          let exCtor ← Meta.mkConstWithFreshMVarLevels ``Exists
-          let exType ← Meta.inferType packedArg[0]!
+          let anded ← Array.foldlM (λ acc (accArg, goalArg) => do
+            let eq ← Meta.mkEq accArg goalArg
+            pure (mkAnd eq acc)
+          ) (.const ``True []) (Array.zip accArgs goalArgs)
           let exBody ← Meta.mkLambdaFVars packedArg anded
-          Meta.mkLambdaFVars accArgs (mkApp2 exCtor exType exBody)
-      let accDecl := (← getLCtx).lastDecl
-      let accId ← do
-        match accDecl with
-        | some decl => pure decl.fvarId
-        | none => throwError "unreachable"
+          let ex ← Meta.mkAppM ``Exists #[exBody]
+          let (unpacker, converter) ← Meta.withLocalDecl `φ BinderInfo.default accArgType λ φ => do
+            let leftBody ← mkArrow ex (mkAppN φ accArgs)
+            let left ← Meta.mkForallFVars accArgs leftBody
+            let rightPacked ← Meta.mkForallFVars packedArg (mkAppN φ goalArgs)
+            let right ← Meta.ArgsPacker.curryType packer rightPacked
+            let toPacked ← Meta.withLocalDecl `f BinderInfo.default right[0]! λ f => do
+              let body ← Meta.ArgsPacker.uncurry packer #[f]
+              Meta.mkLambdaFVars #[f] body
+            let toUnpacked ← Meta.withLocalDecl `f BinderInfo.default rightPacked λ f => do
+              let body ← Meta.ArgsPacker.curry packer f
+              Meta.mkLambdaFVars #[f] body
+            let iffType ← Meta.inferType toUnpacked
+            let some (a, b) := iffType.arrow? | throwError "unreachable"
+            let iffIntro := Expr.const ``Iff.intro []
+            let unpacker ← Meta.mkLambdaFVars #[φ] (mkApp4 iffIntro a b toUnpacked toPacked)
+            let converter ← Meta.mkForallFVars #[φ] (mkIff left rightPacked)
+            pure (unpacker, converter)
+          let accArg ← Meta.mkLambdaFVars accArgs ex
+          pure (accArg, unpacker, converter)
+      let some accDecl := (← getLCtx).lastDecl | throwError "unreachable"
+      let accId := accDecl.fvarId
       Tactic.liftMetaTactic fun mvarId => do
-        let mvarIds ← mvarId.apply funcExpr
-        match mvarIds with
-        | [mvarId] =>
-          let (_, mvarId) ← mvarId.intros
-          let mvarIds ← mvarId.apply (.app (.fvar accId) accArg) {}
-          match mvarIds with
-          | [mvarMain, mvarPf] =>
-            let mvarMain ← mvarMain.cleanup
-            let mvarMain ← mvarMain.clear accId
-            return [mvarMain, mvarPf]
-          | _ => throwError "unreachable"
-        | _ => throwError "unreachable"
+        let [mvarId] ← mvarId.apply toPacked | throwError "unreachable"
+        let (_, mvarId) ← mvarId.intros
+        let [mvarMain, mvarPf] ← mvarId.apply (.app (.fvar accId) accArg) {} | throwError "unreachable"
+        let mvarMain ← mvarMain.cleanup
+        let mvarMain ← mvarMain.clear accId
+        let mp ← Meta.mkAppM ``mp #[(← Meta.inferType unpacker), (← mvarMain.getType), unpacker]
+        let [mvarMain] ← mvarMain.apply mp | throwError "unreachable"
+        let mp ← Meta.mkAppM ``mp #[converter, (← mvarMain.getType)]
+        let [converter, mvarMain] ← mvarMain.apply mp | throwError "unreachable"
+        return [converter, mvarMain, mvarPf]
+
+  elab "destruct_last_and" : tactic =>
+    Tactic.liftMetaTactic fun mvarId => do
+      let some last := (← getLCtx).lastDecl | throwError "unreachable"
+      let lastId := last.fvarId
+      let #[case] ← mvarId.cases lastId | throwError "last hyp has many cases"
+      if case.ctorName != ``And.intro then throwError "constructor is not and"
+      return [case.mvarId]
+
+  elab "subst_all" : tactic =>
+    Tactic.liftMetaTactic fun mvarId => do
+      let some mvarId ← mvarId.substEqs | throwError "cannot subst"
+      return [mvarId]
+
+  macro "pcofix" : tactic => `(tactic|(
+    pcofix_set_mark; pcofix_intro_acc; pcofix_wrap
+    on_goal 3 => rename_i x; exists x
+    intros; constructor
+    · intro h x; apply h; exists x
+    · intro h; intros; rename_i anded; revert anded; intro ⟨_, anded⟩
+      repeat destruct_last_and
+      subst_all; apply h
+    intro converter unpacker φ dummy cih
+    simp only [
+      Lean.Order.instCompleteLatticePi,
+      Lean.Order.instOrderPi,
+      Lean.Order.ReverseImplicationOrder,
+      Lean.Order.ReverseImplicationOrder.instCompleteLattice,
+      Lean.Order.ReverseImplicationOrder.instOrder
+    ] at *
+    rw [converter, unpacker] at *
+    clear converter unpacker dummy
+  ))
 end Paco
 
 namespace Lean.Expr
@@ -409,13 +449,8 @@ namespace CTree
     -- set_option pp.explicit true
     theorem le_parR_ret : t ≤Eq≤ ((ret (ρ := ρ) x) ‖→ t) := by
       exists 0, 0
-      rename_i ε _
       revert t x
-      pcofix_set_mark; pcofix_intro_acc; pcofix_wrap
-      intro φ dummy cih
-      clear dummy
-      -- now we only have to rearrange (curry) cih and the goal
-      on_goal 2 => rename_i x; exists x
+      pcofix
       sorry
 
     theorem parR_ret : ((ret x) ‖→ t) ≈ t := by
