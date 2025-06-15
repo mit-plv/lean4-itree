@@ -61,7 +61,7 @@ open Lean.Order PartialOrder CompleteLattice
 
 -- note that we don't require monotonicity for f
 -- this is the version in paco
-theorem monotonize_mono [Lean.Order.CompleteLattice α] (f : α → α) r :
+theorem monotonize_mon [Lean.Order.CompleteLattice α] (f : α → α) r :
   monotone (λ x => inf (λ z => ∃ y, z = f y ∧ r ⊓ x ⊑ y)) := by
   simp only [monotone]
   intros _ _ h
@@ -86,16 +86,16 @@ theorem plfp_arg_mon [Lean.Order.CompleteLattice α] {f : α → α} (mon : mono
   · apply meet_le_left; apply rel_refl
   · apply meet_le_right; assumption
 
--- parametric least fixed point, we don't "monotonize" f (⌈f⌉) as in paco for now
+-- parameterized least fixed point, we don't "monotonize" f (⌈f⌉) as in paco for now
 -- version in paco: lfp (λ x => inf (fun z => ∃ y, z = f y ∧ r ⊓ x ⊑ y)
-def plfp [Lean.Order.CompleteLattice α] (f : α → α) {mon : monotone f} r :=
+def plfp [Lean.Order.CompleteLattice α] (f : α → α) {mon} r :=
   lfp_monotone (λ x => f (r ⊓ x)) (plfp_arg_mon mon r)
 
 -- "unfolded" plfp, r ⊓ plfp f r
-def uplfp [Lean.Order.CompleteLattice α] (f : α → α) {mon : monotone f} r :=
+def uplfp [Lean.Order.CompleteLattice α] (f : α → α) {mon} r :=
   r ⊓ (plfp f (mon := mon) r)
 
-theorem plfp_mon [Lean.Order.CompleteLattice α] {f : α → α} (mon : monotone f) :
+theorem plfp_mon [Lean.Order.CompleteLattice α] {f : α → α} mon :
   monotone (plfp f (mon := mon)) := by
   simp only [monotone, plfp]
   intros
@@ -107,14 +107,14 @@ theorem plfp_mon [Lean.Order.CompleteLattice α] {f : α → α} (mon : monotone
     apply meet_le_left; apply rel_refl
   · apply meet_le_right; apply rel_refl
 
-theorem plfp_init [Lean.Order.CompleteLattice α] (f : α → α) {mon} :
+theorem plfp_init [Lean.Order.CompleteLattice α] {f : α → α} mon :
   lfp_monotone f mon = plfp f (mon := mon) ⊤ := by
   apply rel_antisymm <;>
   (apply le_sup; intros; apply Lean.Order.sup_le; intros; rename_i h; apply h) <;>
   (rename_i h' _; apply rel_trans _ h'; simp only) <;>
   (rw [meet_comm, meet_top]; apply rel_refl)
 
-theorem plfp_unfold [Lean.Order.CompleteLattice α] (f : α → α) {mon: monotone f} :
+theorem plfp_unfold [Lean.Order.CompleteLattice α] {f : α → α} mon :
   plfp f (mon := mon) r = f (uplfp f (mon := mon) r) := by
   rw [plfp]
   delta lfp_monotone
@@ -124,7 +124,20 @@ theorem plfp_unfold [Lean.Order.CompleteLattice α] (f : α → α) {mon: monoto
   · rfl
   · apply plfp_arg_mon mon
 
-theorem plfp_acc_aux [Lean.Order.CompleteLattice α] {f : α → α} (mon : monotone f) r x :
+theorem uplfp_goal [Lean.Order.CompleteLattice α] {f : α → α} mon :
+  r ⊑ z ∨ plfp f (mon := mon) r ⊑ z → uplfp (mon := mon) f r ⊑ z := by
+  simp only [uplfp]
+  intro h; cases h
+  · apply meet_le_left; assumption
+  · apply meet_le_right; assumption
+
+theorem uplfp_hyp [Lean.Order.CompleteLattice α] {f : α → α} mon :
+  z ⊑ uplfp (mon := mon) f r → z ⊑ r ∧ z ⊑ plfp f (mon := mon) r := by
+  simp only [uplfp]
+  rw [meet_spec]
+  exact id
+
+theorem plfp_acc_aux [Lean.Order.CompleteLattice α] {f : α → α} mon r x :
   plfp f (mon := mon) r ⊑ x ↔ plfp f (mon := mon) (r ⊓ x) ⊑ x := by
   constructor <;> (intro h; apply rel_trans _ h)
   · apply plfp_mon mon; exact meet_le_left _ rel_refl
@@ -137,7 +150,7 @@ theorem plfp_acc_aux [Lean.Order.CompleteLattice α] {f : α → α} (mon : mono
       exact And.intro (meet_le_left _ rel_refl) (meet_le_right _ h)
     · exact meet_le_right _ rel_refl
 
-theorem plfp_acc [Lean.Order.CompleteLattice α] {f : α → α} (mon : monotone f) l r
+theorem plfp_acc [Lean.Order.CompleteLattice α] {f : α → α} mon l r
   (obg : ∀ φ, φ ⊑ r → φ ⊑ l → plfp f (mon := mon) φ ⊑ l) : plfp f (mon := mon) r ⊑ l := by
   rw [plfp_acc_aux mon]
   apply obg
@@ -150,6 +163,7 @@ open Lean Lean.Elab
 private inductive paco_mark : Prop
 | mk_paco_mark
 
+-- modus ponens, used to introduce new hypothesis
 private def mp P Q (p : P) (pq : P → Q) : Q := pq p
 
 elab "pinit" : tactic =>
@@ -192,6 +206,7 @@ elab "pcofix_intro_acc" : tactic =>
     ) (false, false)
     if hasDep then
       throwError "{monArg}, the proof of monotonicity should not depend on anything that is generalized"
+    Tactic.evalTactic <| ← `(tactic|rw [@plfp_init] at *)
     Tactic.liftMetaTactic fun mvarId => do
       let (_, mvarId) ← mvarId.revertAfter markId
       let mvarId ← mvarId.clear markId
@@ -199,7 +214,6 @@ elab "pcofix_intro_acc" : tactic =>
       let [mvarId] ← mvarId.apply mp | throwError "unreachable"
       let (_, mvarId) ← mvarId.intro1
       return [mvarId]
-    Tactic.evalTactic <| ← `(tactic|rw [@plfp_init] at *)
 
 elab "pcofix_wrap" : tactic =>
   Tactic.withMainContext do
@@ -216,7 +230,8 @@ elab "pcofix_wrap" : tactic =>
     let (accArg, unpacker, converter) ← Meta.forallTelescope accArgType λ accArgs _ => do
       Meta.forallTelescope packedGoalType λ packedArg goalConc => do
         let goalArgs := goalConc.getAppArgs[5:].toArray
-        assert! (goalArgs.size == accArgs.size)
+        if goalArgs.size != accArgs.size then
+          throwError "pcofix_wrap, {goalArgs} and {accArgs} have different length"
         let anded ← Array.foldlM (λ acc (accArg, goalArg) => do
           let eq ← Meta.mkEq accArg goalArg
           pure (mkAnd eq acc)
@@ -315,3 +330,34 @@ elab "pinit" " at " h:ident : tactic =>
       let (_, mvarId) ← mvarId.introNP (revertedHypNum - originalHypNum)
       return [mvarId]
     Tactic.evalTactic <| ← `(tactic|rw [@plfp_init] at *)
+
+syntax "pclearbot" " at " ident : tactic
+macro_rules
+| `(tactic| pclearbot at $h:ident) =>
+  `(tactic|
+      simp only [uplfp] at $h:ident;
+      rw [@Lean.Order.meet_comm, @Lean.Order.meet_top] at $h:ident)
+
+elab "split_uplfp" : tactic =>
+  Tactic.withMainContext do
+    let goalType ← Tactic.getMainTarget
+    unless goalType.isAppOf ``uplfp do
+      throwError "not uplfp"
+    let monArg := goalType.getAppArgs[3]!
+    let uplfp_goal ← Meta.mkConstWithFreshMVarLevels ``uplfp_goal
+    let mon := {name := `mon, val:= .expr monArg}
+    let body ← Term.elabAppArgs uplfp_goal #[mon] #[] none (explicit := true) false
+    Tactic.liftMetaTactic fun mvarId => do
+      let mp ← Meta.mkAppM ``mp #[(← Meta.inferType body), (← mvarId.getType), body]
+      let [mvarId] ← mvarId.apply mp | throwError "unreachable"
+      return [mvarId]
+    Tactic.evalTactic <| ← `(tactic|
+      intro _uplfp_goal;
+      simp only [
+        Lean.Order.instCompleteLatticePi,
+        Lean.Order.instOrderPi,
+        Lean.Order.ReverseImplicationOrder,
+        Lean.Order.ReverseImplicationOrder.instCompleteLattice,
+        Lean.Order.ReverseImplicationOrder.instOrder
+      ] at _uplfp_goal;
+      apply _uplfp_goal)

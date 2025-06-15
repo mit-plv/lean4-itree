@@ -199,55 +199,65 @@ namespace CTree
     (h : Refine' r1 p1 p2 (.ret x) t)
     : ∀ y, (∀ z, r1 x z → r2 y z) → Refine' r2 p1 p2 (.ret y) t := by
     intro y hyz
-    apply Refine'.coind (fun p1 p2 t1 t2 => ∃ x y t', t' = ret x ∧ Refine' r1 p1 p2 t' t2 ∧ (∀ z, r1 x z → r2 y z) ∧ ret y = t1)
-    on_goal 2 =>
-      exact ⟨x, ⟨y, ⟨.ret x, by simp_all only [implies_true, and_self]⟩⟩⟩
-    clear *-
-    intro p1 p2 t1 t2 h
-    have ⟨x, ⟨y, ⟨t', ⟨eq_ret, ⟨h', ⟨impl, eq_ret'⟩⟩⟩⟩⟩⟩ := h
-    clear h
-    revert t1 x y
-    rw [Refine'] at h'
-    induction h' with
+    generalize eq_t1 : ret y = t1
+    generalize eq_t1' : ret x = t1' at h
+    revert x y t1
+    revert p1 p2 t1' t
+    pcofix
+    rename_i φ cih
+    intro p1 p2 t t1' h
+    punfold at h
+    induction h with
     | coind p1'' p2'' h1' h2' h =>
-      intros t x y _ _ _
-      rename_i eq_ret impl eq_ret'
+      intros x y hyz t _ _
+      rename_i eq_ret eq_ret'
       subst eq_ret eq_ret'
+      pfold
       apply RefineF.coind <;> try assumption
-      exact ⟨x, ⟨y, ⟨.ret x, by simp_all only [implies_true, and_self]⟩⟩⟩
+      pclearbot at h
+      split_uplfp
+      left; intros; rename_i h; exact h
+      apply cih <;> try assumption
+      all_goals rfl
     | ret h =>
-      intros t x y eq_ret impl eq_ret'
-      rename_i x' y' p1' p2'
-      apply ret_inj at eq_ret
+      intros x y hyz t eq_ret eq_ret'
+      apply ret_inj at eq_ret'
       subst eq_ret eq_ret'
-      apply RefineF.ret; apply impl; assumption
+      pfold
+      apply RefineF.ret; apply hyz; assumption
     | vis h _ =>
       intros
-      rename_i eq_ret _ _
+      rename_i _ _ eq_ret
       ctree_elim eq_ret
     | tau_left h ih =>
       intros
-      rename_i eq_ret _ _
+      rename_i _ _ eq_ret
       ctree_elim eq_ret
-    | tau_right h =>
+    | tau_right h ih =>
       intros
-      rename_i h_ih _ _ _ _ _ _
-      apply RefineF.tau_right; apply h_ih <;> assumption
+      pfold
+      apply RefineF.tau_right
+      rw [← @plfp_unfold (f := RefineF r2)]
+      apply ih <;> assumption
     | zero =>
       intros
-      rename_i eq_ret _ _
+      rename_i _ _ eq_ret
       ctree_elim eq_ret
-    | choice_left h =>
+    | choice_left h ih =>
       intros
-      rename_i h_ih _ _ _ _ _ _
-      apply RefineF.choice_left; apply h_ih <;> assumption
-    | choice_right h =>
+      pfold
+      apply RefineF.choice_left
+      rw [← @plfp_unfold (f := RefineF r2)]
+      apply ih <;> assumption
+    | choice_right h ih =>
       intros
-      rename_i h_ih _ _ _ _ _ _
-      apply RefineF.choice_right; apply h_ih <;> assumption
+      pfold
+      apply RefineF.choice_right
+      rw [← @plfp_unfold (f := RefineF r2)]
+      apply ih <;> assumption
     | choice_idemp h1 h2 =>
       intros
-      rename_i eq_ret _ _
+      rename_i _ _ eq_ret
       ctree_elim eq_ret
 
   theorem Refine'.inv_ret_right {r1 : Rel ρ σ1} {r2 : Rel ρ σ2}
