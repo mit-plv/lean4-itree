@@ -1,4 +1,4 @@
-import Mathlib.Data.Rel
+import Mathlib.Order.Basic
 
 namespace Lean.Order
   open PartialOrder CompleteLattice
@@ -137,8 +137,7 @@ theorem plfp_acc_aux [Lean.Order.CompleteLattice α] (f : α → α) [mon : Paco
   constructor <;> (intro h; apply rel_trans _ h)
   · apply PacoMon.mon; exact meet_le_left _ rel_refl
   · apply lfp_le_of_le
-    apply rel_trans
-    on_goal 2 => rw [plfp_unfold]; apply rel_refl
+    apply rel_trans _ (by rw [plfp_unfold]; apply rel_refl)
     apply PacoMon.mon
     rw [uplfp, meet_spec]
     apply And.intro
@@ -259,7 +258,7 @@ elab "pcofix_wrap" : tactic =>
       let [mvarMain] ← mvarMain.apply mp | throwError "unreachable"
       let mp ← Meta.mkAppM ``mp #[converter, (← mvarMain.getType)]
       let [converter, mvarMain] ← mvarMain.apply mp | throwError "unreachable"
-      return [converter, mvarMain, mvarPf]
+      return [mvarPf, converter, mvarMain]
 
 elab "destruct_last_and" : tactic =>
   Tactic.liftMetaTactic fun mvarId => do
@@ -276,7 +275,7 @@ elab "subst_all" : tactic =>
 
 macro "pcofix" : tactic => `(tactic|(
   pcofix_set_mark; pcofix_intro_acc; pcofix_wrap
-  on_goal 3 => rename_i x; exists x
+  rename_i x; exists x
   intros; constructor
   · intro h x; apply h; exists x
   · intro h; intros; rename_i anded; revert anded; intro ⟨_, anded⟩
