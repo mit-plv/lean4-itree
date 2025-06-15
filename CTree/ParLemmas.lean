@@ -147,7 +147,7 @@ namespace Paco
         exact And.intro (meet_le_left _ rel_refl) (meet_le_right _ h)
       · exact meet_le_right _ rel_refl
 
-  theorem plfp_acc [Lean.Order.CompleteLattice α] (f : α → α) {mon : monotone f} l r
+  theorem plfp_acc [Lean.Order.CompleteLattice α] {f : α → α} (mon : monotone f) l r
     (obg : ∀ φ, φ ⊑ r → φ ⊑ l → plfp f φ ⊑ l) : plfp f r ⊑ l := by
     rw [plfp_acc_aux (mon := {mon := by assumption})]
     apply obg
@@ -157,12 +157,14 @@ namespace Paco
   -- tactics
   open Lean Lean.Elab
 
-  inductive paco_mark
+  private inductive paco_mark
   | mk_paco_mark
 
   private def mp (p : P) (pq : P → Q) : Q := pq p
+
   macro "pcofix_set_mark" : tactic => `(tactic|(
-    apply mp paco_mark.mk_paco_mark; intros
+    apply mp paco_mark.mk_paco_mark
+    intros
   ))
 
   elab "pcofix_intro_acc" : tactic =>
@@ -177,8 +179,7 @@ namespace Paco
         Tactic.liftMetaTactic fun mvarId => do
           return [← mvarId.replaceTargetDefEq expanded]
         let args := expanded.getAppArgs
-        -- let plfp_args := args[4:]
-        let plfp_acc := .const ``plfp_acc [1]
+        let plfp_acc ← Meta.mkConstWithFreshMVarLevels ``plfp_acc
         let mon := {name := `mon, val:= .expr args[3]!}
         let accBody ← Term.elabAppArgs plfp_acc #[mon] #[] none (explicit := true) false
         let accType ← Meta.inferType accBody
@@ -191,33 +192,67 @@ namespace Paco
           match markId with
           | some id => pure id
           | none => throwError "unreachable"
+        -- accType and accBody should not have dependencies below markId
+        let (_, hasDep) := (← getLCtx).foldr (λ ldecl (found, hasDep) =>
+          let fvar := ldecl.fvarId
+          if found then (found, hasDep)
+          else if fvar == markId then (true, hasDep)
+          else (false, hasDep || accType.containsFVar fvar || accBody.containsFVar fvar)
+        ) (false, false)
+        if hasDep then
+          throwError "plfp_acc should not depend on anything that is generalized"
         Tactic.liftMetaTactic fun mvarId => do
           let (_, mvarId) ← mvarId.revertAfter markId
           let mvarId ← mvarId.clear markId
           let mvarIdNew ← mvarId.assert accName accType accBody
           let (_, mvarIdNew) ← mvarIdNew.intro1P
           return [mvarIdNew]
-        Tactic.evalTactic <| ← `(tactic|
-          rw [@plfp_init];
-          simp only [
-            Lean.Order.instCompleteLatticePi,
-            Lean.Order.instOrderPi,
-            Lean.Order.ReverseImplicationOrder,
-            Lean.Order.ReverseImplicationOrder.instCompleteLattice,
-            Lean.Order.ReverseImplicationOrder.instOrder
-          ] at *)
+        Tactic.evalTactic <| ← `(tactic|try rw [@plfp_init])
       | _ => throwError "{goalHead} is not a defined constant"
 
+  def test := ∃ x, x = 1
   elab "pcofix_wrap" : tactic =>
     Tactic.withMainContext do
+      let goalType ← Tactic.getMainTarget
+      let (packer, packedGoalType, accArgType) ←
+        Meta.forallTelescope goalType λ args conc => do
+          let varNames ← args.mapM (·.fvarId!.getUserName)
+          let packer : Meta.ArgsPacker := {varNamess := #[varNames]}
+          let ty := conc.getAppArgs[0]!
+          pure (packer, ← Meta.ArgsPacker.uncurryType packer #[goalType], ty)
+      let funcExpr ← Meta.withLocalDecl `x BinderInfo.default packedGoalType λ x => do
+        let body ← Meta.ArgsPacker.curry packer x
+        Meta.mkLambdaFVars #[x] body
+      let accArg ← Meta.forallTelescope accArgType λ accArgs _ => do
+        Meta.forallTelescope packedGoalType λ packedArg goalConc => do
+          let goalArgs := goalConc.getAppArgs[4:].toArray
+          assert! (goalArgs.size == accArgs.size)
+          let zipped := Array.zip accArgs goalArgs
+          let anded ← Array.foldlM (λ (acc : Expr) (ab : Expr × Expr) => do
+            let eq ← Meta.mkEq ab.1 ab.2
+            pure (mkAnd eq acc)) (.const ``True []) zipped
+          let exCtor ← Meta.mkConstWithFreshMVarLevels ``Exists
+          let exType ← Meta.inferType packedArg[0]!
+          let exBody ← Meta.mkLambdaFVars packedArg anded
+          Meta.mkLambdaFVars accArgs (mkApp2 exCtor exType exBody)
       let accDecl := (← getLCtx).lastDecl
       let accId ← do
         match accDecl with
         | some decl => pure decl.fvarId
         | none => throwError "unreachable"
       Tactic.liftMetaTactic fun mvarId => do
-        let (_, mvarId) ← mvarId.intros
-        mvarId.apply (.fvar accId) {}
+        let mvarIds ← mvarId.apply funcExpr
+        match mvarIds with
+        | [mvarId] =>
+          let (_, mvarId) ← mvarId.intros
+          let mvarIds ← mvarId.apply (.app (.fvar accId) accArg) {}
+          match mvarIds with
+          | [mvarMain, mvarPf] =>
+            let mvarMain ← mvarMain.cleanup
+            let mvarMain ← mvarMain.clear accId
+            return [mvarMain, mvarPf]
+          | _ => throwError "unreachable"
+        | _ => throwError "unreachable"
 end Paco
 
 namespace Lean.Expr
@@ -374,22 +409,13 @@ namespace CTree
     -- set_option pp.explicit true
     theorem le_parR_ret : t ≤Eq≤ ((ret (ρ := ρ) x) ‖→ t) := by
       exists 0, 0
+      rename_i ε _
       revert t x
       pcofix_set_mark; pcofix_intro_acc; pcofix_wrap
-      on_goal 3 =>
-        intro p1 p2 t1 t2
-        exact (∃ x, 0 = p1 ∧ 0 = p2 ∧ ret (ρ := ρ) x ‖→ t1 = t2)
-      on_goal 2 => repeat first | apply And.intro | exists ?_ | rfl
-      clear acc
-      clear *-
-      intro φ dummy cih' p1 p2 t1 t2 ⟨x, hp1, hp2, ht2⟩
+      intro φ dummy cih
       clear dummy
-      subst hp1 hp2 ht2
-      have cih : ∀ t1 (x : ρ), φ 0 0 t1 (ret x ‖→ t1) := by
-        intros; apply cih'; exists ?_; and_intros <;> rfl
-      clear cih'
-      -- now the goal looks exactly like how paco would've rearranged it
-      -- how can we encapsulate this pattern into a tactic?
+      -- now we only have to rearrange (curry) cih and the goal
+      on_goal 2 => rename_i x; exists x
       sorry
 
     theorem parR_ret : ((ret x) ‖→ t) ≈ t := by
