@@ -204,7 +204,6 @@ namespace CTree
     revert x y t1
     revert p1 p2 t1' t
     pcofix
-    rename_i φ cih
     intro p1 p2 t t1' h
     punfold at h
     induction h with
