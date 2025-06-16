@@ -166,11 +166,23 @@ private inductive paco_mark : Prop
 -- modus ponens, used to introduce new hypothesis
 private def mp P Q (p : P) (pq : P → Q) : Q := pq p
 
+-- introduce a new fact, given the witness for that fact
+def Lean.MVarId.intro_fact (mvarId : MVarId) (fact : Expr) : MetaM MVarId := do
+  let mp ← Meta.mkAppM ``mp #[(← Meta.inferType fact), (← mvarId.getType), fact]
+  let [mvarId] ← mvarId.apply mp | throwError "unreachable"
+  return mvarId
+
+-- introduce a new fact, and a new goal to prove that fact
+-- the new goal is the first return value
+def Lean.MVarId.intro_fact_with_new_goal (mvarId : MVarId) (factType : Expr) : MetaM (MVarId × MVarId) := do
+  let mp ← Meta.mkAppM ``mp #[factType, (← mvarId.getType)]
+  let [factId, mvarId] ← mvarId.apply mp | throwError "unreachable"
+  return (factId, mvarId)
+
 elab "pinit" : tactic =>
   Tactic.liftMetaTactic λ mvarId => do
     let mark := Expr.const ``paco_mark.mk_paco_mark []
-    let mp ← Meta.mkAppM ``mp #[(← Meta.inferType mark), (← mvarId.getType), mark]
-    let [mvarId] ← mvarId.apply mp | throwError "unreachable"
+    let mvarId ← mvarId.intro_fact mark
     let originalHypNum := Meta.getIntrosSize (← mvarId.getType)
     let (_, mvarId) ← mvarId.introNP originalHypNum
     let goalType ← mvarId.getType
@@ -202,16 +214,14 @@ elab "pcofix_intro_acc" : tactic =>
       let fvar := ldecl.fvarId
       if found then (found, hasDep)
       else if fvar == markId then (true, hasDep)
-      else (false, hasDep || monArg.containsFVar fvar || monArg.containsFVar fvar)
+      else (false, hasDep || monArg.containsFVar fvar)
     ) (false, false)
     if hasDep then
       throwError "{monArg}, the proof of monotonicity should not depend on anything that is generalized"
-    Tactic.evalTactic <| ← `(tactic|rw [@plfp_init] at *)
     Tactic.liftMetaTactic fun mvarId => do
       let (_, mvarId) ← mvarId.revertAfter markId
       let mvarId ← mvarId.clear markId
-      let mp ← Meta.mkAppM ``mp #[(← Meta.inferType accBody), (← mvarId.getType), accBody]
-      let [mvarId] ← mvarId.apply mp | throwError "unreachable"
+      let mvarId ← mvarId.intro_fact accBody
       let (_, mvarId) ← mvarId.intro1
       return [mvarId]
 
@@ -265,33 +275,34 @@ elab "pcofix_wrap" : tactic =>
       let [mvarMain, mvarPf] ← mvarId.apply (.app (.fvar accId) accArg) {} | throwError "unreachable"
       let mvarMain ← mvarMain.cleanup
       let mvarMain ← mvarMain.clear accId
-      let mp ← Meta.mkAppM ``mp #[(← Meta.inferType unpacker), (← mvarMain.getType), unpacker]
-      let [mvarMain] ← mvarMain.apply mp | throwError "unreachable"
-      let mp ← Meta.mkAppM ``mp #[converter, (← mvarMain.getType)]
-      let [converter, mvarMain] ← mvarMain.apply mp | throwError "unreachable"
+      let mvarMain ← mvarMain.intro_fact unpacker
+      let (converter, mvarMain) ← mvarMain.intro_fact_with_new_goal converter
       return [mvarPf, converter, mvarMain]
 
 elab "destruct_last_and" : tactic =>
   Tactic.liftMetaTactic fun mvarId => do
     let some last := (← getLCtx).lastDecl | throwError "unreachable"
     let lastId := last.fvarId
-    let #[case] ← mvarId.cases lastId | throwError "last hyp has many cases"
-    if case.ctorName != ``And.intro then throwError "constructor is not and"
-    return [case.mvarId]
-
-elab "subst_all" : tactic =>
-  Tactic.liftMetaTactic fun mvarId => do
-    let some mvarId ← mvarId.substEqs | throwError "cannot subst"
+    let lastType ← lastId.getType
+    unless lastType.isAppOf ``And do
+      throwError "constructor is not and"
+    let left ← Meta.mkAppM ``And.left #[.fvar lastId]
+    let right ← Meta.mkAppM ``And.right #[.fvar lastId]
+    let mvarId ← mvarId.intro_fact left
+    let (_, mvarId) ← mvarId.intro1
+    let mvarId ← mvarId.intro_fact right
+    let (_, mvarId) ← mvarId.intro1
+    let mvarId ← mvarId.clear lastId
     return [mvarId]
 
 macro "pcofix" : tactic => `(tactic|(
-  pinit; pcofix_intro_acc; pcofix_wrap
+  pinit; rw [@plfp_init] at *; pcofix_intro_acc; pcofix_wrap
   rename_i x; exists x -- proof for plfp_acc
   intros; constructor -- proof for converter
   · intro h x; apply h; exists x
   · intro h; intros; rename_i anded; revert anded; intro ⟨_, anded⟩
-    repeat destruct_last_and
-    subst_all; apply h; try assumption
+    repeat (destruct_last_and; rename_i h' _; subst h')
+    apply h; try assumption
   intro converter unpacker φ dummy cih -- main goal
   simp only [
     Lean.Order.instCompleteLatticePi,
@@ -348,8 +359,7 @@ elab "split_uplfp" : tactic =>
     let mon := {name := `mon, val:= .expr monArg}
     let body ← Term.elabAppArgs uplfp_goal #[mon] #[] none (explicit := true) false
     Tactic.liftMetaTactic fun mvarId => do
-      let mp ← Meta.mkAppM ``mp #[(← Meta.inferType body), (← mvarId.getType), body]
-      let [mvarId] ← mvarId.apply mp | throwError "unreachable"
+      let mvarId ← mvarId.intro_fact body
       return [mvarId]
     Tactic.evalTactic <| ← `(tactic|
       intro _uplfp_goal;
