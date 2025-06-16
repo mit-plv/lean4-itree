@@ -91,7 +91,7 @@ theorem plfp_arg_mon [Lean.Order.CompleteLattice α] {f : α → α} (hm : monot
 
 /--
 Parameterized least fixed point, we don't "monotonize" f (⌈f⌉) as in paco for now
-version in paco: lfp (λ x => inf (fun z => ∃ y, z = f y ∧ r ⊓ x ⊑ y)
+version in paco: lfp (λ x => inf (λ z => ∃ y, z = f y ∧ r ⊓ x ⊑ y)
 -/
 def plfp [Lean.Order.CompleteLattice α] (f : α → α) {hm : monotone f} (r : α) :=
   lfp_monotone (λ x => f (r ⊓ x)) (plfp_arg_mon hm r)
@@ -141,6 +141,22 @@ theorem uplfp_hyp [Lean.Order.CompleteLattice α] {f : α → α} (hm : monotone
   simp only [uplfp]
   rw [meet_spec]
   exact id
+
+theorem fun_sup_equiv {α : Sort u} {β : α → Sort v} [(x : α) → CompleteLattice (β x)]
+  (c : ((x : α) → β x) → Prop) (x : α) :
+  fun_sup c x = inf λ y => ∀ f, c f → f x ⊑ y := by
+  rw [inf, fun_sup]
+  apply rel_antisymm
+  · apply sup_le; intro y ⟨f, inc, eqf⟩
+    subst eqf
+    apply le_sup
+    intros; rename_i h; apply h _ inc
+  · rw [sup_spec]
+    intros
+    rename_i h
+    apply h
+    intros
+    apply le_sup; rename_i f _; exists f
 
 theorem plfp_acc_aux [Lean.Order.CompleteLattice α] {f : α → α} (hm : monotone f) (r x : α) :
   plfp f (hm := hm) r ⊑ x ↔ plfp f (hm := hm) (r ⊓ x) ⊑ x := by
@@ -225,7 +241,7 @@ elab "pcofix_intro_acc" : tactic =>
     ) (false, false)
     if hasDep then
       throwError "{hmArg}, the proof of monotonicity should not depend on anything that is generalized"
-    Tactic.liftMetaTactic fun mvarId => do
+    Tactic.liftMetaTactic λ mvarId => do
       let (_, mvarId) ← mvarId.revertAfter markId
       let mvarId ← mvarId.clear markId
       let mvarId ← mvarId.intro_fact accBody
@@ -276,7 +292,7 @@ elab "pcofix_wrap" : tactic =>
         pure (accArg, unpacker, converter)
     let some accDecl := (← getLCtx).lastDecl | throwError "unreachable"
     let accId := accDecl.fvarId
-    Tactic.liftMetaTactic fun mvarId => do
+    Tactic.liftMetaTactic λ mvarId => do
       let [mvarId] ← mvarId.apply toPacked | throwError "unreachable"
       let (_, mvarId) ← mvarId.intros
       let [mvarMain, mvarPf] ← mvarId.apply (.app (.fvar accId) accArg) {} | throwError "unreachable"
@@ -287,7 +303,7 @@ elab "pcofix_wrap" : tactic =>
       return [mvarPf, converter, mvarMain]
 
 elab "destruct_last_and" : tactic =>
-  Tactic.liftMetaTactic fun mvarId => do
+  Tactic.liftMetaTactic λ mvarId => do
     let some last := (← getLCtx).lastDecl | throwError "unreachable"
     let lastId := last.fvarId
     let lastType ← lastId.getType
@@ -356,7 +372,7 @@ macro_rules
       simp only [uplfp] at $h:ident;
       rw [@Lean.Order.CompleteLattice.meet_comm, @Lean.Order.CompleteLattice.meet_top] at $h:ident)
 
-elab "split_uplfp" : tactic =>
+elab "psplit_prepare" : tactic =>
   Tactic.withMainContext do
     let goalType ← Tactic.getMainTarget
     unless goalType.isAppOf ``uplfp do
@@ -365,16 +381,34 @@ elab "split_uplfp" : tactic =>
     let uplfp_goal ← Meta.mkConstWithFreshMVarLevels ``uplfp_goal
     let hm := {name := `hm, val:= .expr hmArg}
     let body ← Term.elabAppArgs uplfp_goal #[hm] #[] none (explicit := true) false
-    Tactic.liftMetaTactic fun mvarId => do
+    Tactic.liftMetaTactic λ mvarId => do
       let mvarId ← mvarId.intro_fact body
       return [mvarId]
-    Tactic.evalTactic <| ← `(tactic|
-      intro _uplfp_goal;
-      simp only [
-        Lean.Order.instCompleteLatticePi,
-        Lean.Order.instOrderPi,
-        Lean.Order.ReverseImplicationOrder,
-        Lean.Order.ReverseImplicationOrder.instCompleteLattice,
-        Lean.Order.ReverseImplicationOrder.instOrder
-      ] at _uplfp_goal;
-      apply _uplfp_goal)
+
+macro "pleft" : tactic =>`(tactic|(
+  psplit_prepare
+  intro _uplfp_goal
+  simp only [
+    Lean.Order.instCompleteLatticePi,
+    Lean.Order.instOrderPi,
+    Lean.Order.ReverseImplicationOrder,
+    Lean.Order.ReverseImplicationOrder.instCompleteLattice,
+    Lean.Order.ReverseImplicationOrder.instOrder
+  ] at _uplfp_goal
+  apply _uplfp_goal
+  left; intros; rename_i h; exact h
+  clear _uplfp_goal))
+
+macro "pright" : tactic =>`(tactic|(
+  psplit_prepare
+  intro _uplfp_goal
+  simp only [
+    Lean.Order.instCompleteLatticePi,
+    Lean.Order.instOrderPi,
+    Lean.Order.ReverseImplicationOrder,
+    Lean.Order.ReverseImplicationOrder.instCompleteLattice,
+    Lean.Order.ReverseImplicationOrder.instOrder
+  ] at _uplfp_goal
+  apply _uplfp_goal
+  right; intros; rename_i h; exact h
+  clear _uplfp_goal))

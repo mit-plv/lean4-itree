@@ -31,7 +31,7 @@ namespace CTree
       (h1 : RefineF r sim ⊤ p2 t1 t3) (h2 : RefineF r sim ⊤ p2 t2 t3)
       : RefineF r sim p1 p2 (t1 ⊕ t2) t3
 
-  def RefineF.monotone (r : Rel ρ σ) (sim sim' : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
+  theorem RefineF.monotone (r : Rel ρ σ) (sim sim' : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
     (hsim : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → sim' p1 p2 t1 t2)
     {p1 p2 t1 t2} (h : RefineF r sim p1 p2 t1 t2) : RefineF r sim' p1 p2 t1 t2 := by
     induction h with
@@ -213,9 +213,9 @@ namespace CTree
       subst eq_ret eq_ret'
       pfold
       apply RefineF.coind <;> try assumption
+      rename_i p1 p2 t2
       pclearbot at h
-      split_uplfp
-      left; intros; rename_i h; exact h
+      pleft
       apply cih <;> try assumption
       all_goals rfl
     | ret h =>
