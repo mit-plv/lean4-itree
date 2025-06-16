@@ -7,7 +7,7 @@ namespace CTree
 
   theorem refine_of_weak_sim {sim : Rel (CTree ε ρ) (CTree ε ρ)} {t1 t2 : CTree ε ρ}
     (hsim : IsWeakSimulation sim) (h : sim t1 t2)
-    : t1 ≤Eq≤ t2 := by
+    : t1 ≤ t2 := by
     apply Refine.coind (λ p1 p2 t1 t2 => sim t1 t2) _ 0 0 h
     intro p1 p2 t1 t2 h
     apply dMatchOn t1
@@ -36,7 +36,7 @@ namespace CTree
     · sorry
     · sorry
 
-  theorem weak_sim_of_refine : IsWeakSimulation (Refine Eq (ρ := ρ) (ε := ε)) := by
+  theorem weak_sim_of_refine : IsWeakSimulation (@Refine ρ ρ ε Eq) := by
     intro t1 t2 href l t1' hs
     obtain ⟨_, _, href⟩ := href
     split
@@ -58,5 +58,8 @@ namespace CTree
         have ⟨t2', hws, href⟩ := refine_event_correspondence href _ hs
         exists t2'
         exact And.intro hws ⟨_, _, href⟩
+
+  theorem weak_sim_iff_refine {t1 t2 : CTree ε ρ} : WeakSim t1 t2 ↔ t1 ≤ t2 :=
+    ⟨λ ⟨_, hsim, h⟩ => refine_of_weak_sim hsim h, λ href => ⟨Refine Eq, weak_sim_of_refine, href⟩⟩
 
 end CTree
