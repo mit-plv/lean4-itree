@@ -25,6 +25,19 @@ namespace CTree
       (h1 : EuttcF r sim p1 ⊤ t1 t2)
       (h2 : EuttcF r sim p1 ⊤ t1 t3)
       : EuttcF r sim p1 p2 t1 (t2 ⊕ t3)
+  | choice_both {p1 p2 t1 t2 t1' t2'}
+      (h1 : EuttcF r sim ⊤ ⊤ t1 t1')
+      (h2 : EuttcF r sim ⊤ ⊤ t2 t2')
+      : EuttcF r sim p1 p2 (t1 ⊕ t2) (t1' ⊕ t2')
+  | choice_both_symm {p1 p2 t1 t2 t1' t2'}
+      (h1 : EuttcF r sim ⊤ ⊤ t1 t2')
+      (h2 : EuttcF r sim ⊤ ⊤ t2 t1')
+      : EuttcF r sim p1 p2 (t1 ⊕ t2) (t2' ⊕ t1')
+  | choice_assoc {p1 p2 t1 t2 t3 t1' t2' t3'}
+      (h1 : EuttcF r sim ⊤ ⊤ t1 t1')
+      (h2 : EuttcF r sim ⊤ ⊤ t2 t2')
+      (h3 : EuttcF r sim ⊤ ⊤ t3 t3')
+      : EuttcF r sim p1 p2 (t1 ⊕ t2 ⊕ t3) ((t1' ⊕ t2') ⊕ t3')
 
   theorem EuttcF.monotone (r : Rel ρ σ) (sim sim' : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
     (hsim : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → sim' p1 p2 t1 t2)
@@ -38,6 +51,9 @@ namespace CTree
     | zero => exact .zero
     | choice_left _ _ ih1 ih2 => exact .choice_left ih1 ih2
     | choice_right _ _ ih1 ih2 => exact .choice_right ih1 ih2
+    | choice_both _ _ ih1 ih2 => exact .choice_both ih1 ih2
+    | choice_both_symm _ _ ih1 ih2 => exact .choice_both_symm ih1 ih2
+    | choice_assoc _ _ _ ih1 ih2 ih3 => exact .choice_assoc ih1 ih2 ih3
 
   def Euttc' (r : Rel ρ σ) (p1 p2 : ENat) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
     EuttcF r (Euttc' r) p1 p2 t1 t2

@@ -1,4 +1,5 @@
 import CTree.Par
+import CTree.Refinement
 import CTree.Paco
 
 namespace CTree
@@ -69,7 +70,7 @@ namespace CTree
           crush_refine; crush_parR_ret c2
     ))
 
-    theorem parR_ret_le : ((ret x) ‖→ t) ≤Eq≤ t := by
+    theorem parR_ret_le : ((ret x) ‖→ t) ≤ t := by
       apply Refine.coind (λ p1 p2 t1 t2 => p1 = 0 ∧ p2 = 0 ∧ ∃ t, IsParR t1 (ret x) t ∧ t2 = t) _ 0 0
       · crush_parR_ret t
       · intro p1 p2 t1 t2 ⟨hp1, hp2, t, ht1, ht2⟩
@@ -150,7 +151,7 @@ namespace CTree
                 crush_refine; crush_parR_ret c2
 
     -- set_option pp.explicit true
-    theorem le_parR_ret : t ≤Eq≤ ((ret (ρ := ρ) x) ‖→ t) := by
+    theorem le_parR_ret : t ≤ ((ret (ρ := ρ) x) ‖→ t) := by
       exists 0, 0
       revert t x
       pcofix
@@ -159,10 +160,7 @@ namespace CTree
       sorry
 
     theorem parR_ret : ((ret x) ‖→ t) ≈ t := by
-      apply And.intro
-      · exact parR_ret_le
-      · rw [flip_eq]
-        exact le_parR_ret
+      sorry
 
     macro "crush_parR_map_both_le " t1:term ", " t2:term : tactic => `(tactic|(
       repeat apply And.intro rfl _
@@ -203,7 +201,7 @@ namespace CTree
       all_goals try ($simp_rule; crush_refine)
     ))
 
-    theorem parR_map_both_le : map Prod.snd (parAux (map f t1 ⋈ t2)) ≤Eq≤ map Prod.snd (parAux (t1 ⋈ t2)) := by
+    theorem parR_map_both_le : map Prod.snd (parAux (map f t1 ⋈ t2)) ≤ map Prod.snd (parAux (t1 ⋈ t2)) := by
       apply Refine.coind
         (λ p1 p2 t1 t2 =>
           p1 = 0 ∧ p2 = 0 ∧ ∃ t1' t2', t1 = map Prod.snd (parAux (map f t1' ⋈ t2')) ∧ t2 = map Prod.snd (parAux (t1' ⋈ t2'))
@@ -270,55 +268,8 @@ namespace CTree
           · apply RefineF.choice_right
             crush_refine; crush_parR_map_both_le c12, ret y
 
-    -- theorem parR_map_lS_le : map Prod.snd (parAux (map f t1 ◁ t2)) ≤Eq≤ map Prod.snd (parAux (t1 ◁ t2)) := by
-    --   apply Refine.coind
-    --     (λ p1 p2 t1 t2 =>
-    --       p1 = 0 ∧ p2 = 0 ∧ ∃ t1' t2', t1 = map Prod.snd (parAux (map f t1' ◁ t2')) ∧ t2 = map Prod.snd (parAux (t1' ◁ t2'))
-    --     ) _ 0 0
-    --   · repeat apply And.intro rfl _
-    --     exists t1, t2
-    --   · intro p1 p2 t1' t2' ⟨hp1, hp2, t1, t2, ht1, ht2⟩
-    --     subst hp1 hp2 ht1 ht2
-    --     apply dMatchOn t1
-    --     case vis =>
-    --       intro α e k heq
-    --       subst heq
-    --       simp only [parAux_lS_vis, map_vis]
-    --       crush_refine
-    --       intro a
-    --       -- TODO: this cannot be separated out into a separate lemma. Need to prove this with in the greater par lemma.
-    --       sorry
-    --     all_goals sorry
-
-    -- theorem parR_map_rS_le : map Prod.snd (parAux (map f t1 ▷ t2)) ≤Eq≤ map Prod.snd (parAux (t1 ▷ t2)) := by
-    --   sorry
-
-    -- theorem parR_map_lrS_le : map Prod.snd (parAux (map f t1 ◁▷ t2)) ≤Eq≤ map Prod.snd (parAux (t1 ◁▷ t2)) := by
-    --   simp only [parAux_lrS, map_choice]
-    --   apply Refine.choice_idemp
-    --   · apply Refine.choice_left
-    --     exact parR_map_lS_le
-    --   · apply Refine.choice_right
-    --     exact parR_map_rS_le
-
-    theorem parR_map_le : ((map f t1) ‖→ t2) ≤Eq≤ (t1 ‖→ t2) := by
-      simp only [parR, par, Functor.map, parAux_parS, map_choice]
-      sorry
-      -- apply Refine.choice_idemp
-      -- · apply Refine.choice_left
-      --   exact parR_map_both_le
-      -- · apply Refine.choice_right
-      --   exact parR_map_lrS_le
-
-    theorem le_parR_map : (t1 ‖→ t2) ≤Eq≤ ((map f t1) ‖→ t2) := by
-      simp only [parR, par, Functor.map, parAux_parS, map_choice]
-      sorry
-
     theorem parR_map : ((map f t1) ‖→ t2) ≈ (t1 ‖→ t2) := by
-      apply And.intro
-      · exact parR_map_le
-      · rw [flip_eq]
-        exact le_parR_map
+      sorry
 
     theorem parR_assoc : ((t1 ‖→ t2) ‖→ t3) ≈ (t1 ‖→ (t2 ‖→ t3)) := by
       sorry
