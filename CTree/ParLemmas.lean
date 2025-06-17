@@ -17,7 +17,7 @@ namespace CTree
       | exact RefineF.zero
       | apply RefineF.tau_left
       | apply RefineF.tau_right
-      | apply RefineF.vis
+      | apply RefineF.vis (p1' := 0) (p2' := 0)
       | apply RefineF.choice_idemp
       | apply RefineF.choice_idemp
       | apply RefineF.coind 0 0 ENat.top_pos ENat.top_pos
@@ -131,7 +131,7 @@ namespace CTree
             simp only [parAux_parS_ret_vis, map_choice, map_zero, map_vis]
             crush_refine
             intro a
-            crush_refine; crush_parR_ret k a
+            crush_parR_ret k a
           · intro heq
             subst heq
             simp only [parAux_parS_ret_zero, map_choice, map_zero]
