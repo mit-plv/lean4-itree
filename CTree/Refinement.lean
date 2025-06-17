@@ -16,8 +16,8 @@ namespace CTree
       (h1 : p1' < p1) (h2 : p2' < p2) (h : sim p1' p2' t1 t2)
       : RefineF r sim p1 p2 t1 t2
   | ret {x y p1 p2} (h : r x y) : RefineF r sim p1 p2 (ret x) (ret y)
-  | vis {p1 p2} {α : Type} {e : ε α} {k1 : α → CTree ε ρ} {k2 : α → CTree ε σ}
-      (h : ∀ a : α, RefineF r sim ⊤ ⊤ (k1 a) (k2 a)) : RefineF r sim p1 p2 (vis e k1) (vis e k2)
+  | vis {p1' p2' p1 p2} {α : Type} {e : ε α} {k1 : α → CTree ε ρ} {k2 : α → CTree ε σ}
+      (h : ∀ a : α, sim p1' p2' (k1 a) (k2 a)) : RefineF r sim p1 p2 (vis e k1) (vis e k2)
   | tau_left {p1 p2 t1 t2}
       (h : RefineF r sim ⊤ p2 t1 t2) : RefineF r sim p1 p2 t1.tau t2
   | tau_right {p1 p2 t1 t2}
@@ -37,7 +37,7 @@ namespace CTree
     induction h with
     | coind _ _ h1 h2 h => exact .coind _ _ h1 h2 (hsim _ _ _ _ h)
     | ret h => exact .ret h
-    | vis _ ih => exact .vis λ a => ih a
+    | vis h => exact .vis λ a => hsim _ _ _ _ <| h a
     | tau_left _ ih => exact RefineF.tau_left ih
     | tau_right _ ih => exact RefineF.tau_right ih
     | zero => exact .zero
@@ -89,7 +89,7 @@ namespace CTree
   macro "crush_cont_aux" ih:term ", " h_ih:term : tactic => `(tactic|(
     first
       | apply RefineF.ret; assumption
-      | apply RefineF.vis; assumption
+      | apply RefineF.vis; intros a; exact $(Lean.mkIdent `hk) a
       | first | apply RefineF.tau_left | apply RefineF.choice_idemp
         all_goals
           apply RefineF.idx_mono
@@ -139,7 +139,7 @@ namespace CTree
     | coind p1'' p2'' h1' h2' h =>
       apply ih _ h1' (hsim _ _ _ _ h); assumption
     | ret => crush_cont _, _
-    | vis hk _ => crush_cont _, _
+    | vis hk => crush_cont _, _
     | tau_left h => crush_cont _, _
     | tau_right h h_ih => crush_cont ih, h_ih
     | zero => intros; exact RefineF.zero
@@ -161,7 +161,7 @@ namespace CTree
       exact ih_p1 p2'' h2' (hsim _ _ _ _ h) p1' p2'
     | ret h =>
       intros; apply RefineF.ret; assumption
-    | vis h _ =>
+    | vis hk =>
       intros; apply RefineF.vis; assumption
     | tau_left h ih =>
       intros; apply RefineF.tau_left; apply ih; assumption
@@ -224,7 +224,7 @@ namespace CTree
       subst eq_ret eq_ret'
       pfold
       apply RefineF.ret; apply hyz; assumption
-    | vis h _ =>
+    | vis h =>
       intros
       rename_i _ _ eq_ret
       ctree_elim eq_ret
@@ -285,7 +285,7 @@ namespace CTree
       apply ret_inj at eq_ret
       subst eq_ret eq_ret'
       apply RefineF.ret; apply impl; assumption
-    | vis h _ =>
+    | vis h =>
       intros
       rename_i eq_ret _ _
       ctree_elim eq_ret
@@ -332,7 +332,7 @@ namespace CTree
     | ret h =>
       intros t eq_tau
       ctree_elim eq_tau
-    | vis h _ =>
+    | vis h =>
       intros t eq_tau
       ctree_elim eq_tau
     | tau_left h ih =>
@@ -389,7 +389,7 @@ namespace CTree
     | ret h =>
       intros t eq_tau
       ctree_elim eq_tau
-    | vis h _ =>
+    | vis h =>
       intros t eq_tau
       ctree_elim eq_tau
     | tau_left h ih =>
@@ -444,7 +444,7 @@ namespace CTree
       exact ⟨zero, And.intro rfl h⟩
     | ret h =>
       intros; ctree_elim eq_zero
-    | vis h _ =>
+    | vis h =>
       intros; ctree_elim eq_zero
     | tau_left h ih =>
       intros; subst eq_zero
@@ -482,7 +482,7 @@ namespace CTree
     | ret h =>
       intros t t' eq_choice
       ctree_elim eq_choice
-    | vis h _ =>
+    | vis h =>
       intros t t' eq_choice
       ctree_elim eq_choice
     | tau_left h ih =>
@@ -539,7 +539,7 @@ namespace CTree
     | ret h =>
       intros t t' eq_choice
       ctree_elim eq_choice
-    | vis h _ =>
+    | vis h =>
       intros t t' eq_choice
       ctree_elim eq_choice
     | tau_left h ih =>
@@ -620,8 +620,8 @@ namespace CTree
         · rw [← Refine']; apply Refine'.inv_ret_right
           · rw [Refine'] <;> (try apply RefineF.idx_irrelevance) <;> assumption
           · rename_i x y _ _ _; intros; exists x
-      | vis h _ =>
-        rename_i α e k1 k2 h_ih
+      | vis h =>
+        rename_i α e k1 k2
         intros t1 h
         rw [Refine'] at h
         have h' : ∃ p1'' p2'' t2, p2'' = 0 ∧ t2 = vis e k1 ∧ RefineF r12 (Refine' r12) p1'' p2'' t1 t2 :=
@@ -637,7 +637,7 @@ namespace CTree
         | ret h =>
           intro eq_idx eq_vis
           ctree_elim eq_vis
-        | vis h _ =>
+        | vis hk =>
           intro eq_idx eq_vis
           rename_i cont _ _ α' e' k1' k2' h_ih'
           have eq_α := vis_inj_α eq_vis
@@ -645,14 +645,16 @@ namespace CTree
           have ⟨eq1, eq2⟩ := vis_inj eq_vis
           clear eq_vis
           subst eq1 eq2
-          apply RefineF.vis; intros
-          apply RefineF.coind 0 0 ENat.top_pos ENat.top_pos
-          apply Or.intro_right
-          rename_i a'
-          exists 0, 0, (k2' a')
-          apply And.intro <;> rw [Refine'] <;> apply RefineF.idx_irrelevance
-          · apply h
-          · apply cont
+          apply RefineF.vis (p1' := ⊤) (p2' := ⊤); intro a
+          right
+          rename_i p21 _ _ _ p12 _
+          exists p12, p21, h_ih' a
+          simp only [Refine'] at *
+          apply And.intro
+          · apply RefineF.idx_mono le_top (le_refl _)
+            exact hk a
+          · apply RefineF.idx_mono (le_refl _) le_top
+            exact h a
         | tau_left h ih =>
           intro eq_idx eq_vis; subst eq_idx eq_vis
           apply RefineF.tau_left
@@ -710,7 +712,7 @@ namespace CTree
         | ret h =>
           intro eq_idx eq_choice
           ctree_elim eq_choice
-        | vis h _ =>
+        | vis h =>
           intro eq_idx eq_choice
           ctree_elim eq_choice
         | tau_left h ih =>
@@ -751,8 +753,8 @@ namespace CTree
       · rw [← Refine']; apply Refine'.inv_ret_left
         · rw [Refine'] <;> (try apply RefineF.idx_irrelevance) <;> assumption
         · rename_i x y _ _ _ _ _ _; intros; exists y
-    | vis h _ =>
-      rename_i p1 p2 α e k1 k2 h_ih
+    | vis h =>
+      rename_i p1 p2 α e k1 k2
       intro p22 t3 p21 h'
       rw [Refine'] at h'
       apply RefineF.idx_irrelevance (p1' := p1) (p2' := p22) at h'
@@ -767,21 +769,23 @@ namespace CTree
         apply And.intro _ (by assumption)
         rw [Refine']; apply RefineF.vis; assumption
       | ret h => ctree_elim eq_vis
-      | vis h _ =>
+      | vis hk =>
         rename_i cont _ _ α' e' k1' k2' h_ih'
         have eq_α := vis_inj_α eq_vis
         subst eq_α
         have ⟨eq1, eq2⟩ := vis_inj eq_vis
         clear eq_vis
         subst eq1 eq2
-        apply RefineF.vis; intros
-        apply RefineF.coind 0 0 ENat.top_pos ENat.top_pos
-        apply Or.intro_right
-        rename_i a'
-        exists 0, 0, (k2 a')
-        apply And.intro <;> rw [Refine'] <;> apply RefineF.idx_irrelevance
-        · apply cont
-        · apply h
+        apply RefineF.vis (p1' := ⊤) (p2' := ⊤); intro a
+        right
+        rename_i p11 p12 p21 _
+        exists p12, cont, k2 a
+        simp only [Refine'] at *
+        apply And.intro
+        · apply RefineF.idx_mono le_top (le_refl _)
+          exact h a
+        · apply RefineF.idx_mono (le_refl _) le_top
+          exact hk a
       | tau_left h ih => ctree_elim eq_vis
       | tau_right h =>
         rename_i h_ih
@@ -852,10 +856,8 @@ namespace CTree
       simp_all only [and_self]
     · intro α e k heq
       subst heq
-      apply RefineF.vis
+      apply RefineF.vis (p1' := 0) (p2' := 0)
       intro a
-      apply RefineF.coind 0 0
-      <;> simp_all only [ENat.top_pos]
       simp_all only [and_self]
     · intro heq
       subst heq
@@ -932,7 +934,14 @@ namespace CTree
         apply RefineF.tau_right
         apply RefineF.idx_irrelevance; assumption
       | ret h => exact RefineF.ret h
-      | vis _ ih => exact RefineF.vis ih
+      | vis h =>
+        rename_i p1 p2 _ _ _ _ _ _
+        apply RefineF.vis (p1' := p1) (p2' := p2)
+        intro a
+        simp_all only [Refine']
+        apply RefineF.tau_right
+        apply RefineF.idx_mono (le_refl _) le_top
+        exact h a
       | tau_left _ ih => exact RefineF.tau_left ih
       | tau_right _ ih => exact RefineF.tau_right ih
       | zero => exact RefineF.zero
@@ -967,7 +976,14 @@ namespace CTree
         apply RefineF.tau_left
         apply RefineF.idx_irrelevance; assumption
       | ret h => exact RefineF.ret h
-      | vis _ ih => exact RefineF.vis ih
+      | vis h =>
+        rename_i p1 p2 _ _ _ _ _ _
+        apply RefineF.vis (p1' := p1) (p2' := p2)
+        intro a
+        simp_all only [Refine']
+        apply RefineF.tau_left
+        apply RefineF.idx_mono le_top (le_refl _)
+        exact h a
       | tau_left _ ih => exact RefineF.tau_left ih
       | tau_right _ ih => exact RefineF.tau_right ih
       | zero => exact RefineF.zero
@@ -1033,15 +1049,16 @@ namespace CTree
         | ret hxy =>
           intros; simp only [map_ret]; apply RefineF.ret; congr
         | vis hk =>
-          rename_i k1 k2 _
+          rename_i p1 p2 _ _ _ k1 k2
           intros
           simp only [map_vis]
-          apply RefineF.vis
+          apply RefineF.vis (p1' := p1) (p2' := p2)
           intro a
-          apply RefineF.coind 0 0 ENat.top_pos ENat.top_pos
           exists k1 a, k2 a
           repeat apply And.intro; rfl
-          exact (hk a).idx_irrelevance 0 0
+          have := hk a
+          simp_all only [Refine']
+          exact (hk a).idx_irrelevance _ _
         | tau_left h ih =>
           intros
           simp only [map_tau]
@@ -1075,11 +1092,11 @@ namespace CTree
       rw [Refine]
       exists 0, 0
       rw [Refine']
-      apply RefineF.vis
+      apply RefineF.vis (p1' := 0) (p2' := 0)
       intro a
       have ⟨p1, p2, h⟩ := h a
-      rw [Refine'] at h
-      exact RefineF.idx_irrelevance h ⊤ ⊤
+      simp_all only [Refine']
+      exact RefineF.idx_irrelevance h _ _
 
   end Refine
 
@@ -1169,6 +1186,7 @@ namespace CTree
       simp only [Refine'] at *
       apply RefineF.vis
       intro a
+      simp only [Refine'] at *
       exact RefineF.idx_irrelevance (hk a) ⊤ ⊤
     have := Refine'.trans this h
     rw [Rel.comp_self] at this
@@ -1208,12 +1226,13 @@ namespace CTree
       apply And.intro hcont
       intro a
       exact (href a).idx_irrelevance _ _
-    case vis h _ =>
+    case vis h =>
       subst_vis_inj ht2
-      rename_i k2 _
+      rename_i k2
       exists k2
       apply And.intro .vis
       intro a
+      simp_all only [Refine']
       exact (h a).idx_irrelevance _ _
     case tau_right h ih =>
       have ⟨k2, hcont, href⟩ := ih ih_p1 ht2
