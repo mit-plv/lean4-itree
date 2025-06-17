@@ -179,27 +179,35 @@ namespace CTree
       ]
     ))
 
-    open Lean
-
-    macro "crush_match" t:term " with " simp_rule:tactic : tactic => `(tactic|(
-      apply dMatchOn $t
-      case' ret =>
-        intro $(mkIdent `y) heq
-        subst heq
-      case' vis =>
-        intro $(mkIdent `α2) $(mkIdent `e2) $(mkIdent `k2) heq
-        subst heq
-      case' tau =>
-        intro $(mkIdent `t2) heq
-        subst heq
-      case' zero =>
-        intro heq
-        subst heq
-      case' choice =>
-        intro $(mkIdent `c21) $(mkIdent `c22) heq
-        subst heq
-      all_goals try ($simp_rule; crush_refine)
-    ))
+    syntax "crush_match" term (" with " tactic)? : tactic
+    open Lean in
+    macro_rules
+      | `(tactic|crush_match $t $[ with $simp_rule]?) => do
+        let simp_rule ←
+          match simp_rule with
+          | some simp_rule => `(tactic|(
+              all_goals try ($simp_rule; crush_refine)
+            ))
+          | none => `(tactic|skip)
+        `(tactic|(
+          apply dMatchOn $t
+          case' ret =>
+            intro $(mkIdent `y) heq
+            subst heq
+          case' vis =>
+            intro $(mkIdent `α2) $(mkIdent `e2) $(mkIdent `k2) heq
+            subst heq
+          case' tau =>
+            intro $(mkIdent `t2) heq
+            subst heq
+          case' zero =>
+            intro heq
+            subst heq
+          case' choice =>
+            intro $(mkIdent `c21) $(mkIdent `c22) heq
+            subst heq
+          $simp_rule
+        ))
 
     theorem parR_map_both_le : map Prod.snd (parAux (map f t1 ⋈ t2)) ≤ map Prod.snd (parAux (t1 ⋈ t2)) := by
       apply Refine.coind

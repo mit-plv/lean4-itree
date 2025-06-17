@@ -10,6 +10,40 @@ This file contains the detailed proofs of the key lemmas needed to establish
 the equivalence between coinductive refinement and weak simulation.
 -/
 
+lemma Step.elim_zero (h : Step zero l t) : False := by
+  generalize hz : zero = t1 at *
+  cases h <;> ctree_elim hz
+
+lemma WeakStep.elim_zero (h : WeakStep zero l t) : False := by
+  obtain ⟨_, _, n1, _, htau, hs, _⟩ := h
+  match n1 with
+  | 0 =>
+    simp only [NTauStep] at htau
+    subst htau
+    exact hs.elim_zero
+  | n + 1 =>
+    obtain ⟨_, hs, _⟩ := htau
+    exact hs.elim_zero
+
+lemma Step.elim_vis_val (h : Step (.vis e k) (.val v) t) : False := by
+  generalize hz : CTree.vis e k = t1 at *
+  cases h <;> ctree_elim hz
+
+lemma Step.elim_vis_tau (h : Step (.vis e k) .tau t) : False := by
+  generalize hz : CTree.vis e k = t1 at *
+  cases h <;> ctree_elim hz
+
+lemma WeakStep.elim_vis_val (h : WeakStep (vis e k) (.val v) t) : False := by
+  obtain ⟨_, _, n1, _, htau, hs, _⟩ := h
+  match n1 with
+  | 0 =>
+    simp only [NTauStep] at htau
+    subst htau
+    exact hs.elim_vis_val
+  | n + 1 =>
+    obtain ⟨_, hs, _⟩ := htau
+    exact hs.elim_vis_tau
+
 lemma Step.zero_of_val (h : Step t1 (.val v) t2) : t2 = zero := by
   generalize hl : Label.val v = l at *
   induction h with
@@ -36,6 +70,79 @@ lemma WeakStep.ret_val (h : WeakStep (ret x) (.val y) t) : x = y := by
   cases hs
   <;> ctree_elim hret
   exact ret_inj hret
+
+lemma Step.vis_tau (h : Step (.vis e k) .tau t) : False := by
+  generalize hv : CTree.vis e k = tv at *
+  cases h <;> ctree_elim hv
+
+lemma Step.vis_event_e {a : α} (h : Step (.vis e1 k) (.event α e2 a) t) : e1 = e2 := by
+  generalize hv : CTree.vis e1 k = tv at *
+  cases h <;> ctree_elim hv
+  have ⟨he, _⟩ := vis_inj hv
+  subst he
+  rfl
+
+lemma WeakStep.vis_event_e {a : α} (h : WeakStep (.vis e1 k) (.event α e2 a) t) : e1 = e2 := by
+  obtain ⟨t1Tau, t3Tau, n1, n2, htau1, hs, htau2⟩ := h
+  match n1 with
+  | 0 =>
+    simp only [NTauStep] at htau1
+    subst htau1
+    exact hs.vis_event_e
+  | n + 1 =>
+    simp only [NTauStep] at htau1
+    obtain ⟨_, hs, _⟩ := htau1
+    exfalso; exact hs.vis_tau
+
+lemma Step.vis_event {a : α} (h : Step (.vis e k) (.event α e a) t) : t = k a := by
+  generalize hv : CTree.vis e k = tv at *
+  cases h <;> ctree_elim hv
+  have ⟨_, hk⟩ := vis_inj hv
+  subst hk
+  rfl
+
+lemma weak_sim_event_ne
+  {ε : Type → Type} {α1 α2 : Type}
+  {e1 : ε α1} {e2 : ε α2}
+  {k1 : α1 → CTree ε ρ} {k2 : α2 → CTree ε ρ}
+  {sim : Rel (CTree ε ρ) (CTree ε ρ)}
+  (hsim : IsWeakSimulation sim)
+  (h : sim (vis e1 k1) (vis e2 k2))
+  (hne : ¬(α2 = α1 ∧ HEq e2 e1)) : False := by
+  simp at hne
+  if hα : α2 = α1 then
+    apply hne hα
+    subst hα
+    simp only [heq_eq_eq]
+    if hemp : Nonempty α2 then
+      apply hemp.elim; intro a
+      have ⟨_, hws, _⟩ := hsim _ _ h (.event α2 e1 a) (k1 a) .vis
+      exact hws.vis_event_e
+    else
+      simp only [not_nonempty_iff] at hemp
+      
+      sorry
+  else
+
+    sorry
+
+lemma WeakStep.vis_event {a : α}
+  {k1 k2 : α → CTree ε ρ}
+  (hsim : IsWeakSimulation sim)
+  (hws : WeakStep (vis e k2) (.event α e a) t)
+  (h : sim (k1 a) t)
+  : sim (k1 a) (k2 a) := by
+  obtain ⟨t1, t2, n1, n2, htau, hs, htau2⟩ := hws
+  match n1 with
+  | 0 =>
+    simp only [NTauStep] at htau
+    subst htau
+    have ht2 := hs.vis_event
+    subst ht2
+
+    sorry
+  | n + 1 =>
+    sorry
 
 lemma WeakStep.choice_left_left (h : WeakStep t1 l t3) : WeakStep (t1 ⊕ t2) l t3 := by
   obtain ⟨t1Tau, t3Tau, n1, n2, htau1, hs, htau2⟩ := h
