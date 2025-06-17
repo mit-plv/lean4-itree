@@ -101,49 +101,6 @@ lemma Step.vis_event {a : α} (h : Step (.vis e k) (.event α e a) t) : t = k a 
   subst hk
   rfl
 
-lemma weak_sim_event_ne
-  {ε : Type → Type} {α1 α2 : Type}
-  {e1 : ε α1} {e2 : ε α2}
-  {k1 : α1 → CTree ε ρ} {k2 : α2 → CTree ε ρ}
-  {sim : Rel (CTree ε ρ) (CTree ε ρ)}
-  (hsim : IsWeakSimulation sim)
-  (h : sim (vis e1 k1) (vis e2 k2))
-  (hne : ¬(α2 = α1 ∧ HEq e2 e1)) : False := by
-  simp at hne
-  if hα : α2 = α1 then
-    apply hne hα
-    subst hα
-    simp only [heq_eq_eq]
-    if hemp : Nonempty α2 then
-      apply hemp.elim; intro a
-      have ⟨_, hws, _⟩ := hsim _ _ h (.event α2 e1 a) (k1 a) .vis
-      exact hws.vis_event_e
-    else
-      simp only [not_nonempty_iff] at hemp
-      
-      sorry
-  else
-
-    sorry
-
-lemma WeakStep.vis_event {a : α}
-  {k1 k2 : α → CTree ε ρ}
-  (hsim : IsWeakSimulation sim)
-  (hws : WeakStep (vis e k2) (.event α e a) t)
-  (h : sim (k1 a) t)
-  : sim (k1 a) (k2 a) := by
-  obtain ⟨t1, t2, n1, n2, htau, hs, htau2⟩ := hws
-  match n1 with
-  | 0 =>
-    simp only [NTauStep] at htau
-    subst htau
-    have ht2 := hs.vis_event
-    subst ht2
-
-    sorry
-  | n + 1 =>
-    sorry
-
 lemma WeakStep.choice_left_left (h : WeakStep t1 l t3) : WeakStep (t1 ⊕ t2) l t3 := by
   obtain ⟨t1Tau, t3Tau, n1, n2, htau1, hs, htau2⟩ := h
   match n1 with
@@ -377,5 +334,36 @@ lemma refine_event_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
         · exact le_refl _
         · exact le_top
         · apply ih <;> assumption
+
+  inductive Contains : CTree ε ρ → CTree ε ρ → Prop
+    | refl : Contains t t
+    | tau : Contains t1 t2 → Contains (tau t1) t2
+    | choice_left : Contains t1 t3 → Contains (t1 ⊕ t2) t3
+    | choice_right : Contains t2 t3 → Contains (t1 ⊕ t2) t3
+
+  theorem Contains.from_NTauStep
+    (h : NTauStep n t1 t2) : Contains t1 t2 := by
+    revert t1
+    induction n with
+    | zero =>
+      intros t1 h
+      simp only [NTauStep] at h
+      subst h
+      exact .refl
+    | succ n ih =>
+      intro t1 h
+      simp only [NTauStep] at h
+      obtain ⟨t1', htau, htaun⟩ := h
+      have := @ih t1' htaun
+      generalize hl : Label.tau = l at *
+      induction htau with
+      | ret | vis => contradiction
+      | tau => exact .tau this
+      | choice_left _ ih =>
+        apply Contains.choice_left
+        apply ih <;> assumption
+      | choice_right _ ih =>
+        apply Contains.choice_right
+        apply ih <;> assumption
 
 end CTree

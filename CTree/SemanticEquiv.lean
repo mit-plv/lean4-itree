@@ -52,16 +52,49 @@ namespace CTree
       case ret =>
         sorry
       case vis =>
-        if hαe : α2 = α ∧ HEq e2 e then
-          obtain ⟨hα, he⟩ := hαe
-          subst hα he
-          apply RefineF.vis; intro a
-          obtain ⟨t2', hws, hcont⟩ := hsim (vis e2 k) (vis e2 k2) h (.event α2 e2 a) (k a) .vis
-          apply RefineF.coind 0 0 ENat.top_pos ENat.top_pos
-          exact hws.vis_event hsim hcont
+        if hα : α = α2 then
+          subst hα
+          if hemp : IsEmpty α then
+            sorry
+          else
+            apply Nonempty.elim (not_isEmpty_iff.mp hemp)
+            intro a
+            obtain ⟨q2, hs, h⟩ := hsim _ _ h (.event α e a) (k a) .vis
+            have he := (WeakStep.vis_event_e hs).symm
+            subst he
+            apply RefineF.vis
+            intro a
+            obtain ⟨q2, hs, h⟩ := hsim _ _ h (.event α e a) (k a) .vis
+            obtain ⟨q21, q22, n1, n2, htau1, hs, htau2⟩ := hs
+            match n1 with
+            | 0 =>
+              simp only [NTauStep] at htau1
+              subst htau1
+              have := hs.vis_event
+              subst this
+              have hcont := Contains.from_NTauStep htau2
+              clear *- h hcont
+              generalize hk2a : k2 a = k2a at *
+              clear hk2a
+              induction hcont with
+              | refl =>
+                exact RefineF.coind 0 0 ENat.top_pos ENat.top_pos h
+              | tau h' ih =>
+                apply RefineF.tau_right
+                exact ih h
+              | choice_left _ ih =>
+                apply RefineF.choice_left
+                exact ih h
+              | choice_right _ ih =>
+                apply RefineF.choice_right
+                exact ih h
+            | n + 1 =>
+              simp only [NTauStep] at htau1
+              obtain ⟨_, hs, _⟩ := htau1
+              exfalso
+              exact hs.vis_tau
         else
-          exfalso
-          exact weak_sim_event_ne hsim h hαe
+          sorry
       case tau =>
         sorry
       case zero =>
