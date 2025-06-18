@@ -37,57 +37,103 @@ namespace CTree
         $simp_rule
       ))
 
-  theorem refine_of_weak_sim {sim : Rel (CTree ε ρ) (CTree ε ρ)} {t1 t2 : CTree ε ρ}
+  theorem refine_of_weak_sim {sim : Rel (State ε ρ) (State ε ρ)} {t1 t2 : State ε ρ}
     (hsim : IsWeakSimulation sim) (h : sim t1 t2)
     : t1 ≤ t2 := by
-    apply Refine.coind (λ p1 p2 t1 t2 => sim t1 t2) _ 0 0 h
-    intro p1 p2 t1 t2 h
-    ctree_match t1
-    case ret =>
-      obtain ⟨t2', hws, hcont⟩ := hsim (ret v) t2 h (.val v) zero .ret
-      exact RefineF.ret_of_weak_step hws
-    case vis =>
-      ctree_match 2, t2
-      case ret =>
-        sorry
-      case vis =>
-        sorry
-      case tau =>
-        sorry
-      case zero =>
-        sorry
-      case choice =>
-        sorry
-    case tau =>
-      sorry
-    case zero => exact RefineF.zero
-    case choice =>
-      sorry
+    sorry
+    -- apply Refine.coind (λ p1 p2 t1 t2 => sim t1 t2) _ 0 0 h
+    -- intro p1 p2 t1 t2 h
+    -- ctree_match t1
+    -- case ret =>
+    --   obtain ⟨t2', hws, hcont⟩ := hsim (ret v) t2 h (.val v) zero .ret
+    --   exact RefineF.ret_of_weak_step hws
+    -- case vis =>
+    --   ctree_match 2, t2
+    --   case ret =>
+    --     sorry
+    --   case vis =>
+    --     sorry
+    --   case tau =>
+    --     sorry
+    --   case zero =>
+    --     sorry
+    --   case choice =>
+    --     sorry
+    -- case tau =>
+    --   sorry
+    -- case zero => exact RefineF.zero
+    -- case choice =>
+    --   sorry
 
   theorem weak_sim_of_refine : IsWeakSimulation (@RefineS ρ ρ ε Eq) := by
     intro t1 t2 href l t1' hs
-    obtain ⟨_, _, href⟩ := href
+    obtain ⟨p1, p2, href⟩ := href
     split
-    · have := refine_tau_correspondence href t1' hs
-      exists 0, t2
+    · obtain ⟨t1, ht1⟩ := hs.tau_ct_left
+      obtain ⟨t1', ht1'⟩ := hs.tau_ct_right
+      subst ht1 ht1'
+      whnf at href
+      split at href <;> try contradiction
+      rename_i heq
+      have heq := State.ct.inj heq
+      subst heq
+      have := refine_tau_correspondence href t1' hs
+      rename_i t2
+      exists 0, C[ t2 ]
       apply And.intro rfl
-      rename_i p1 p2 _
       exists p1, p2
     · cases l with
       | tau => contradiction
       | val v =>
         have := Step.zero_of_val hs
         subst this
+        obtain ⟨t1, ht1⟩ := hs.val_ct_left
+        subst ht1
+        whnf at href
+        split at href <;> try contradiction
+        rename_i heq
+        have heq := State.ct.inj heq
+        subst heq
         have := refine_ret_correspondence href hs
         have := weak_step_of_refine_ret this
-        exists zero
+        exists C[ zero ]
         exact And.intro this Refine.zero_le
       | event =>
+        have ⟨t1, ht1⟩ := hs.event_ct_left
+        have ⟨k, hk⟩ := hs.event_kt_right
+        subst ht1 hk
+        whnf at href
+        split at href <;> try contradiction
+        rename_i heq
+        have heq := State.ct.inj heq
+        subst heq
         have ⟨t2', hws, href⟩ := refine_event_correspondence href _ hs
-        exists t2'
-        exact And.intro hws ⟨_, _, href⟩
+        exists K[ t2' ]
+        apply And.intro hws
+        exists p1, p2, rfl
+      | response =>
+        rename_i α e a _
+        obtain ⟨k1, hk1⟩ := hs.response_kt_left
+        subst hk1
+        cases hs
+        whnf at href
+        split at href <;> try contradiction
+        obtain ⟨hα, href⟩ := href
+        subst hα
+        simp_all only [imp_false, State.kt.injEq]
+        rename_i heq
+        obtain ⟨hα, hk⟩ := heq
+        subst hα hk
+        rename_i t1 t2
+        exists C[ t2 a ]
+        apply And.intro _ ⟨p1, p2, href a⟩
+        exists K[ t2 ], C[ t2 a ], 0, 0
+        apply And.intro
+        · simp only [NTauStep]
+        · apply And.intro .response
+          simp only [NTauStep]
 
-  theorem weak_sim_iff_refine {t1 t2 : CTree ε ρ} : WeakSim t1 t2 ↔ t1 ≤ t2 :=
-    ⟨λ ⟨_, hsim, h⟩ => refine_of_weak_sim hsim h, λ href => ⟨Refine Eq, weak_sim_of_refine, href⟩⟩
+  theorem weak_sim_iff_refine {t1 t2 : State ε ρ} : WeakSim t1 t2 ↔ t1 ≤ t2 :=
+    ⟨λ ⟨_, hsim, h⟩ => refine_of_weak_sim hsim h, λ href => ⟨RefineS Eq, weak_sim_of_refine, href⟩⟩
 
 end CTree
