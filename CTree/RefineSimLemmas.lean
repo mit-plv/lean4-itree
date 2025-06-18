@@ -25,13 +25,99 @@ lemma WeakStep.elim_zero (h : WeakStep (C[ zero ]) l t) : False := by
     obtain ⟨_, hs, _⟩ := htau
     exact hs.elim_zero
 
+theorem Step.tau_ct_left
+  (h : Step t1 .tau t2) : ∃ t1', t1 = C[ t1' ] := by
+  cases h
+  case tau =>
+    rename_i t1
+    exists t1.tau
+  case choice_left =>
+    rename_i t1 t2 _
+    exists t1 ⊕ t2
+  case choice_right =>
+    rename_i t1 t2 _
+    exists t1 ⊕ t2
+
+theorem NTauStep.tau_ct_left
+  (h : NTauStep (n + 1) t1 t2) : ∃ t1', t1 = C[ t1' ] := by
+  revert t1
+  match n with
+  | 0 =>
+    intro t1 h
+    obtain ⟨t1', hs, _⟩ := h
+    exact hs.tau_ct_left
+  | n + 1 =>
+    intro t1 h
+    obtain ⟨t1', hs, hn⟩ := h
+    exact hs.tau_ct_left
+
+theorem Step.tau_ct_right
+  (h : Step t1 .tau t2) : ∃ t2', t2 = C[ t2' ] := by
+  generalize hl : Label.tau = l at *
+  induction h <;> try contradiction
+  case tau =>
+    rename_i t2
+    exists t2
+  case choice_left h ih => exact ih hl
+  case choice_right h ih => exact ih hl
+
+theorem NTauStep.tau_ct_right
+  (h : NTauStep (n + 1) t1 t2) : ∃ t2', t2 = C[ t2' ] := by
+  revert t1
+  induction n with
+  | zero =>
+    intro t1 h
+    obtain ⟨t1', hs, h0⟩ := h
+    subst h0
+    exact hs.tau_ct_right
+  | succ n ih =>
+    intro t1 h
+    obtain ⟨t1', hs, hn⟩ := h
+    exact ih hn
+
 lemma Step.elim_vis_val (h : Step (C[ vis e k ]) (.val v) t) : False := by
   generalize hz : CTree.vis e k = t1 at *
   cases h <;> ctree_elim hz
 
+lemma Step.elim_tau_val (h : Step (C[ .tau t1 ]) (.val v) t2) : False := by
+  generalize ht : C[ t1.tau ] = t1 at *
+  cases h; all_goals ctree_elim (State.ct.inj ht)
+
+lemma Step.elim_tau_event (h : Step (C[ .tau t1 ]) (.event α e) t2) : False := by
+  generalize ht : C[ t1.tau ] = t1 at *
+  cases h; all_goals ctree_elim (State.ct.inj ht)
+
 lemma Step.elim_vis_tau (h : Step (C[ vis e k ]) .tau t) : False := by
   generalize hz : CTree.vis e k = t1 at *
   cases h <;> ctree_elim hz
+
+lemma Step.response_kt_left (h : Step t1 (.response α a) t2) : ∃ k, t1 = K[ α | k ] := by
+  generalize hl : Label.response α a = l at *
+  induction h <;> try contradiction
+  case response =>
+    rename_i k
+    have ⟨hα, _⟩ := Label.response.inj hl
+    subst hα
+    exists k
+  all_goals
+    rename_i ih
+    obtain ⟨⟩ := ih hl
+    contradiction
+
+lemma Step.elim_ct_response (h : Step (C[ t1 ]) (.response α a) t2) : False := by
+  have ⟨_, hk⟩ := h.response_kt_left
+  contradiction
+
+lemma WeakStep.elim_ct_response (h : WeakStep (C[ t1 ]) (.response α a) t2) : False := by
+  obtain ⟨t11, t12, n1, n2, htau1, hs, htau2⟩ := h
+  induction n1 with
+  | zero =>
+    subst htau1
+    exact hs.elim_ct_response
+  | succ n ih =>
+    have ⟨_, h⟩ := htau1.tau_ct_right
+    subst h
+    exact hs.elim_ct_response
 
 lemma WeakStep.elim_vis_val (h : WeakStep (C[ vis e k ]) (.val v) t) : False := by
   obtain ⟨_, _, n1, _, htau, hs, _⟩ := h
@@ -70,6 +156,14 @@ lemma WeakStep.ret_val (h : WeakStep (C[ ret x ]) (.val y) t) : x = y := by
   cases hs
   <;> ctree_elim hret
   exact ret_inj hret
+
+lemma WeakStep.ret_event (h : WeakStep (C[ ret x ]) (.event α e) t) : False := by
+  obtain ⟨t2, t3, n1, n2, htau1, hs, htau2⟩ := h
+  rw [htau1.ret] at htau1
+  simp only [NTauStep] at htau1
+  subst htau1
+  generalize hret : ret x = hret at *
+  cases hs <;> ctree_elim hret
 
 lemma Step.vis_tau (h : Step (C[ vis e k ]) .tau t) : False := by
   generalize hv : CTree.vis e k = tv at *
@@ -123,6 +217,106 @@ lemma Step.vis_event {ε : Type → Type} {α : Type} {e : ε α} {t : State ε 
     have ⟨_, he⟩ := vis_inj <| State.ct.inj hc
     rw [he]
   all_goals ctree_elim (State.ct.inj hc)
+
+lemma NTauStep.cons
+  (htau : Step t1 .tau t2) (htaun : NTauStep n t2 t3) : NTauStep (1 + n) t1 t3 := by
+  revert t1 t2
+  induction n with
+  | zero =>
+    intro t1 t2 htau htaun
+    simp only [NTauStep] at htaun
+    subst htaun
+    exists t2
+  | succ n ih =>
+    intro t1 t2 htau htaun
+    obtain ⟨t2', hs, htaun⟩ := htaun
+    have := ih hs htaun
+    exists t2
+
+lemma NTauStep.append
+  (h1 : NTauStep n t1 t2) (h2 : NTauStep m t2 t3) : NTauStep (n + m) t1 t3 := by
+  revert t1 t2
+  induction n with
+  | zero =>
+    intro t1 t2 h1 h2
+    simp only [NTauStep] at h1
+    subst h1
+    rw [zero_add]
+    exact h2
+  | succ n ih =>
+    intro t1 t2 h1 h2
+    obtain ⟨t1', hs, htaun⟩ := h1
+    have := ih htaun h2
+    have hnm : n + 1 + m = 1 + (n + m) := by omega
+    rw [hnm]
+    unfold NTauStep
+    split; omega
+    rename_i heq
+    rw [Nat.add_comm] at heq
+    have := Nat.succ.inj heq
+    subst this
+    exists t1'
+
+lemma Step.tau_tau (h : Step (C[ t1.tau ]) .tau t2) : t2 = C[ t1 ] := by
+  generalize ht1 : C[ t1.tau ] = t1 at *
+  cases h
+  case tau =>
+    have := tau_inj <| State.ct.inj ht1
+    rw [this]
+  all_goals ctree_elim State.ct.inj ht1
+
+lemma NTauStep.inv
+  (h : NTauStep (n + 1) (C[ t1.tau ]) t2) :  NTauStep n (C[ t1 ]) t2 := by
+  obtain ⟨t1', htau, htaun⟩ := h
+  have := htau.tau_tau
+  subst this
+  exact htaun
+
+lemma WeakStep.tau_dest_tau_left {t1 : CTree ε ρ}
+  (h : WeakStep (C[ t1.tau ]) .tau t2) : ∃ n, NTauStep n (C[ t1 ]) t2 := by
+  obtain ⟨t11, t12, n1, n2, htau1, hs, htau2⟩ := h
+  cases n1 with
+  | zero =>
+    simp only [NTauStep] at htau1
+    subst htau1
+    generalize ht1 : t1.tau = t1 at *
+    cases hs <;> ctree_elim ht1
+    have ht1 := tau_inj ht1
+    subst ht1
+    exists n2
+  | succ n =>
+    have := htau1.inv
+    exists n + (1 + n2)
+    apply NTauStep.append this
+    exact NTauStep.cons hs htau2
+
+lemma WeakStep.dest_tau_left {t1 : CTree ε ρ}
+  (h : WeakStep (C[ t1.tau ]) l t2)
+  : match l with
+    | .tau => ∃ n, NTauStep n (C[ t1 ]) t2
+    | _ => WeakStep (C[ t1 ]) l t2 := by
+  match l with
+  | .tau => exact h.tau_dest_tau_left
+  | .val v =>
+    obtain ⟨t11, t12, n1, n2, htau1, hs, htau2⟩ := h
+    match n1 with
+    | 0 =>
+      subst htau1
+      exfalso; exact hs.elim_tau_val
+    | n1 + 1 =>
+      have htau1 := htau1.inv
+      exists t11, t12, n1, n2
+  | .event α e =>
+    obtain ⟨t11, t12, n1, n2, htau1, hs, htau2⟩ := h
+    match n1 with
+    | 0 =>
+      subst htau1
+      exfalso; exact hs.elim_tau_event
+    | n1 + 1 =>
+      have htau1 := htau1.inv
+      exists t11, t12, n1, n2
+  | .response α a =>
+    exfalso; exact h.elim_ct_response
 
 lemma WeakStep.vis_event {ε : Type → Type} {α : Type} {e : ε α} {t : State ε β} {k : KTree ε α β}
   (h : WeakStep (C[ vis e k ]) (.event α e) t) : t = K[ k ] := by
@@ -250,23 +444,6 @@ lemma refine_ret_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
   · rfl
   · exact href
 
-theorem Step.response_kt_left {ε : Type → Type} {α : Type} {a : α}
-  {t1 t2 : State ε ρ}
-  (h : Step t1 (.response α a) t2) : ∃ (k : KTree ε α ρ), t1 = K[ k ] := by
-  generalize hl : Label.response α a = l at *
-  induction h <;> try contradiction
-  case response =>
-    obtain ⟨hα, _⟩ := Label.response.inj hl
-    subst hα
-    rename_i k _
-    exists k
-  case choice_left _ ih =>
-    obtain ⟨⟩ := ih hl
-    contradiction
-  case choice_right _ ih =>
-    obtain ⟨⟩ := ih hl
-    contradiction
-
 theorem Step.val_ct_left
   (h : Step t1 (.val v) t2) : ∃ t1', t1 = C[ t1' ] := by
   cases h
@@ -302,29 +479,6 @@ theorem Step.event_ct_left
   case choice_right =>
     rename_i t1 t2 _
     exists t1 ⊕ t2
-
-theorem Step.tau_ct_left
-  (h : Step t1 .tau t2) : ∃ t1', t1 = C[ t1' ] := by
-  cases h
-  case tau =>
-    rename_i t1
-    exists t1.tau
-  case choice_left =>
-    rename_i t1 t2 _
-    exists t1 ⊕ t2
-  case choice_right =>
-    rename_i t1 t2 _
-    exists t1 ⊕ t2
-
-theorem Step.tau_ct_right
-  (h : Step t1 .tau t2) : ∃ t2', t2 = C[ t2' ] := by
-  generalize hl : Label.tau = l at *
-  induction h <;> try contradiction
-  case tau =>
-    rename_i t2
-    exists t2
-  case choice_left h ih => exact ih hl
-  case choice_right h ih => exact ih hl
 
 -- Fundamental lemma: tau steps in refinement correspond to weak steps
 lemma refine_tau_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
