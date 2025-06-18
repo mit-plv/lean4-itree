@@ -48,9 +48,15 @@ namespace CTree
         exists 0, 0
         have := hsim _ _ h
         whnf
+        -- We cannot produce an `a` to see what `t2` step to
+        -- So we cannot even decide whether `t2` is a continuatoin
         sorry
       else
-        have := hsim _ _ h
+        simp only [not_isEmpty_iff] at hemp
+        apply Nonempty.elim hemp
+        intro a
+        -- How do we make a `e` to pass to `Label.response`?
+        -- have := hsim _ _ h (.response α e a)
         sorry
     -- apply Refine.coind (λ p1 p2 t1 t2 => sim t1 t2) _ 0 0 h
     -- intro p1 p2 t1 t2 h
