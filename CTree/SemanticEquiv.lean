@@ -40,7 +40,18 @@ namespace CTree
   theorem refine_of_weak_sim {sim : Rel (State ε ρ) (State ε ρ)} {t1 t2 : State ε ρ}
     (hsim : IsWeakSimulation sim) (h : sim t1 t2)
     : t1 ≤ t2 := by
-    sorry
+    match t1 with
+    | C[ t1 ] => sorry
+    | K[ α | k1 ] =>
+      if hemp : IsEmpty α then
+        whnf
+        exists 0, 0
+        have := hsim _ _ h
+        whnf
+        sorry
+      else
+        have := hsim _ _ h
+        sorry
     -- apply Refine.coind (λ p1 p2 t1 t2 => sim t1 t2) _ 0 0 h
     -- intro p1 p2 t1 t2 h
     -- ctree_match t1
