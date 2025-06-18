@@ -176,133 +176,170 @@ lemma refine_ret_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
   (href : Refine' Eq p1 p2 t1 t2)
   : Step (C[ t1 ]) (.val v) (C[ zero ]) → Refine' Eq p1 p2 (ret v) t2 := by
   intro hstep
-  generalize hl : Label.val v = l at *
-  generalize ht1 : C[ t1 ] = st1 at *
-  generalize hz : C[ zero ] = z at *
-  revert ht1
-  induction hstep <;> try contradiction
+  apply Step.rec
+    (motive := fun t1' l' _ step =>
+      l' = .val v →
+      match t1' with
+      | C[ t1' ] => Refine' Eq p1 p2 t1' t2 → Refine' Eq p1 p2 (ret v) t2
+      | K[ _ ] => False
+    ) (t := hstep)
+  <;> try (intros; intros; whnf; contradiction)
   case ret =>
-    intro ht1
-    have ht1 := State.ct.inj ht1; subst ht1
-    rw [Label.val.inj hl]
+    intro v hl href
+    rw [←Label.val.inj hl]
     exact href
-  case choice_left h ih =>
-    intro ht1
-    have ht1 := State.ct.inj ht1; subst ht1
-    have href := href.inv_choice_left_left
-    subst hl
+  case choice_left =>
+    intro l t1 t2 t3 hstep ih hl h
+    have ih := ih hl
+    whnf at ih
+    exact ih h.inv_choice_left_left
+  case choice_right =>
+    intro l t1 t2 t3 hstep ih hl h
+    have ih := ih hl
+    whnf at ih
+    exact ih h.inv_choice_left_right
+  · rfl
+  · exact href
 
-    sorry
-  case choice_right h ih =>
-    sorry
+theorem Step.tau_ct_right
+  (h : Step t1 .tau t2) : ∃ t2', t2 = C[ t2' ] := by
+  generalize hl : Label.tau = l at *
+  induction h <;> try contradiction
+  case tau =>
+    rename_i t2
+    exists t2
+  case choice_left h ih => exact ih hl
+  case choice_right h ih => exact ih hl
 
 -- Fundamental lemma: tau steps in refinement correspond to weak steps
 lemma refine_tau_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
   (href : Refine' Eq p1 p2 t1 t2) :
   ∀ t1', Step (C[ t1 ]) .tau (C[ t1' ]) → Refine' Eq p1 p2 t1' t2 := by
   intro t1' hstep
-  generalize hl : Label.tau = l at *
-  generalize ht1 : C[ t1 ] = st1 at *
-  generalize ht1' : C[ t1' ] = st1' at *
-  induction hstep with
-  | ret | event | response => contradiction
-  | tau =>
-    have ht1 := State.ct.inj ht1
-    have ht1' := State.ct.inj ht1'
-    subst ht1 ht1'
-    exact href.inv_tau_left
-  | choice_left h ih => exact ih href.inv_choice_left_left hl
-  | choice_right h ih => exact ih href.inv_choice_left_right hl
+  apply Step.rec
+    (motive := fun mt1 l mt1' step =>
+      l = .tau →
+      match mt1, mt1' with
+      | C[ mt1 ], C[ mt1' ] => Refine' Eq p1 p2 mt1 t2 → Refine' Eq p1 p2 mt1' t2
+      | _, _ => False
+    ) (t := hstep)
+  <;> try (intros; intros; whnf; contradiction)
+  case tau =>
+    intro _ _; whnf
+    intro href; exact href.inv_tau_left
+  case choice_left =>
+    intro l t1 t2 t3 hstep h hl
+    subst hl
+    have h := h rfl
+    obtain ⟨t1', ht1'⟩ := hstep.tau_ct_right
+    subst ht1'
+    whnf at *
+    intro ih
+    exact h ih.inv_choice_left_left
+  case choice_right =>
+    intro l t1 t2 t3 hstep h hl
+    subst hl
+    have h := h rfl
+    obtain ⟨t1', ht1'⟩ := hstep.tau_ct_right
+    subst ht1'
+    whnf at *
+    intro ih
+    exact h ih.inv_choice_left_right
+  · rfl
+  · exact href
 
 lemma refine_ntau_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
   (href : Refine' Eq p1 p2 t1 t2) :
-  ∀ t1' n, NTauStep n t1 t1' → Refine' Eq p1 p2 t1' t2 := by
+  ∀ t1' n, NTauStep n (C[ t1 ]) (C[ t1' ]) → Refine' Eq p1 p2 t1' t2 := by
   intro t1' n hstep
   revert t1
   induction n with
   | zero =>
     intro t1 href hstep
     simp only [NTauStep] at hstep
-    rw [←hstep]
+    rw [←State.ct.inj hstep]
     exact href
   | succ n ih =>
     intro t1 href hstep
     simp only [NTauStep] at hstep
     obtain ⟨t2, htau, htau_n⟩ := hstep
+    obtain ⟨t2, ht2⟩ := htau.tau_ct_right
+    subst ht2
     apply ih _ htau_n
     exact refine_tau_correspondence href _ htau
 
 -- Lemma for event steps
 lemma refine_event_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
   (href : Refine' Eq p1 p2 t1 t2) :
-  ∀ {α} {e : ε α} {a : α} t1', Step t1 (.event α e a) t1' →
-  ∃ t2', WeakStep t2 (.event α e a) t2' ∧ Refine' Eq p1 p2 t1' t2' := by
-  intro α e a t1' hstep
-  generalize hl : Label.event α e a = l at *
-  revert href
-  induction hstep with
-  | ret | tau => contradiction
-  | vis =>
-    intro href
-    have ⟨ha, _, _⟩ := Label.event.inj hl
-    subst ha
-    have ⟨k2, hcont, href⟩ := href.inv_vis_left
-    exists k2 a
-    induction hcont with
-    | vis =>
-      rename_i href'
-      have ⟨_, _, ha⟩ := Label.event.inj hl
-      subst ha
-      apply And.intro _ (href' a)
-      rename_i e _ _ _ _ _
-      exists vis e k2, k2 a, 0, 0
-      apply And.intro _; apply And.intro
-      exact Step.vis
-      all_goals simp only [NTauStep]
-    | tau _ ih =>
-      have := Refine.dest_tau_right (by rw [Refine]; exists p1, p2)
-      rw [Refine] at this
-      obtain ⟨p1', p2', h⟩ := this
-      rw [Refine'] at *
-      have ⟨hs, h⟩ := ih (RefineF.idx_irrelevance h _ _)
-      apply And.intro
-      · obtain ⟨t3, t4, n1, n2, htau1, hs, htau2⟩ := hs
-        exists t3, t4, n1 + 1, n2
-        apply And.intro
-        · simp only [NTauStep]
-          rename_i t2 _ _
-          exists t2
-          apply And.intro _ htau1
-          exact Step.tau
-        · apply And.intro hs htau2
-      · rw [Refine'] at h
-        exact h
-    | choice_left h ih =>
-      have ⟨_, _, ha⟩ := Label.event.inj hl
-      subst ha
-      have := Refine'.of_ContainsVis h (r := Eq) (p1 := p1) (p2 := p2)
-      rename_i href' _ _ _ _ _
-      apply And.intro
-      · have ⟨hws, _⟩ := ih (Refine'.vis_trans href' this)
-        exact hws.choice_left_left
-      · exact href' a
-    | choice_right h ih =>
-      have ⟨_, _, ha⟩ := Label.event.inj hl
-      subst ha
-      have := Refine'.of_ContainsVis h (r := Eq) (p1 := p1) (p2 := p2)
-      rename_i href' _ _ _ _ _
-      apply And.intro
-      · have ⟨hws, _⟩ := ih (Refine'.vis_trans href' this)
-        exact hws.choice_left_right
-      · exact href' a
-  | choice_left h ih =>
-    intro h
-    exact ih hl h.inv_choice_left_left
-  | choice_right h ih =>
-    intro h
-    exact ih hl h.inv_choice_left_right
+  ∀ {α} {e : ε α} {a : α} t1', Step (C[ t1 ]) (.event α e) (C[ t1' ]) →
+  ∃ t2', WeakStep (C[ t2 ]) (.event α e) (C[ t2' ]) ∧ Refine' Eq p1 p2 t1' t2' := by
+  sorry
+  -- intro α e a t1' hstep
+  -- generalize hl : Label.event α e a = l at *
+  -- revert href
+  -- induction hstep with
+  -- | ret | tau => contradiction
+  -- | vis =>
+  --   intro href
+  --   have ⟨ha, _, _⟩ := Label.event.inj hl
+  --   subst ha
+  --   have ⟨k2, hcont, href⟩ := href.inv_vis_left
+  --   exists k2 a
+  --   induction hcont with
+  --   | vis =>
+  --     rename_i href'
+  --     have ⟨_, _, ha⟩ := Label.event.inj hl
+  --     subst ha
+  --     apply And.intro _ (href' a)
+  --     rename_i e _ _ _ _ _
+  --     exists vis e k2, k2 a, 0, 0
+  --     apply And.intro _; apply And.intro
+  --     exact Step.vis
+  --     all_goals simp only [NTauStep]
+  --   | tau _ ih =>
+  --     have := Refine.dest_tau_right (by rw [Refine]; exists p1, p2)
+  --     rw [Refine] at this
+  --     obtain ⟨p1', p2', h⟩ := this
+  --     rw [Refine'] at *
+  --     have ⟨hs, h⟩ := ih (RefineF.idx_irrelevance h _ _)
+  --     apply And.intro
+  --     · obtain ⟨t3, t4, n1, n2, htau1, hs, htau2⟩ := hs
+  --       exists t3, t4, n1 + 1, n2
+  --       apply And.intro
+  --       · simp only [NTauStep]
+  --         rename_i t2 _ _
+  --         exists t2
+  --         apply And.intro _ htau1
+  --         exact Step.tau
+  --       · apply And.intro hs htau2
+  --     · rw [Refine'] at h
+  --       exact h
+  --   | choice_left h ih =>
+  --     have ⟨_, _, ha⟩ := Label.event.inj hl
+  --     subst ha
+  --     have := Refine'.of_ContainsVis h (r := Eq) (p1 := p1) (p2 := p2)
+  --     rename_i href' _ _ _ _ _
+  --     apply And.intro
+  --     · have ⟨hws, _⟩ := ih (Refine'.vis_trans href' this)
+  --       exact hws.choice_left_left
+  --     · exact href' a
+  --   | choice_right h ih =>
+  --     have ⟨_, _, ha⟩ := Label.event.inj hl
+  --     subst ha
+  --     have := Refine'.of_ContainsVis h (r := Eq) (p1 := p1) (p2 := p2)
+  --     rename_i href' _ _ _ _ _
+  --     apply And.intro
+  --     · have ⟨hws, _⟩ := ih (Refine'.vis_trans href' this)
+  --       exact hws.choice_left_right
+  --     · exact href' a
+  -- | choice_left h ih =>
+  --   intro h
+  --   exact ih hl h.inv_choice_left_left
+  -- | choice_right h ih =>
+  --   intro h
+  --   exact ih hl h.inv_choice_left_right
 
-  lemma RefineF.ret_of_weak_step {x : ρ} (h : t.WeakStep (Label.val x) t') : RefineF Eq sim p1 p2 (CTree.ret x) t := by
+  lemma RefineF.ret_of_weak_step {x : ρ} (h : WeakStep (C[ t ]) (Label.val x) t') : RefineF Eq sim p1 p2 (CTree.ret x) t := by
     obtain ⟨t1, t2, n1, n2, htau1, hs, htau2⟩ := h
     revert t
     induction n1 with
@@ -310,45 +347,86 @@ lemma refine_event_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
       intro t htau
       simp only [NTauStep] at htau
       subst htau
-      generalize hl : Label.val x = l at *
-      induction hs <;> try contradiction
+      apply Step.rec
+        (motive := fun t l _ step =>
+          l = .val x →
+          match t with
+          | C[ t ] => RefineF Eq sim p1 p2 (.ret x) t
+          | _ => False
+        ) (t := hs)
+      <;> try (intros; intros; whnf; contradiction)
       case ret =>
+        intro x hl
+        whnf
         rw [Label.val.inj hl]
         exact RefineF.ret rfl
-      case choice_left ih =>
+      case choice_left =>
+        intro l t1 t2 t3 hstep h hl
+        have h := h hl
+        whnf at *
         apply RefineF.choice_left
         apply @RefineF.idx_mono _ _ _ _ _ _ _ p1 p1 p2 ⊤
         · exact le_refl _
         · exact le_top
-        · apply ih <;> assumption
+        · exact h
       case choice_right ih =>
+        intro l t1 t2 t3 hstep h hl
+        have h := h hl
+        whnf at *
         apply RefineF.choice_right
         apply @RefineF.idx_mono _ _ _ _ _ _ _ p1 p1 p2 ⊤
         · exact le_refl _
         · exact le_top
-        · apply ih <;> assumption
+        · exact h
+      rfl
     | succ n ih =>
       intro t htau
       simp only [NTauStep] at htau
       obtain ⟨t', htau, htau_n⟩ := htau
-      have := ih htau_n
-      generalize hl : Label.tau = l at *
-      induction htau <;> try contradiction
+      obtain ⟨t2', ht2'⟩ := Step.tau_ct_right htau
+      subst ht2'
+      apply Step.rec
+        (motive := fun t1 l t2 step =>
+          l = .tau →
+          match t1, t2 with
+          | C[ t1 ], C[ t2 ] => RefineF Eq sim p1 p2 (.ret x) t2 → RefineF Eq sim p1 p2 (.ret x) t1
+          | _, _ => False
+        ) (t := htau)
+      <;> try (intros; intros; whnf; contradiction)
       case tau =>
+        intro t _ h
         apply RefineF.tau_right
-        exact RefineF.idx_mono (le_refl _) le_top this
+        exact RefineF.idx_mono (le_refl _) le_top h
       case choice_left ih =>
+        intro l t1 t2 t3 hs h hl
+        subst hl
+        have h := h rfl
+        obtain ⟨t3, ht3⟩ := hs.tau_ct_right
+        subst ht3
+        whnf at *
+        intro href
+        have ih := h href
         apply RefineF.choice_left
         apply RefineF.idx_mono (p1' := p1) (p1 := p1) (p2' := p2) (p2 := ⊤)
         · exact le_refl _
         · exact le_top
-        · apply ih <;> assumption
+        · exact ih
       case choice_right ih =>
+        intro l t1 t2 t3 hs h hl
+        subst hl
+        have h := h rfl
+        obtain ⟨t3, ht3⟩ := hs.tau_ct_right
+        subst ht3
+        whnf at *
+        intro href
+        have ih := h href
         apply RefineF.choice_right
         apply RefineF.idx_mono (p1' := p1) (p1 := p1) (p2' := p2) (p2 := ⊤)
         · exact le_refl _
         · exact le_top
-        · apply ih <;> assumption
+        · exact ih
+      · rfl
+      · exact ih htau_n
 
   inductive Contains : CTree ε ρ → CTree ε ρ → Prop
     | refl : Contains t t
@@ -357,28 +435,53 @@ lemma refine_event_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
     | choice_right : Contains t2 t3 → Contains (t1 ⊕ t2) t3
 
   theorem Contains.from_NTauStep
-    (h : NTauStep n t1 t2) : Contains t1 t2 := by
+    (h : NTauStep n (C[ t1 ]) (C[ t2 ])) : Contains t1 t2 := by
     revert t1
     induction n with
     | zero =>
       intros t1 h
       simp only [NTauStep] at h
+      have h := State.ct.inj h
       subst h
       exact .refl
     | succ n ih =>
       intro t1 h
       simp only [NTauStep] at h
       obtain ⟨t1', htau, htaun⟩ := h
-      have := @ih t1' htaun
-      generalize hl : Label.tau = l at *
-      induction htau with
-      | ret | vis => contradiction
-      | tau => exact .tau this
-      | choice_left _ ih =>
-        apply Contains.choice_left
-        apply ih <;> assumption
-      | choice_right _ ih =>
-        apply Contains.choice_right
-        apply ih <;> assumption
+      obtain ⟨t1', ht1'⟩ := htau.tau_ct_right
+      subst ht1'
+      apply Step.rec
+        (motive := fun t1 l t1' step =>
+          l = .tau →
+          match t1, t1' with
+          | C[ t1 ], C[ t1' ] => t1'.Contains t2 → t1.Contains t2
+          | _, _ => False
+        ) (t := htau)
+      <;> try (intros; intros; whnf; contradiction)
+      case tau =>
+        intro t _
+        whnf
+        intro ih
+        exact .tau ih
+      case choice_left =>
+        intro l t1 t2 t3 hs h hl
+        subst hl
+        have h := h rfl
+        obtain ⟨t3, ht3⟩ := hs.tau_ct_right
+        subst ht3
+        whnf at *
+        intro ih
+        exact .choice_left (h ih)
+      case choice_right =>
+        intro l t1 t2 t3 hs h hl
+        subst hl
+        have h := h rfl
+        obtain ⟨t3, ht3⟩ := hs.tau_ct_right
+        subst ht3
+        whnf at *
+        intro ih
+        exact .choice_right (h ih)
+      · rfl
+      · exact @ih t1' htaun
 
 end CTree

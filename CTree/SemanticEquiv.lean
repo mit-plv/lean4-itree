@@ -64,7 +64,7 @@ namespace CTree
     case choice =>
       sorry
 
-  theorem weak_sim_of_refine : IsWeakSimulation (@Refine ρ ρ ε Eq) := by
+  theorem weak_sim_of_refine : IsWeakSimulation (@RefineS ρ ρ ε Eq) := by
     intro t1 t2 href l t1' hs
     obtain ⟨_, _, href⟩ := href
     split

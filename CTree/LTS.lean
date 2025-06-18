@@ -11,13 +11,13 @@ namespace CTree
   | response (α : Type) (e : ε α) (a : α)
   | tau
 
-  inductive Step : State ε ρ → Label ε ρ → State ε ρ → Prop
-  | ret : Step (C[ ret v ]) (.val v) (C[ zero ])
+  inductive Step {ε ρ} : State ε ρ → Label ε ρ → State ε ρ → Prop
+  | ret {v : ρ} : Step (C[ @ret ε ρ v ]) (.val v) (C[ zero ])
   | event {α} {e : ε α} {k : α → CTree ε ρ} : Step (C[ vis e k ]) (.event α e) (K[ k ])
   | response {α} {e : ε α} {a : α} {k : α → CTree ε ρ} : Step (K[ k ]) (.response α e a) (C[ k a ])
-  | tau : Step (C[ t.tau ]) .tau (C[ t ])
-  | choice_left (h : Step (C[ t1 ]) l t3) : Step (C[ t1 ⊕ t2 ]) l t3
-  | choice_right (h : Step (C[ t2 ]) l t3) : Step (C[ t1 ⊕ t2 ]) l t3
+  | tau {t : CTree ε ρ} : Step (C[ t.tau ]) .tau (C[ t ])
+  | choice_left {l : Label ε ρ} {t1 t2 : CTree ε ρ} {t3 : State ε ρ} (h : Step (C[ t1 ]) l t3) : Step (C[ t1 ⊕ t2 ]) l t3
+  | choice_right {l : Label ε ρ} {t1 t2 : CTree ε ρ} {t3 : State ε ρ} (h : Step (C[ t2 ]) l t3) : Step (C[ t1 ⊕ t2 ]) l t3
 
   def NTauStep (n : Nat) (t1 t3 : State ε ρ) : Prop :=
     match n with
