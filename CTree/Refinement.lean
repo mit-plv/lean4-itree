@@ -1276,4 +1276,24 @@ namespace CTree
     case choice_right h ih =>
       exact .choice_right <| ih ih_p1 ht2
 
+  def Refine'K (r : Rel β1 β2) (p1 p2 : ENat) (k1 : KTree ε α β1) (k2 : KTree ε α β2) : Prop :=
+    ∀ a : α, Refine' r p1 p2 (k1 a) (k2 a)
+
+  def RefineK (r : Rel β1 β2) (k1 : KTree ε α β1) (k2 : KTree ε α β2) : Prop :=
+    ∀ a : α, (k1 a) ≤r≤ (k2 a)
+
+  instance instLEKTree : LE (KTree ε α β) where
+    le := RefineK Eq
+
+  def Refine'S (r : Rel β1 β2) (p1 p2 : ENat) : State ε β1 → State ε β2 → Prop
+    | C[ t1 ], C[ t2 ] => Refine' r p1 p2 t1 t2
+    | K[ α1 | t1 ], K[ α2 | t2 ] => ∃ hα : α1 = α2, Refine'K r p1 p2 t1 (hα ▸ t2)
+    | _, _ => False
+
+  def RefineS (r : Rel β1 β2) (k1 : State ε β1) (k2 : State ε β2) : Prop :=
+    ∃ p1 p2, Refine'S r p1 p2 k1 k2
+
+  instance instLEState : LE (State ε β) where
+    le := RefineS Eq
+
 end CTree

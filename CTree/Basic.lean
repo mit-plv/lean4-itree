@@ -295,6 +295,16 @@ namespace CTree
   -/
   macro "ctree_elim " h:term : tactic => `(tactic| try (have := (Sigma.mk.inj (PFunctor.M.mk_inj $h)).left; contradiction))
 
+  def KTree (ε : Type → Type) (α β : Type) : Type 1 := α → CTree ε β
+
+  inductive State (ε : Type → Type) (ρ : Type)
+  | ct : CTree ε ρ → State ε ρ
+  | kt {α} : KTree ε α ρ → State ε ρ
+
+  notation:150 "C[ " t " ]" => State.ct t
+  notation:150 "K[ " t " ]" => State.kt t
+  notation:151 "K[ " α' " | " t " ]" => State.kt (α := α') t
+
   end
 end CTree
 

@@ -10,11 +10,11 @@ This file contains the detailed proofs of the key lemmas needed to establish
 the equivalence between coinductive refinement and weak simulation.
 -/
 
-lemma Step.elim_zero (h : Step zero l t) : False := by
+lemma Step.elim_zero (h : Step (C[ zero ]) l t) : False := by
   generalize hz : zero = t1 at *
   cases h <;> ctree_elim hz
 
-lemma WeakStep.elim_zero (h : WeakStep zero l t) : False := by
+lemma WeakStep.elim_zero (h : WeakStep (C[ zero ]) l t) : False := by
   obtain ⟨_, _, n1, _, htau, hs, _⟩ := h
   match n1 with
   | 0 =>
@@ -25,15 +25,15 @@ lemma WeakStep.elim_zero (h : WeakStep zero l t) : False := by
     obtain ⟨_, hs, _⟩ := htau
     exact hs.elim_zero
 
-lemma Step.elim_vis_val (h : Step (.vis e k) (.val v) t) : False := by
+lemma Step.elim_vis_val (h : Step (C[ vis e k ]) (.val v) t) : False := by
   generalize hz : CTree.vis e k = t1 at *
   cases h <;> ctree_elim hz
 
-lemma Step.elim_vis_tau (h : Step (.vis e k) .tau t) : False := by
+lemma Step.elim_vis_tau (h : Step (C[ vis e k ]) .tau t) : False := by
   generalize hz : CTree.vis e k = t1 at *
   cases h <;> ctree_elim hz
 
-lemma WeakStep.elim_vis_val (h : WeakStep (vis e k) (.val v) t) : False := by
+lemma WeakStep.elim_vis_val (h : WeakStep (C[ vis e k ]) (.val v) t) : False := by
   obtain ⟨_, _, n1, _, htau, hs, _⟩ := h
   match n1 with
   | 0 =>
@@ -44,15 +44,15 @@ lemma WeakStep.elim_vis_val (h : WeakStep (vis e k) (.val v) t) : False := by
     obtain ⟨_, hs, _⟩ := htau
     exact hs.elim_vis_tau
 
-lemma Step.zero_of_val (h : Step t1 (.val v) t2) : t2 = zero := by
+lemma Step.zero_of_val (h : Step t1 (.val v) t2) : t2 = C[ zero ] := by
   generalize hl : Label.val v = l at *
   induction h with
   | ret => rfl
-  | vis | tau => contradiction
+  | event | response | tau => contradiction
   | choice_left _ ih => exact ih hl
   | choice_right _ ih => exact ih hl
 
-lemma NTauStep.ret (h : NTauStep n (ret x) t) : n = 0 := by
+lemma NTauStep.ret (h : NTauStep n (C[ ret x ]) t) : n = 0 := by
   match n with
   | 0 => rfl
   | n + 1 =>
@@ -61,7 +61,7 @@ lemma NTauStep.ret (h : NTauStep n (ret x) t) : n = 0 := by
     generalize hret : CTree.ret x = tret at *
     cases htau <;> ctree_elim hret
 
-lemma WeakStep.ret_val (h : WeakStep (ret x) (.val y) t) : x = y := by
+lemma WeakStep.ret_val (h : WeakStep (C[ ret x ]) (.val y) t) : x = y := by
   obtain ⟨t2, t3, n1, n2, htau1, hs, htau2⟩ := h
   rw [htau1.ret] at htau1
   simp only [NTauStep] at htau1
@@ -71,18 +71,20 @@ lemma WeakStep.ret_val (h : WeakStep (ret x) (.val y) t) : x = y := by
   <;> ctree_elim hret
   exact ret_inj hret
 
-lemma Step.vis_tau (h : Step (.vis e k) .tau t) : False := by
+lemma Step.vis_tau (h : Step (C[ vis e k ]) .tau t) : False := by
   generalize hv : CTree.vis e k = tv at *
   cases h <;> ctree_elim hv
 
-lemma Step.vis_event_e {a : α} (h : Step (.vis e1 k) (.event α e2 a) t) : e1 = e2 := by
+lemma Step.vis_event_e {ε : Type → Type} {e1 e2 : ε α} {t : State ε β} {k : KTree ε α β}
+  (h : Step (C[ vis e1 k ]) (.event α e2) t) : e1 = e2 := by
   generalize hv : CTree.vis e1 k = tv at *
   cases h <;> ctree_elim hv
   have ⟨he, _⟩ := vis_inj hv
   subst he
   rfl
 
-lemma WeakStep.vis_event_e {a : α} (h : WeakStep (.vis e1 k) (.event α e2 a) t) : e1 = e2 := by
+lemma WeakStep.vis_event_e {ε : Type → Type} {e1 e2 : ε α} {t : State ε β} {k : KTree ε α β}
+  (h : WeakStep (C[ vis e1 k ]) (.event α e2) t) : e1 = e2 := by
   obtain ⟨t1Tau, t3Tau, n1, n2, htau1, hs, htau2⟩ := h
   match n1 with
   | 0 =>
@@ -94,20 +96,17 @@ lemma WeakStep.vis_event_e {a : α} (h : WeakStep (.vis e1 k) (.event α e2 a) t
     obtain ⟨_, hs, _⟩ := htau1
     exfalso; exact hs.vis_tau
 
-lemma Step.vis_event {a : α} (h : Step (.vis e k) (.event α e a) t) : t = k a := by
-  generalize hv : CTree.vis e k = tv at *
-  cases h <;> ctree_elim hv
-  have ⟨_, hk⟩ := vis_inj hv
-  subst hk
+lemma Step.vis_event {a : α} (h : Step (K[ k ]) (.response α e a) t) : t = C[ k a ] := by
+  cases h
   rfl
 
-lemma WeakStep.choice_left_left (h : WeakStep t1 l t3) : WeakStep (t1 ⊕ t2) l t3 := by
+lemma WeakStep.choice_left_left (h : WeakStep (C[ t1 ]) l t3) : WeakStep (C[ t1 ⊕ t2 ]) l t3 := by
   obtain ⟨t1Tau, t3Tau, n1, n2, htau1, hs, htau2⟩ := h
   match n1 with
   | 0 =>
     simp only [NTauStep] at htau1
     subst htau1
-    exists  t1 ⊕ t2, t3Tau, 0, n2
+    exists C[ t1 ⊕ t2 ], t3Tau, 0, n2
     apply And.intro
     · simp only [NTauStep]
     · refine ⟨?_, htau2⟩
@@ -123,13 +122,13 @@ lemma WeakStep.choice_left_left (h : WeakStep t1 l t3) : WeakStep (t1 ⊕ t2) l 
     refine ⟨?_, htau_n⟩
     exact Step.choice_left htau
 
-lemma WeakStep.choice_left_right (h : WeakStep t2 l t3) : WeakStep (t1 ⊕ t2) l t3 := by
+lemma WeakStep.choice_left_right (h : WeakStep (C[ t2 ]) l t3) : WeakStep (C[ t1 ⊕ t2 ]) l t3 := by
   obtain ⟨t1Tau, t3Tau, n1, n2, htau1, hs, htau2⟩ := h
   match n1 with
   | 0 =>
     simp only [NTauStep] at htau1
     subst htau1
-    exists  t1 ⊕ t2, t3Tau, 0, n2
+    exists C[ t1 ⊕ t2 ], t3Tau, 0, n2
     apply And.intro
     · simp only [NTauStep]
     · refine ⟨?_, htau2⟩
@@ -145,10 +144,10 @@ lemma WeakStep.choice_left_right (h : WeakStep t2 l t3) : WeakStep (t1 ⊕ t2) l
     refine ⟨?_, htau_n⟩
     exact Step.choice_right htau
 
-lemma weak_step_of_ContainsRet (h : ContainsRet v t) : WeakStep t (.val v) zero := by
+lemma weak_step_of_ContainsRet (h : ContainsRet v t) : WeakStep (C[ t ]) (.val v) (C[ zero ]) := by
   induction h with
   | ret =>
-    exists ret v, zero, 0, 0
+    exists C[ ret v ], C[ zero ], 0, 0
     apply And.intro
     · simp only [NTauStep]
     · apply And.intro .ret
@@ -157,11 +156,11 @@ lemma weak_step_of_ContainsRet (h : ContainsRet v t) : WeakStep t (.val v) zero 
     have ⟨t1, t2, n1, n2, htau1, hs, htau2⟩ := ih
     have := hs.zero_of_val
     subst this
-    exists t1, zero, n1 + 1, 0
+    exists t1, C[ zero ], n1 + 1, 0
     apply And.intro
     · simp only [NTauStep]
       rename_i t2 _
-      exists t2
+      exists C[ t2 ]
       exact And.intro .tau htau1
     · apply And.intro hs
       simp only [NTauStep]
@@ -170,32 +169,48 @@ lemma weak_step_of_ContainsRet (h : ContainsRet v t) : WeakStep t (.val v) zero 
   | choice_right _ ih =>
     exact WeakStep.choice_left_right ih
 
-lemma weak_step_of_refine_ret (h : Refine' Eq p1 p2 (ret v) t) : WeakStep t (.val v) zero :=
+lemma weak_step_of_refine_ret (h : Refine' Eq p1 p2 (ret v) t) : WeakStep (C[ t ]) (.val v) (C[ zero ]) :=
   weak_step_of_ContainsRet h.dest_ret_left
 
 lemma refine_ret_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
-  (href : Refine' Eq p1 p2 t1 t2) :
-  Step t1 (.val v) zero → Refine' Eq p1 p2 (ret v) t2 := by
+  (href : Refine' Eq p1 p2 t1 t2)
+  : Step (C[ t1 ]) (.val v) (C[ zero ]) → Refine' Eq p1 p2 (ret v) t2 := by
   intro hstep
   generalize hl : Label.val v = l at *
-  generalize hz : zero = z at *
-  induction hstep
-  <;> try contradiction
-  case ret => rw [Label.val.inj hl]; exact href
-  case choice_left _ ih =>
-    apply ih href.inv_choice_left_left <;> assumption
-  case choice_right _ ih =>
-    apply ih href.inv_choice_left_right <;> assumption
+  generalize ht1 : C[ t1 ] = st1 at *
+  generalize hz : C[ zero ] = z at *
+  revert ht1
+  induction hstep <;> try contradiction
+  case ret =>
+    intro ht1
+    have ht1 := State.ct.inj ht1; subst ht1
+    rw [Label.val.inj hl]
+    exact href
+  case choice_left h ih =>
+    intro ht1
+    have ht1 := State.ct.inj ht1; subst ht1
+    have href := href.inv_choice_left_left
+    subst hl
+
+    sorry
+  case choice_right h ih =>
+    sorry
 
 -- Fundamental lemma: tau steps in refinement correspond to weak steps
 lemma refine_tau_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
   (href : Refine' Eq p1 p2 t1 t2) :
-  ∀ t1', Step t1 .tau t1' → Refine' Eq p1 p2 t1' t2 := by
+  ∀ t1', Step (C[ t1 ]) .tau (C[ t1' ]) → Refine' Eq p1 p2 t1' t2 := by
   intro t1' hstep
   generalize hl : Label.tau = l at *
+  generalize ht1 : C[ t1 ] = st1 at *
+  generalize ht1' : C[ t1' ] = st1' at *
   induction hstep with
-  | ret | vis => contradiction
-  | tau => exact href.inv_tau_left
+  | ret | event | response => contradiction
+  | tau =>
+    have ht1 := State.ct.inj ht1
+    have ht1' := State.ct.inj ht1'
+    subst ht1 ht1'
+    exact href.inv_tau_left
   | choice_left h ih => exact ih href.inv_choice_left_left hl
   | choice_right h ih => exact ih href.inv_choice_left_right hl
 

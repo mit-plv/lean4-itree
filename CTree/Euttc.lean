@@ -1,65 +1,60 @@
 import CTree.Basic
 import CTree.Monad
+import CTree.Refinement
 import Mathlib.Data.ENat.Basic
 
 namespace CTree
-  inductive EuttcF {ε : Type → Type} {ρ σ : Type}
+  def EuttcF {ε : Type → Type} {ρ σ : Type}
     (r : Rel ρ σ) (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
-    : ENat → ENat → CTree ε ρ → CTree ε σ → Prop
-  | coind {p1 p2 t1 t2} (p1' p2' : ENat)
-      (h1 : p1' < p1) (h2 : p2' < p2) (h : sim p1' p2' t1 t2)
-      : EuttcF r sim p1 p2 t1 t2
-  | ret {x y p1 p2} (h : r x y) : EuttcF r sim p1 p2 (ret x) (ret y)
-  | vis {p1 p2} {α : Type} {e : ε α} {k1 : α → CTree ε ρ} {k2 : α → CTree ε σ}
-      (h : ∀ a : α, EuttcF r sim ⊤ ⊤ (k1 a) (k2 a)) : EuttcF r sim p1 p2 (vis e k1) (vis e k2)
-  | tau_left {p1 p2 t1 t2}
-      (h : EuttcF r sim ⊤ p2 t1 t2) : EuttcF r sim p1 p2 t1.tau t2
-  | tau_right {p1 p2 t1 t2}
-      (h : EuttcF r sim p1 ⊤ t1 t2) : EuttcF r sim p1 p2 t1 t2.tau
-  | zero {p1 p2} : EuttcF r sim p1 p2 zero zero
-  | choice_left {p1 p2 t1 t2 t3}
-      (h1 : EuttcF r sim ⊤ p2 t1 t3)
-      (h2 : EuttcF r sim ⊤ p2 t2 t3)
-      : EuttcF r sim p1 p2 (t1 ⊕ t2) t3
-  | choice_right {p1 p2 t1 t2 t3}
-      (h1 : EuttcF r sim p1 ⊤ t1 t2)
-      (h2 : EuttcF r sim p1 ⊤ t1 t3)
-      : EuttcF r sim p1 p2 t1 (t2 ⊕ t3)
-  | choice_both {p1 p2 t1 t2 t1' t2'}
-      (h1 : EuttcF r sim ⊤ ⊤ t1 t1')
-      (h2 : EuttcF r sim ⊤ ⊤ t2 t2')
-      : EuttcF r sim p1 p2 (t1 ⊕ t2) (t1' ⊕ t2')
-  | choice_both_symm {p1 p2 t1 t2 t1' t2'}
-      (h1 : EuttcF r sim ⊤ ⊤ t1 t2')
-      (h2 : EuttcF r sim ⊤ ⊤ t2 t1')
-      : EuttcF r sim p1 p2 (t1 ⊕ t2) (t2' ⊕ t1')
-  | choice_assoc {p1 p2 t1 t2 t3 t1' t2' t3'}
-      (h1 : EuttcF r sim ⊤ ⊤ t1 t1')
-      (h2 : EuttcF r sim ⊤ ⊤ t2 t2')
-      (h3 : EuttcF r sim ⊤ ⊤ t3 t3')
-      : EuttcF r sim p1 p2 (t1 ⊕ t2 ⊕ t3) ((t1' ⊕ t2') ⊕ t3')
+    (p1 p2 : ENat) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
+    RefineF r sim p1 p2 t1 t2 ∧
+      RefineF (flip r) (λ p1 p2 t1 t2 => sim p2 p1 t2 t1) p2 p1 t2 t1
 
   theorem EuttcF.monotone (r : Rel ρ σ) (sim sim' : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
     (hsim : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → sim' p1 p2 t1 t2)
     {p1 p2 t1 t2} (h : EuttcF r sim p1 p2 t1 t2) : EuttcF r sim' p1 p2 t1 t2 := by
-    induction h with
-    | coind _ _ h1 h2 h => exact .coind _ _ h1 h2 (hsim _ _ _ _ h)
-    | ret h => exact .ret h
-    | vis _ ih => exact .vis λ a => ih a
-    | tau_left _ ih => exact EuttcF.tau_left ih
-    | tau_right _ ih => exact EuttcF.tau_right ih
-    | zero => exact .zero
-    | choice_left _ _ ih1 ih2 => exact .choice_left ih1 ih2
-    | choice_right _ _ ih1 ih2 => exact .choice_right ih1 ih2
-    | choice_both _ _ ih1 ih2 => exact .choice_both ih1 ih2
-    | choice_both_symm _ _ ih1 ih2 => exact .choice_both_symm ih1 ih2
-    | choice_assoc _ _ _ ih1 ih2 ih3 => exact .choice_assoc ih1 ih2 ih3
+    have ⟨hl, hr⟩ := h
+    apply And.intro
+    · apply RefineF.monotone <;> assumption
+    · apply RefineF.monotone <;> try assumption
+      intro p1 p2 t1 t2 hs
+      simp_all only
 
   def Euttc' (r : Rel ρ σ) (p1 p2 : ENat) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
     EuttcF r (Euttc' r) p1 p2 t1 t2
     greatest_fixpoint monotonicity by
       intro _ _ hsim _ _ _ _ h
       apply EuttcF.monotone (hsim := hsim) (h := h)
+
+  theorem RefineF.transfer_sim
+    (h : RefineF r (Refine' r) p1 p2 t1 t2)
+    (hsim : ∀ p1 p2 t1 t2, RefineF r (Refine' r) p1 p2 t1 t2 → sim p1 p2 t1 t2 )
+    : RefineF r sim p1 p2 t1 t2 := by
+    induction h with
+    | coind p1' p2' hp1 hp2 h =>
+      simp only [Refine'] at h
+      apply RefineF.coind p1' p2' hp1 hp2
+      apply hsim
+      apply RefineF.idx_irrelevance
+      exact h
+    | ret h => exact RefineF.ret h
+    | vis hk =>
+      apply RefineF.vis (p1' := 0) (p2' := 0)
+      intro a
+      apply hsim
+      simp_all only [Refine']
+      apply RefineF.idx_irrelevance
+      exact hk a
+    | tau_left _ ih => exact RefineF.tau_left ih
+    | tau_right _ ih => exact RefineF.tau_right ih
+    | zero => exact RefineF.zero
+    | choice_left _ ih => exact RefineF.choice_left ih
+    | choice_right _ ih => exact RefineF.choice_right ih
+    | choice_idemp _ _ ih1 ih2 => exact RefineF.choice_idemp ih1 ih2
+
+  theorem RefineF.to_euttc (h : RefineF r (Refine' r) p1 p2 t1 t2) : Euttc' r p1 p2 t1 t2 := by
+    
+    sorry
 
   abbrev Euttc (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) :=
     ∃ p1 p2, Euttc' r p1 p2 t1 t2
