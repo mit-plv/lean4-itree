@@ -75,6 +75,25 @@ lemma Step.vis_tau (h : Step (C[ vis e k ]) .tau t) : False := by
   generalize hv : CTree.vis e k = tv at *
   cases h <;> ctree_elim hv
 
+lemma Step.vis_event_α {ε : Type → Type} {e1 : ε α1} {e2 : ε α2} {t : State ε β} {k : KTree ε α1 β}
+  (h : Step (C[ vis e1 k ]) (.event α2 e2) t) : α1 = α2 := by
+  generalize hc : C[ vis e1 k ] = c at *
+  cases h
+  case event => exact vis_inj_α <| State.ct.inj hc
+  all_goals ctree_elim (State.ct.inj hc)
+
+lemma WeakStep.vis_event_α {ε : Type → Type} {e1 : ε α1} {e2 : ε α2} {t : State ε β} {k : KTree ε α1 β}
+  (h : WeakStep (C[ vis e1 k ]) (.event α2 e2) t) : α1 = α2 := by
+  obtain ⟨_, _, n1, _, htau, hs, _⟩ := h
+  match n1 with
+  | 0 =>
+    simp only [NTauStep] at htau
+    subst htau
+    exact hs.vis_event_α
+  | n + 1 =>
+    obtain ⟨_, hs, _⟩ := htau
+    exfalso; exact hs.vis_tau
+
 lemma Step.vis_event_e {ε : Type → Type} {e1 e2 : ε α} {t : State ε β} {k : KTree ε α β}
   (h : Step (C[ vis e1 k ]) (.event α e2) t) : e1 = e2 := by
   generalize hv : CTree.vis e1 k = tv at *
@@ -96,7 +115,37 @@ lemma WeakStep.vis_event_e {ε : Type → Type} {e1 e2 : ε α} {t : State ε β
     obtain ⟨_, hs, _⟩ := htau1
     exfalso; exact hs.vis_tau
 
-lemma Step.vis_event {a : α} (h : Step (K[ k ]) (.response α a) t) : t = C[ k a ] := by
+lemma Step.vis_event {ε : Type → Type} {α : Type} {e : ε α} {t : State ε β} {k : KTree ε α β}
+  (h : Step (C[ vis e k ]) (.event α e) t) : t = K[ k ] := by
+  generalize hc : C[ vis e k ] = c at *
+  cases h
+  case event =>
+    have ⟨_, he⟩ := vis_inj <| State.ct.inj hc
+    rw [he]
+  all_goals ctree_elim (State.ct.inj hc)
+
+lemma WeakStep.vis_event {ε : Type → Type} {α : Type} {e : ε α} {t : State ε β} {k : KTree ε α β}
+  (h : WeakStep (C[ vis e k ]) (.event α e) t) : t = K[ k ] := by
+  obtain ⟨t1Tau, t3Tau, n1, n2, htau1, hs, htau2⟩ := h
+  match n1 with
+  | 0 =>
+    simp only [NTauStep] at htau1
+    subst htau1
+    have := hs.vis_event
+    subst this
+    match n2 with
+    | 0 =>
+      simp only [NTauStep] at htau2
+      subst htau2; rfl
+    | n + 1 =>
+      obtain ⟨_, hs, _⟩ := htau2
+      cases hs
+  | n + 1 =>
+    simp only [NTauStep] at htau1
+    obtain ⟨_, hs, _⟩ := htau1
+    exfalso; exact hs.vis_tau
+
+lemma Step.vis_response {a : α} (h : Step (K[ k ]) (.response α a) t) : t = C[ k a ] := by
   cases h
   rfl
 

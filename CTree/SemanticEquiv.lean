@@ -44,14 +44,28 @@ namespace CTree
     intro p1 p2 t1 t2 h
     ctree_match t1
     case ret =>
-      obtain ⟨t2', hws, hcont⟩ := hsim (C[ ret v ]) (C[ t2 ]) h (.val v) (C[ zero ]) .ret
+      obtain ⟨t2', hws, hcont⟩ := hsim _ _ h (.val v) (C[ zero ]) .ret
       exact RefineF.ret_of_weak_step hws
     case vis =>
       ctree_match 2, t2
       case ret =>
         sorry
       case vis =>
-        sorry
+        obtain ⟨sk2, hws, h⟩ := hsim _ _ h (.event α e) (K[ k ]) .event
+        have := hsim _ _ h
+        match sk2 with
+        | C[ _ ] => contradiction
+        | K[ α2 | _ ] =>
+          obtain ⟨hα, hk⟩ := this
+          subst hα
+          simp_all only
+          have hα := hws.vis_event_α.symm
+          subst hα
+          have he := hws.vis_event_e.symm
+          subst he
+          have ⟨_, hkeq⟩ := State.kt.inj hws.vis_event.symm
+          subst hkeq
+          exact RefineF.vis (p1' := 0) (p2' := 0) hk
       case tau =>
         sorry
       case zero =>
