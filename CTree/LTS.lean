@@ -8,15 +8,15 @@ namespace CTree
   inductive Label (ε : Type → Type) (ρ : Type)
   | val (v : ρ)
   | event (α : Type) (e : ε α)
-  | response (α : Type) (e : ε α) (a : α)
+  | response (α : Type) (a : α)
   | tau
 
   inductive Step {ε ρ} : State ε ρ → Label ε ρ → State ε ρ → Prop
   | ret {v : ρ} : Step (C[ @ret ε ρ v ]) (.val v) (C[ zero ])
   | event {α} {e : ε α} {k : α → CTree ε ρ}
       : Step (C[ vis e k ]) (.event α e) (K[ k ])
-  | response {α} {e : ε α} {a : α} {k : α → CTree ε ρ}
-      : Step (K[ k ]) (.response α e a) (C[ k a ])
+  | response {α} {a : α} {k : α → CTree ε ρ}
+      : Step (K[ k ]) (.response α a) (C[ k a ])
   | tau {t : CTree ε ρ} : Step (C[ t.tau ]) .tau (C[ t ])
   | choice_left {l : Label ε ρ} {t1 t2 : CTree ε ρ} {t3 : State ε ρ}
       (h : Step (C[ t1 ]) l t3) : Step (C[ t1 ⊕ t2 ]) l t3
@@ -33,10 +33,15 @@ namespace CTree
 
   def IsWeakSimulation (sim : Rel (State ε ρ) (State ε ρ)) : Prop :=
     ∀ p1 q1, sim p1 q1 →
-      ∀ l p2, Step p1 l p2 →
-        match l with
-        | .tau => ∃ n q2, NTauStep n q1 q2 ∧ sim p2 q2
-        | _ => ∃ q2, WeakStep q1 l q2 ∧ sim p2 q2
+      match p1, q1 with
+      | C[ _ ], C[ _ ] =>
+        ∀ l p2, Step p1 l p2 →
+          match l with
+          | .tau => ∃ n q2, NTauStep n q1 q2 ∧ sim p2 q2
+          | _ => ∃ q2, WeakStep q1 l q2 ∧ sim p2 q2
+      | K[ α1 | k1 ], K[ α2 | k2 ] =>
+        ∃ (hα : α1 = α2), ∀ (a : α1), sim (C[ k1 a ]) (C[ k2 (hα ▸ a) ])
+      | _, _ => False
 
   def IsWeakBisimulation (sim : Rel (State ε ρ) (State ε ρ)) : Prop :=
     IsWeakSimulation sim ∧ IsWeakSimulation (flip sim)

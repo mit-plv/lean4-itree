@@ -96,7 +96,7 @@ lemma WeakStep.vis_event_e {ε : Type → Type} {e1 e2 : ε α} {t : State ε β
     obtain ⟨_, hs, _⟩ := htau1
     exfalso; exact hs.vis_tau
 
-lemma Step.vis_event {a : α} (h : Step (K[ k ]) (.response α e a) t) : t = C[ k a ] := by
+lemma Step.vis_event {a : α} (h : Step (K[ k ]) (.response α a) t) : t = C[ k a ] := by
   cases h
   rfl
 
@@ -201,10 +201,10 @@ lemma refine_ret_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
   · rfl
   · exact href
 
-theorem Step.response_kt_left {ε : Type → Type} {α : Type} {a : α} {e : ε α}
+theorem Step.response_kt_left {ε : Type → Type} {α : Type} {a : α}
   {t1 t2 : State ε ρ}
-  (h : Step t1 (.response α e a) t2) : ∃ (k : KTree ε α ρ), t1 = K[ k ] := by
-  generalize hl : Label.response α e a = l at *
+  (h : Step t1 (.response α a) t2) : ∃ (k : KTree ε α ρ), t1 = K[ k ] := by
+  generalize hl : Label.response α a = l at *
   induction h <;> try contradiction
   case response =>
     obtain ⟨hα, _⟩ := Label.response.inj hl
