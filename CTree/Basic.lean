@@ -233,7 +233,43 @@ namespace CTree
   theorem dest_choice : PFunctor.M.dest (F := P ε ρ) (choice c1 c2) = ⟨.choice, _fin2Const c1 c2⟩ :=
     rfl
 
-  /- Infinite Nondeterminism -/
+  /-- Infinite Taus -/
+  def infTau : CTree ε ρ :=
+    corec' (α := PUnit) (λ rec x =>
+      .inr <| CTree.tau' (rec x)
+    ) PUnit.unit
+
+  theorem infTau_eq : @infTau ε ρ = tau infTau := by
+    apply PFunctor.M.bisim (λ t1 t2 => t1 = infTau ∧ t2 = tau infTau) _
+    · apply And.intro <;> rfl
+    · intro x y ⟨hx, hy⟩
+      simp only [infTau, corec', PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, tau',
+        Function.comp_apply, id_eq, PFunctor.map, Function.id_comp, PFunctor.M.corec_def] at hx
+      simp only [tau, mk, tau', infTau, corec', PFunctor.M.corec', PFunctor.M.corec₁, bind,
+        Sum.bind, Function.comp_apply, id_eq, PFunctor.map, Function.id_comp,
+        PFunctor.M.corec_def] at hy
+      subst hx hy
+      simp only [PFunctor.M.dest_mk]
+      apply exists_and_eq
+      intro i
+      apply And.intro
+      · match i with
+        | .up (.ofNat' 0) =>
+          simp only [Fin2.ofNat', Function.comp_apply, infTau, corec', PFunctor.M.corec',
+            PFunctor.M.corec₁, bind, Sum.bind, tau', id_eq, PFunctor.map, Function.id_comp]
+          rfl
+      · match i with
+        | .up (.ofNat' 0) =>
+          simp only [_fin1Const, Fin2.ofNat', tau, mk, tau']
+          congr
+          funext i
+          match i with
+          | .up (.ofNat' 0) =>
+            simp only [Fin2.ofNat', Function.comp_apply, _fin1Const, infTau, corec',
+              PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, tau', id_eq, PFunctor.map,
+              Function.id_comp]
+
+  /-- Infinite Nondeterminism -/
   def infND : CTree ε ρ :=
     corec' (α := PUnit) (λ rec x =>
       .inr <| CTree.choice' (rec x) (rec x)

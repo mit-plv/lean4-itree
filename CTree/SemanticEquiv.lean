@@ -88,7 +88,15 @@ namespace CTree
           apply RefineF.choice_right
           exact RefineF.of_WeakStep_event hsim h hws
     case tau =>
-      sorry
+      have ⟨n, t2', htaun, hsim⟩ := hsim _ _ h .tau (C[ t ]) .tau
+      apply RefineF.tau_left
+      induction n with
+      | zero =>
+        subst htaun
+        
+        sorry
+      | succ n ih =>
+        sorry
     case zero => exact RefineF.zero
     case choice =>
       sorry

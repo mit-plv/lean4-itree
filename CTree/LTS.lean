@@ -51,4 +51,21 @@ namespace CTree
 
   def WeakBisim : Rel (State ε ρ) (State ε ρ) :=
     λ p q => ∃ sim, IsWeakBisimulation sim ∧ sim p q
+
+  theorem WeakSim.infTau_zero {ε ρ} : WeakSim (C[ @infTau ε ρ ]) (C[ zero ]) := by
+    exists fun t1 t2 => t1 = C[ infTau ] ∧ t2 = C[ zero ]
+    apply And.intro _ ⟨rfl, rfl⟩
+    intro t1 t2 ⟨ht1, ht2⟩
+    subst ht1 ht2
+    intro l t1' hs
+    split
+    · rw [infTau_eq] at hs
+      generalize hinf : infTau.tau = inf at *
+      cases hs <;> ctree_elim hinf
+      have := tau_inj hinf
+      subst this
+      exists 0, C[ zero ]
+    · rw [infTau_eq] at hs
+      generalize hinf : infTau.tau = inf at *
+      cases hs <;> ctree_elim hinf
 end CTree
