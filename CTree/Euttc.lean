@@ -26,6 +26,9 @@ namespace CTree
       intro _ _ hsim _ _ _ _ h
       apply EuttcF.monotone (hsim := hsim) (h := h)
 
+  abbrev Euttc (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) :=
+    ∃ p1 p2, Euttc' r p1 p2 t1 t2
+
   theorem RefineF.transfer_sim
     (h : RefineF r (Refine' r) p1 p2 t1 t2)
     (hsim : ∀ p1 p2 t1 t2, RefineF r (Refine' r) p1 p2 t1 t2 → sim p1 p2 t1 t2 )
@@ -53,11 +56,8 @@ namespace CTree
     | choice_idemp _ _ ih1 ih2 => exact RefineF.choice_idemp ih1 ih2
 
   theorem RefineF.to_euttc (h : RefineF r (Refine' r) p1 p2 t1 t2) : Euttc' r p1 p2 t1 t2 := by
-    
-    sorry
 
-  abbrev Euttc (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) :=
-    ∃ p1 p2, Euttc' r p1 p2 t1 t2
+    sorry
 
   @[refl]
   theorem Euttc.refl {r : Rel ρ ρ} [IsRefl ρ r] : Euttc r t t :=

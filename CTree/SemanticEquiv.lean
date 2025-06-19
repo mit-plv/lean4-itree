@@ -72,105 +72,21 @@ namespace CTree
         apply RefineF.tau_right
         have hws := hws.dest_tau_left
         simp only at hws
-        clear *- hsim h hws
-        obtain ⟨t21, t22, n1, n2, htau1, hs, htau2⟩ := hws
-        revert t2
-        induction n1 with
-        | zero =>
-          intro t2 htau1
-          subst htau1
-          match n2 with
-          | 0 =>
-            subst htau2
-            have ⟨k2, hk2⟩ := hs.event_kt_right
-            subst hk2
-            apply Step.rec
-              (motive := fun t2 l k2 step =>
-                l = .event α e →
-                match t2, k2 with
-                | C[ t2 ], K[ k2 ] =>
-                  sim (K[ k ]) (K[ k2 ])
-                  → RefineF Eq (fun p1 p2 t1 t2 => sim (C[ t1 ]) (C[ t2 ])) p1 ⊤ (vis e k) t2
-                | _, _ => False
-              ) (t := hs)
-            <;> try (intros; intros; whnf; contradiction)
-            case event =>
-              intro α e k hl h
-              simp only [Label.event.injEq] at hl
-              obtain ⟨hα, he⟩ := hl
-              subst hα he
-              apply RefineF.vis (p1' := 0) (p2' := 0)
-              intro a
-              have ⟨_, hk⟩ := hsim _ _ h
-              simp only at hk
-              exact hk a
-            case choice_left =>
-              intro l t1 t2 t3 hs h hl
-              have h := h hl
-              subst hl
-              have ⟨k, hk⟩ := hs.event_kt_right
-              subst hk
-              intro ih
-              exact RefineF.choice_left (h ih)
-            case choice_right =>
-              intro l t1 t2 t3 hs h hl
-              have h := h hl
-              subst hl
-              have ⟨k, hk⟩ := hs.event_kt_right
-              subst hk
-              intro ih
-              exact RefineF.choice_right (h ih)
-            · rfl
-            · exact h
-          | n + 1 =>
-            have ⟨k2, hk2⟩ := hs.event_kt_right
-            subst hk2
-            obtain ⟨_, hs, _⟩ := htau2
-            have ⟨_, _⟩ := hs.tau_ct_left
-            contradiction
-        | succ n ih =>
-          intro t2 htau1
-          have ⟨t2', ht2'⟩ := htau1.tau_ct_right
-          subst ht2'
-          obtain ⟨t2'', hs, hn⟩ := htau1
-          obtain ⟨t2'', ht2''⟩ := hs.tau_ct_right
-          subst ht2''
-          have href := ih t2'' hn
-          apply Step.rec
-            (motive := fun t2 l t2'' step =>
-              l = .tau →
-              match t2, t2'' with
-              | C[ t2 ], C[ t2'' ] =>
-                RefineF Eq (fun p1 p2 t1 t2 => sim (C[ t1 ]) (C[ t2 ])) p1 ⊤ (vis e k) t2''
-                → RefineF Eq (fun p1 p2 t1 t2 => sim (C[ t1 ]) (C[ t2 ])) p1 ⊤ (vis e k) t2
-              | _, _ => False
-            ) (t := hs)
-          <;> try (intros; intros; whnf; contradiction)
-          case tau => intro _ _ ih; exact RefineF.tau_right ih
-          case choice_left =>
-            intro l t1 t2 t3 hs h hl
-            have h := h hl
-            subst hl
-            have ⟨t3, ht3⟩ := hs.tau_ct_right
-            subst ht3
-            intro ih
-            have h := h ih
-            exact RefineF.choice_left h
-          case choice_right =>
-            intro l t1 t2 t3 hs h hl
-            have h := h hl
-            subst hl
-            have ⟨t3, ht3⟩ := hs.tau_ct_right
-            subst ht3
-            intro ih
-            have h := h ih
-            exact RefineF.choice_right h
-          · rfl
-          · exact href
+        exact RefineF.of_WeakStep_event hsim h hws
       case zero =>
-        sorry
+        have ⟨_, hs, _⟩ := hsim _ _ h (.event α e) (K[ k ]) .event
+        exfalso; exact hs.elim_zero
       case choice =>
-        sorry
+        have ⟨st2, hws, h⟩ := hsim _ _ h (.event α e) (K[ k ]) .event
+        have ⟨k2, hk2⟩ := hws.event_kt_right
+        subst hk2
+        apply hws.inv_choice_left.elim
+        · intro hws
+          apply RefineF.choice_left
+          exact RefineF.of_WeakStep_event hsim h hws
+        · intro hws
+          apply RefineF.choice_right
+          exact RefineF.of_WeakStep_event hsim h hws
     case tau =>
       sorry
     case zero => exact RefineF.zero
