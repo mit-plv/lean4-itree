@@ -29,43 +29,154 @@ namespace CTree
   abbrev Euttc (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) :=
     ∃ p1 p2, Euttc' r p1 p2 t1 t2
 
-  theorem RefineF.transfer_sim
-    (h : RefineF r (Refine' r) p1 p2 t1 t2)
-    (hsim : ∀ p1 p2 t1 t2, RefineF r (Refine' r) p1 p2 t1 t2 → sim p1 p2 t1 t2 )
-    : RefineF r sim p1 p2 t1 t2 := by
-    induction h with
-    | coind p1' p2' hp1 hp2 h =>
-      simp only [Refine'] at h
-      apply RefineF.coind p1' p2' hp1 hp2
-      apply hsim
-      apply RefineF.idx_irrelevance
-      exact h
-    | ret h => exact RefineF.ret h
-    | vis hk =>
-      apply RefineF.vis (p1' := 0) (p2' := 0)
-      intro a
-      apply hsim
-      simp_all only [Refine']
-      apply RefineF.idx_irrelevance
-      exact hk a
-    | tau_left _ ih => exact RefineF.tau_left ih
-    | tau_right _ ih => exact RefineF.tau_right ih
-    | zero => exact RefineF.zero
-    | choice_left _ ih => exact RefineF.choice_left ih
-    | choice_right _ ih => exact RefineF.choice_right ih
-    | choice_idemp _ _ ih1 ih2 => exact RefineF.choice_idemp ih1 ih2
+  theorem EuttcF.idx_mono {t1 : CTree ε ρ} {t2 : CTree ε σ}
+    {p1' p1 p2' p2 : ENat} (h1 : p1' ≤ p1) (h2 : p2' ≤ p2) (h : EuttcF r sim p1' p2' t1 t2)
+    : EuttcF r sim p1 p2 t1 t2 := by
+    apply And.intro
+    · exact RefineF.idx_mono h1 h2 h.left
+    · exact RefineF.idx_mono h2 h1 h.right
 
-  theorem RefineF.to_euttc (h : RefineF r (Refine' r) p1 p2 t1 t2) : Euttc' r p1 p2 t1 t2 := by
+  theorem EuttcF.idx_irrelevance {p1 p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
+    (h : EuttcF r (Euttc' r) p1 p2 t1 t2)
+    : ∀ p1' p2', EuttcF r (Euttc' r) p1' p2' t1 t2 := by
+    intro p1' p2'
+    apply And.intro
+    · apply RefineF.idx_irrelevance_gen h.left
+      intro p1 p2 t1 t2 h
+      simp only [Euttc'] at h
+      exact h.left
+    · apply RefineF.idx_irrelevance_gen h.right
+      intro p1 p2 t1 t2 h
+      simp only [Euttc'] at h
+      exact h.right
 
-    sorry
+  theorem EuttcF.coind (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
+    (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → EuttcF r sim p1 p2 t1 t2)
+    (p1 p2 : ENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : EuttcF r (Euttc' r) p1 p2 t1 t2 := by
+    have := Euttc'.fixpoint_induct r sim adm p1 p2 t1 t2 h
+    rw [Euttc'] at this
+    exact this
+
+  theorem Euttc'.coind (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
+    (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → EuttcF r sim p1 p2 t1 t2)
+    (p1 p2 : ENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : Euttc' r p1 p2 t1 t2 :=
+    Euttc'.fixpoint_induct r sim adm p1 p2 t1 t2 h
+
+  theorem Euttc.coind (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
+    (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → EuttcF r sim p1 p2 t1 t2)
+    (p1 p2 : ENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : Euttc r t1 t2 :=
+    ⟨p1, p2, Euttc'.fixpoint_induct r sim adm p1 p2 t1 t2 h⟩
 
   @[refl]
-  theorem Euttc.refl {r : Rel ρ ρ} [IsRefl ρ r] : Euttc r t t :=
+  theorem Euttc.refl {r : Rel ρ ρ} [IsRefl ρ r] : Euttc r t t := by
+    apply Euttc.coind (fun p1 p2 t1 t2 => ∃ t, t1 = t ∧ t2 = t) _ 0 0
+    · exists t
+    · intro p1 p2 _ t ⟨_, ht1, ht2⟩
+      subst ht1 ht2
+      ctree_match t
+      case ret =>
+        apply And.intro
+        <;> exact RefineF.ret (IsRefl.refl v)
+      case tau =>
+        apply And.intro <;> (crush_refine; exists t)
+      case vis =>
+        apply And.intro <;> (crush_refine; intro a; exists k a)
+      case zero =>
+        apply And.intro <;> crush_refine
+      case choice =>
+        apply And.intro
+        all_goals
+          crush_refine
+          · apply RefineF.choice_left
+            crush_refine
+            exists cl
+          · apply RefineF.choice_right
+            crush_refine
+            exists cr
+
+  theorem EuttcF.dest_tau_left
+    (h : EuttcF r (Euttc' r) p1 p2 t1.tau t2) : EuttcF (flip r) (Euttc' r) p1 p2 t1 t2 := by
+    
     sorry
 
+  theorem Euttc'.flip_iff : Euttc' r p1 p2 t1 t2 ↔ Euttc' (flip r) p2 p1 t2 t1 := by
+    apply Iff.intro
+    · intro h
+      apply Euttc'.coind (fun p1 p2 t1 t2 => Euttc' r p2 p1 t2 t1) _ _ _ h
+      intro p1 p2 t1 t2 h
+      simp_all only [Euttc']
+      apply And.intro
+      · induction h.right with
+        | coind p1' p2' hp1 hp2 h =>
+          apply RefineF.coind p1' p2' hp1 hp2
+          exact EuttcF.idx_irrelevance h _ _
+        | ret hxy => exact RefineF.ret hxy
+        | vis hk =>
+          apply RefineF.vis
+          intro a
+          simp only [Euttc'] at hk
+          exact hk a
+        | tau_left _ ih =>
+
+          sorry
+        | tau_right => sorry
+        | zero => sorry
+        | choice_left => sorry
+        | choice_right => sorry
+        | choice_idemp => sorry
+      · sorry
+    · sorry
+
+  -- theorem EuttcF.flip_or_swapped
+  --   (h : EuttcF r (Euttc' r) p2 p1 t2 t1) : EuttcF (flip r) (Euttc' r) p1 p2 t1 t2 := by
+  --   apply EuttcF.coind (r := flip r) (λ p1 p2 t1 t2 => EuttcF (r) (Euttc' r) p2 p1 t2 t1)
+  --   apply And.intro
+  --   · induction h.right with
+  --     | coind p1' p2' hp1 hp2 h =>
+  --       have := h.right
+  --       sorry
+  --     | ret hxy =>
+  --       exact RefineF.ret hxy
+  --     | vis cih =>
+  --       apply RefineF.vis
+  --       · intro a
+
+  --         sorry
+  --       sorry
+  --     | tau_left => sorry
+  --     | tau_right => sorry
+  --     | zero => sorry
+  --     | choice_left => sorry
+  --     | choice_right => sorry
+  --     | choice_idemp => sorry
+  --   sorry
+
+  theorem RefineF.flip_euttc
+    (h : RefineF (flip r) (fun p1 p2 t1 t2 => Euttc' r p2 p1 t2 t1) p2 p1 t2 t1)
+    : RefineF (flip r) (Euttc' (flip r)) p2 p1 t2 t1 := by
+    induction h with
+    | coind p1' p2' hp1 hp2 h =>
+      apply RefineF.coind p1' p2' hp1 hp2
+      sorry
+    | ret => sorry
+    | vis => sorry
+    | tau_left => sorry
+    | tau_right => sorry
+    | zero => sorry
+    | choice_left => sorry
+    | choice_right => sorry
+    | choice_idemp => sorry
+
   @[symm]
-  theorem Euttc.symm {r : Rel ρ σ} (h : Euttc r t1 t2) : Euttc (flip r) t2 t1 :=
-    sorry
+  theorem Euttc.symm {r : Rel ρ σ} (h : Euttc r t1 t2) : Euttc (flip r) t2 t1 := by
+    simp only [Euttc, Euttc'] at *
+    obtain ⟨p1, p2, hl, hr⟩ := h
+    exists p2, p1
+    apply And.intro
+    ·
+
+      sorry
+    · sorry
 
   @[trans]
   theorem Euttc.trans (h1 : Euttc r1 t1 t2) (h2 : Euttc r2 t2 t3) : Euttc (r1.comp r2) t1 t3 :=
@@ -76,7 +187,7 @@ namespace CTree
 
   @[refl]
   theorem Euttc.eq_refl {t : CTree ε ρ} : t ≈ t :=
-    sorry
+    Euttc.refl
 
   @[symm]
   theorem Euttc.eq_symm {t1 t2 : CTree ε ρ} (h : t1 ≈ t2) : t2 ≈ t1 := by

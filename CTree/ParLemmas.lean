@@ -11,18 +11,6 @@ namespace CTree
     | parS : t = map Prod.snd (parAux (t1 ‖ₛ t2)) → IsParR t t1 t2
 
   namespace Euttc
-    macro "crush_refine" : tactic => `(tactic|(
-      repeat first
-      | exact RefineF.ret rfl
-      | exact RefineF.zero
-      | apply RefineF.tau_left
-      | apply RefineF.tau_right
-      | apply RefineF.vis (p1' := 0) (p2' := 0)
-      | apply RefineF.choice_idemp
-      | apply RefineF.choice_idemp
-      | apply RefineF.coind 0 0 ENat.top_pos ENat.top_pos
-    ))
-
     macro "crush_parR_ret " c:term : tactic => `(tactic|(
       repeat apply And.intro rfl _
       exists $c

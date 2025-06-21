@@ -1,41 +1,7 @@
-import CTree.Euttc
 import CTree.LTS
-import CTree.ParLemmas
 import CTree.RefineSimLemmas
 
 namespace CTree
-
-  syntax "ctree_match " (num ", ")? term (" with " tactic)? : tactic
-  open Lean in
-  macro_rules
-    | `(tactic|ctree_match $[$n:num,]? $t:term $[ with $simp_rule:tactic]?) => do
-      let n := (n.map (Nat.repr ∘ TSyntax.getNat)).getD ""
-      let mkIdent' (name : String) := mkIdent (.str .anonymous s!"{name}{n}")
-      let simp_rule ←
-        match simp_rule with
-        | some simp_rule => `(tactic|(
-            all_goals try ($simp_rule; crush_refine)
-          ))
-        | none => `(tactic|skip)
-      `(tactic|(
-        apply dMatchOn $t
-        case' ret =>
-          intro $(mkIdent' "v") heq
-          subst heq
-        case' vis =>
-          intro $(mkIdent' "α") $(mkIdent' "e") $(mkIdent' "k") heq
-          subst heq
-        case' tau =>
-          intro $(mkIdent' "t") heq
-          subst heq
-        case' zero =>
-          intro heq
-          subst heq
-        case' choice =>
-          intro $(mkIdent' "cl") $(mkIdent' "cr") heq
-          subst heq
-        $simp_rule
-      ))
 
   theorem refine_of_weak_sim_ret
     (hsim : IsWeakSimulation sim) (h : sim (C[ ret v ]) (C[ t2 ]))

@@ -830,9 +830,10 @@ namespace CTree
       try (first | apply le_top | apply le_refl | apply h1_ih | apply h2_ih) <;>
       assumption
 
-  theorem Refine.coind (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop) (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
-      (p1 p2 : ENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : t1 ≤r≤ t2 :=
-      ⟨p1, ⟨p2, Refine'.fixpoint_induct r sim adm p1 p2 t1 t2 h⟩⟩
+  theorem Refine.coind (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
+    (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
+    (p1 p2 : ENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : t1 ≤r≤ t2 :=
+    ⟨p1, p2, Refine'.fixpoint_induct r sim adm p1 p2 t1 t2 h⟩
 
   @[refl]
   theorem Refine.refl {r : Rel ρ ρ} [IsRefl ρ r] (t : CTree ε ρ) : t ≤r≤ t := by
@@ -1295,5 +1296,49 @@ namespace CTree
 
   instance instLEState : LE (State ε β) where
     le := RefineS Eq
+
+  macro "crush_refine" : tactic => `(tactic|(
+    repeat first
+    | exact RefineF.ret rfl
+    | exact RefineF.zero
+    | apply RefineF.tau_left
+    | apply RefineF.tau_right
+    | apply RefineF.vis (p1' := 0) (p2' := 0)
+    | apply RefineF.choice_idemp
+    | apply RefineF.choice_idemp
+    | apply RefineF.coind 0 0 ENat.top_pos ENat.top_pos
+  ))
+
+  syntax "ctree_match " (num ", ")? term (" with " tactic)? : tactic
+  open Lean in
+  macro_rules
+    | `(tactic|ctree_match $[$n:num,]? $t:term $[ with $simp_rule:tactic]?) => do
+      let n := (n.map (Nat.repr ∘ TSyntax.getNat)).getD ""
+      let mkIdent' (name : String) := mkIdent (.str .anonymous s!"{name}{n}")
+      let simp_rule ←
+        match simp_rule with
+        | some simp_rule => `(tactic|(
+            all_goals try ($simp_rule; crush_refine)
+          ))
+        | none => `(tactic|skip)
+      `(tactic|(
+        apply dMatchOn $t
+        case' ret =>
+          intro $(mkIdent' "v") heq
+          subst heq
+        case' vis =>
+          intro $(mkIdent' "α") $(mkIdent' "e") $(mkIdent' "k") heq
+          subst heq
+        case' tau =>
+          intro $(mkIdent' "t") heq
+          subst heq
+        case' zero =>
+          intro heq
+          subst heq
+        case' choice =>
+          intro $(mkIdent' "cl") $(mkIdent' "cr") heq
+          subst heq
+        $simp_rule
+      ))
 
 end CTree
