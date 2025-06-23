@@ -85,8 +85,8 @@ namespace CTree
             crush_refine
           · intro c heq
             subst heq
-            simp only [parAux_bothS_ret_tau, map_tau]
-            repeat (crush_refine; crush_parR_ret c)
+            simp only [parAux_bothS_ret_tau, map_tau, map_zero]
+            crush_refine
           · intro α e k heq
             subst heq
             simp only [parAux_bothS_ret_vis, map_zero]
@@ -213,15 +213,19 @@ namespace CTree
             crush_refine; crush_parR_map_both_le ret x, c21
           · apply RefineF.choice_right
             crush_refine; crush_parR_map_both_le ret x, c22
-          · crush_parR_map_both_le ret x, t2
         · intro t1 heq
           subst heq
           crush_match t2 with simp_parAux_bothS
-          · crush_parR_map_both_le t1, c21 ⊕ c22
-          · crush_parR_map_both_le t1, zero
-          · crush_parR_map_both_le t1, tau t2
-          · crush_parR_map_both_le t1, vis e2 k2
-          · crush_parR_map_both_le t1, ret y
+          · apply RefineF.choice_left
+            have := (map_tau (f := f) (c := t1)).symm
+            simp only [this]
+            crush_refine
+            crush_parR_map_both_le t1.tau, c21
+          · apply RefineF.choice_right
+            have := (map_tau (f := f) (c := t1)).symm
+            simp only [this]
+            crush_refine
+            crush_parR_map_both_le t1.tau, c22
         · intro α1 e1 k1 heq
           subst heq
           crush_match t2 with simp_parAux_bothS
@@ -230,7 +234,6 @@ namespace CTree
             crush_refine; crush_parR_map_both_le vis e1 k1, c21
           · apply RefineF.choice_right
             crush_refine; crush_parR_map_both_le vis e1 k1, c22
-          · crush_parR_map_both_le vis e1 k1, t2
         · intro heq
           subst heq
           crush_match t2 with simp_parAux_bothS
@@ -239,8 +242,6 @@ namespace CTree
             simp only [map_zero, and_self]
           · apply RefineF.choice_right
             crush_refine; crush_parR_map_both_le zero, c22
-            simp only [map_zero, and_self]
-          · crush_parR_map_both_le zero, t2
             simp only [map_zero, and_self]
         · intro c11 c12 heq
           subst heq
@@ -253,8 +254,11 @@ namespace CTree
             crush_refine; crush_parR_map_both_le c11, zero
           · apply RefineF.choice_right
             crush_refine; crush_parR_map_both_le c12, zero
-          · rw [←map_choice (c1 := c11) (c2 := c12) (f := f)]
-            crush_parR_map_both_le c11 ⊕ c12, t2
+          · apply RefineF.choice_left
+            crush_refine
+            crush_parR_map_both_le c11, t2.tau
+          · apply RefineF.choice_right
+            crush_refine; crush_parR_map_both_le c12, t2.tau
           · apply RefineF.choice_left
             crush_refine; crush_parR_map_both_le c11, vis e2 k2
           · apply RefineF.choice_right
