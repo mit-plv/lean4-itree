@@ -1193,12 +1193,6 @@ namespace CTree
     rw [Rel.comp_self] at this
     exact this
 
-  inductive ContainsVis {α : Type} (e : ε α) (k : α → CTree ε ρ) : CTree ε ρ → Prop
-  | vis : ContainsVis e k (vis e k)
-  | tau {t} : ContainsVis e k t → ContainsVis e k t.tau
-  | choice_left {t1 t2} : ContainsVis e k t1 → ContainsVis e k (t1 ⊕ t2)
-  | choice_right {t1 t2} : ContainsVis e k t2 → ContainsVis e k (t1 ⊕ t2)
-
   theorem Refine'.of_ContainsVis {t : CTree ε ρ} [IsRefl ρ r] (h : ContainsVis e k t) : Refine' r p1 p2 (vis e k) t := by
     induction h with
     | vis =>
@@ -1247,12 +1241,6 @@ namespace CTree
       have ⟨k2, hcont, href⟩ := ih ih_p1 ht2
       exists k2
       exact And.intro (.choice_right hcont) (λ a => (href a).idx_irrelevance _ _)
-
-  inductive ContainsRet (v : ρ) : CTree ε ρ → Prop
-  | ret : ContainsRet v (ret v)
-  | tau {t} : ContainsRet v t → ContainsRet v t.tau
-  | choice_left {t1 t2} : ContainsRet v t1 → ContainsRet v (t1 ⊕ t2)
-  | choice_right {t1 t2} : ContainsRet v t2 → ContainsRet v (t1 ⊕ t2)
 
   theorem Refine'.dest_ret_left
     (h : Refine' Eq p1 p2 (ret v) t2) : ContainsRet v t2 := by

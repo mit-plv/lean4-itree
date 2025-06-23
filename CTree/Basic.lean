@@ -336,6 +336,24 @@ namespace CTree
   notation:150 "K[ " t " ]" => State.kt t
   notation:151 "K[ " α' " | " t " ]" => State.kt (α := α') t
 
+  inductive ContainsRet (v : ρ) : CTree ε ρ → Prop
+  | ret : ContainsRet v (ret v)
+  | tau {t} : ContainsRet v t → ContainsRet v t.tau
+  | choice_left {t1 t2} : ContainsRet v t1 → ContainsRet v (t1 ⊕ t2)
+  | choice_right {t1 t2} : ContainsRet v t2 → ContainsRet v (t1 ⊕ t2)
+
+  inductive ContainsVis {α : Type} (e : ε α) (k : α → CTree ε ρ) : CTree ε ρ → Prop
+  | vis : ContainsVis e k (vis e k)
+  | tau {t} : ContainsVis e k t → ContainsVis e k t.tau
+  | choice_left {t1 t2} : ContainsVis e k t1 → ContainsVis e k (t1 ⊕ t2)
+  | choice_right {t1 t2} : ContainsVis e k t2 → ContainsVis e k (t1 ⊕ t2)
+
+  inductive TerminateNoVis : CTree ε ρ → Prop
+  | zero : TerminateNoVis zero
+  | ret {v} : TerminateNoVis (ret v)
+  | tau {t} : TerminateNoVis t → TerminateNoVis t.tau
+  | choice {c1 c2} : TerminateNoVis c1 → TerminateNoVis c2 → TerminateNoVis (c1 ⊕ c2)
+
   /--
   `ctree_elim heq` where `heq` is an equality between `CTree`s tries to to prove `False` using `heq`.
   -/

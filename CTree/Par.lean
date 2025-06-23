@@ -4,6 +4,14 @@ import CTree.Euttc
 import Mathlib.Data.Vector3
 
 namespace CTree
+
+  class Concurrent (ε : Type → Type) where
+    eff {α β} : ε α → ε β → CTree ε (α × β)
+    term {α β} : ∀ (e1 : ε α) (e2 : ε β), TerminateNoVis (eff e1 e2)
+    symm {α β} : ∀ {e1 : ε α} {e2 : ε β} {v w}, ret (v, w) ≤ eff e1 e2 → ret (w, v) ≤ eff e2 e1
+
+  infixr:60 " ⇄ " => Concurrent.eff
+
   /- Paralle Opeartor -/
 
   inductive ParState (ε : Type → Type) (α β : Type)
@@ -13,25 +21,23 @@ namespace CTree
     | bothS (t1 : CTree ε α) (t2 : CTree ε β) -- · ⋈ ·
     | parS (t1 : CTree ε α) (t2 : CTree ε β)  -- · ‖ ·
 
-  def parAux (ps : ParState ε α β) : CTree ε (α × β) :=
-    corec' (λ {_} rec state =>
+  def parAux [Concurrent ε] (ps : ParState ε α β) : CTree ε (α × β) :=
+    corec' (λ {X} rec state =>
       match state with
       | .lS t1 t2 =>
         match t1.dest with
-        | ⟨.ret _, _⟩ => .inl <| zero
+        | ⟨.ret _, _⟩ | ⟨.zero, _⟩ => .inl <| zero
         | ⟨.tau, c⟩ =>
-          .inr <| tau' (rec <| .lS (c _fin0) t2)
-        | ⟨.zero, _⟩ => .inl <| zero
+          .inr <| tau' (rec <| .parS (c _fin0) t2)
         | ⟨.choice, cts⟩ =>
           .inr <| choice' (rec <| .lS (cts _fin0) t2) (rec <| .lS (cts _fin1) t2)
         | ⟨.vis _ e, k⟩ =>
           .inr <| vis' e (fun a => rec <| .parS (k <| .up a) t2)
       | .rS t1 t2 =>
         match t2.dest with
-        | ⟨.ret _, _⟩ => .inl <| zero
+        | ⟨.ret _, _⟩ | ⟨.zero, _⟩ => .inl <| zero
         | ⟨.tau, c⟩ =>
-          .inr <| tau' (rec <| .rS t1 (c _fin0))
-        | ⟨.zero, _⟩ => .inl <| zero
+          .inr <| tau' (rec <| .parS t1 (c _fin0))
         | ⟨.choice, cts⟩ =>
           .inr <| choice' (rec <| .rS t1 (cts _fin0)) (rec <| .rS t1 (cts _fin1))
         | ⟨.vis _ e, k⟩ =>
@@ -41,8 +47,14 @@ namespace CTree
       | .bothS t1 t2 =>
         match t1.dest, t2.dest with
         | ⟨.ret x, _⟩, ⟨.ret y, _⟩ => .inl <| ret (x, y)
-        | ⟨.tau, c⟩, _ => .inr <| tau' (rec <| .bothS (c _fin0) t2)
-        | _, ⟨.tau, c⟩ => .inr <| tau' (rec <| .bothS t1 (c _fin0))
+        | ⟨.vis _ e1, k1⟩, ⟨.vis _ e2, k2⟩ =>
+          .inl <| e1 ⇄ e2 >>= fun (r1, r2) =>
+            let k1 := (k1 <| .up r1)
+            let k2 := (k2 <| .up r2)
+            let s := ParState.parS k1 k2
+            let res := rec s
+            -- Cannot turn this into a `CTree` right away
+            sorry
         | ⟨.choice, cts⟩, _ =>
           .inr <| choice' (rec <| .bothS (cts _fin0) t2) (rec <| .bothS (cts _fin1) t2)
         | _, ⟨.choice, cts⟩ =>
