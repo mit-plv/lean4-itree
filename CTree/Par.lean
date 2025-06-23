@@ -21,60 +21,57 @@ namespace CTree
     | bothS (t1 : CTree ε α) (t2 : CTree ε β) -- · ⋈ ·
     | parS (t1 : CTree ε α) (t2 : CTree ε β)  -- · ‖ ·
 
+  infixr:60 " ◁ " => ParState.lS
+  infixr:60 " ▷ " => ParState.rS
+  infixr:60 " ◁▷ " => ParState.lrS
+  infixr:60 " ⋈ " => ParState.bothS
+  infixr:60 " ‖ₛ " => ParState.parS
+
   def parAux [Concurrent ε] (ps : ParState ε α β) : CTree ε (α × β) :=
     corec' (λ {X} rec state =>
       match state with
-      | .lS t1 t2 =>
+      | t1 ◁ t2 =>
         match t1.dest with
-        | ⟨.ret _, _⟩ | ⟨.zero, _⟩ => .inl <| zero
+        | ⟨.ret _, _⟩ | ⟨.zero, _⟩ => .inl zero
         | ⟨.tau, c⟩ =>
-          .inr <| tau' (rec <| .parS (c _fin0) t2)
+          .inr <| tau' (rec <| (c _fin0) ‖ₛ t2)
         | ⟨.choice, cts⟩ =>
-          .inr <| choice' (rec <| .lS (cts _fin0) t2) (rec <| .lS (cts _fin1) t2)
+          .inr <| choice' (rec <| (cts _fin0) ◁ t2) (rec <| (cts _fin1) ◁ t2)
         | ⟨.vis _ e, k⟩ =>
-          .inr <| vis' e (fun a => rec <| .parS (k <| .up a) t2)
-      | .rS t1 t2 =>
+          .inr <| vis' e (fun a => rec <| (k <| .up a) ‖ₛ t2)
+      | t1 ▷ t2 =>
         match t2.dest with
-        | ⟨.ret _, _⟩ | ⟨.zero, _⟩ => .inl <| zero
+        | ⟨.ret _, _⟩ | ⟨.zero, _⟩ => .inl zero
         | ⟨.tau, c⟩ =>
-          .inr <| tau' (rec <| .parS t1 (c _fin0))
+          .inr <| tau' (rec <| t1 ‖ₛ (c _fin0))
         | ⟨.choice, cts⟩ =>
-          .inr <| choice' (rec <| .rS t1 (cts _fin0)) (rec <| .rS t1 (cts _fin1))
+          .inr <| choice' (rec <| t1 ▷ (cts _fin0)) (rec <| t1 ▷ (cts _fin1))
         | ⟨.vis _ e, k⟩ =>
-          .inr <| vis' e (fun a => rec <| .parS t1 (k {down := a}))
-      | .lrS t1 t2 =>
-        .inr <| choice' (rec <| .lS t1 t2) (rec <| .rS t1 t2)
-      | .bothS t1 t2 =>
+          .inr <| vis' e (fun a => rec <| t1 ‖ₛ (k <| .up a))
+      | t1 ◁▷ t2 =>
+        .inr <| choice' (rec <| t1 ◁ t2) (rec <| t1 ▷ t2)
+      | t1 ⋈ t2 =>
         match t1.dest, t2.dest with
         | ⟨.ret x, _⟩, ⟨.ret y, _⟩ => .inl <| ret (x, y)
         | ⟨.vis _ e1, k1⟩, ⟨.vis _ e2, k2⟩ =>
           .inl <| e1 ⇄ e2 >>= fun (r1, r2) =>
-            let k1 := (k1 <| .up r1)
-            let k2 := (k2 <| .up r2)
-            let s := ParState.parS k1 k2
-            let res := rec s
+            let s := rec <| (k1 <| .up r1) ‖ₛ (k2 <| .up r2)
             -- Cannot turn this into a `CTree` right away
             sorry
         | ⟨.choice, cts⟩, _ =>
-          .inr <| choice' (rec <| .bothS (cts _fin0) t2) (rec <| .bothS (cts _fin1) t2)
+          .inr <| choice' (rec <| (cts _fin0) ⋈ t2) (rec <| (cts _fin1) ⋈ t2)
         | _, ⟨.choice, cts⟩ =>
-          .inr <| choice' (rec <| .bothS t1 (cts _fin0)) (rec <| .bothS t1 (cts _fin1))
-        | _, _ => .inl <| zero
-      | .parS t1 t2 =>
-        .inr <| choice' (rec <| .bothS t1 t2) (rec <| .lrS t1 t2)
+          .inr <| choice' (rec <| t1 ⋈ (cts _fin0)) (rec <| t1 ⋈ (cts _fin1))
+        | _, _ => .inl zero
+      | t1 ‖ₛ t2 =>
+        .inr <| choice' (rec <| t1 ⋈ t2) (rec <| t1 ◁▷ t2)
     ) ps
 
-    infixr:60 " ◁ " => ParState.lS
-    infixr:60 " ▷ " => ParState.rS
-    infixr:60 " ◁▷ " => ParState.lrS
-    infixr:60 " ⋈ " => ParState.bothS
-    infixr:60 " ‖ₛ " => ParState.parS
-
-  def par (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
-    parAux (.parS t1 t2)
+  def par [Concurrent ε] (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε (α × β) :=
+    parAux (t1 ‖ₛ t2)
   infixr:60 " ‖ " => par
 
-  def parR (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε β :=
+  def parR [Concurrent ε] (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε β :=
     Prod.snd <$> (t1 ‖ t2)
   infixr:60 " ‖→ " => parR
 
