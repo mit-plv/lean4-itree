@@ -363,7 +363,3 @@ namespace CTree
 
   end
 end CTree
-
-def parametricFun (E : Type → Type) (F : Type → Type) :=
-  ∀ α : Type, E α → F α
-infixr:50 " ⟹ "=> parametricFun
