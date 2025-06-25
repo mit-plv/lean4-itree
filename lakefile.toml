@@ -1,0 +1,20 @@
+name = "ctree"
+version = "0.1.0"
+defaultTargets = ["CTree"]
+
+[leanOptions]
+pp.unicode.fun = true # pretty-prints `fun a ↦ b`
+autoImplicit = true
+relaxedAutoImplicit = false
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+
+# [[require]]
+# name = "Canonical"
+# scope = "chasenorman"
+
+[[lean_lib]]
+name = "CTree"
+globs = ["CTree.+"]

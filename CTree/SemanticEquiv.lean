@@ -4,6 +4,7 @@ import CTree.RefineSimLemmas
 namespace CTree
 
   theorem refine_of_weak_sim_ret
+    {sim : State ε ρ → State ε ρ → Prop}
     (hsim : IsWeakSimulation sim) (h : sim (C[ ret v ]) (C[ t2 ]))
     : ret v ≤ t2 := by
     simp only [LE.le, Refine, Refine']

@@ -57,7 +57,8 @@ namespace CTree
   -- `t1 r≤ t2` looks better, but somehow clashes with multi-line class instance definition
   notation:60 t1:61 " ≤"r:61"≤ " t2:61 => Refine r t1 t2
 
-  theorem RefineF.idx_mono {t1 : CTree ε ρ} {t2 : CTree ε σ}
+  theorem RefineF.idx_mono {sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop}
+    {t1 : CTree ε ρ} {t2 : CTree ε σ}
     {p1' p1 p2' p2 : ENat} (h1 : p1' ≤ p1) (h2 : p2' ≤ p2) (h : RefineF r sim p1' p2' t1 t2)
     : RefineF r sim p1 p2 t1 t2 := by
     revert p1 p2
@@ -126,7 +127,8 @@ namespace CTree
 
     By *continue* we mean that `t2'` shows up as a choice within `t2` or is a `tau` step behind `t2`.
   -/
-  theorem RefineF.cont_right {p1 p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
+  theorem RefineF.cont_right {sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop}
+    {p1 p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
     {hsim : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2}
     (h : RefineF r sim p1 p2 t1 t2') :
     ∀ (t2 : CTree ε σ), ((∃ t1', t2 = t1' ⊕ t2') ∨ (∃ t1', t2 = t2' ⊕ t1') ∨ t2 = t2'.tau) →
@@ -147,7 +149,8 @@ namespace CTree
     | choice_right h h_ih => crush_cont ih, h_ih
     | choice_idemp _ _ => crush_cont _, _
 
-  theorem RefineF.idx_irrelevance_gen {p1 p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
+  theorem RefineF.idx_irrelevance_gen {sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop}
+    {p1 p2} {t1 : CTree ε ρ} {t2 : CTree ε σ}
     {hsim : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2}
     (h : RefineF r sim p1 p2 t1 t2)
     : ∀ p1' p2', RefineF r sim p1' p2' t1 t2 := by

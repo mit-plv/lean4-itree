@@ -76,7 +76,7 @@ theorem _fin1Const_fin0 : _fin1Const (c _fin0) = c := by
   | .up (.ofNat' 0) =>
     simp only [_fin1Const, Fin2.ofNat', _fin0]
 
-theorem _fin2Const_fin0_fin1 : _fin2Const (cs _fin0) (cs _fin1) = cs := by
+theorem _fin2Const_fin0_fin1 {α} {cs : ULift (Fin2 2) → α} : _fin2Const (cs _fin0) (cs _fin1) = cs := by
   funext i
   match i with
   | .up (.ofNat' 0) =>
@@ -128,7 +128,7 @@ theorem corec_inl_eq_id {P : PFunctor.{u}} {F : P.M ⊕ β → P (P.M ⊕ β)} {
 def IdF : PFunctor.{u} :=
   ⟨PUnit, λ _ => PUnit⟩
 
-def PFunctor.pow (P : PFunctor.{u}) : Nat → PFunctor.{u}
+def PFunctor.pow (P : PFunctor.{max u v, v}) : Nat → PFunctor.{max u v, v}
 | 0 => P
 | n + 1 => PFunctor.comp P (P.pow n)
 
@@ -136,21 +136,21 @@ instance : Pow PFunctor Nat where
   pow P n := P.pow n
 
 /-- The sum of two pfunctors -/
-def SumF (P1 P2 : PFunctor.{u}) : PFunctor.{u} :=
+def SumF (P1 P2 : PFunctor) : PFunctor :=
   ⟨P1.A ⊕ P2.A, λ a => match a with | .inl a => P1.B a | .inr a => P2.B a⟩
 
-def PFunctor.sumPow (P : PFunctor.{u}) : Nat → PFunctor.{u}
+def PFunctor.sumPow (P : PFunctor) : Nat → PFunctor.{max u v, v}
 | 0 => P
 | n + 1 => SumF (P ^ (n + 1)) (PFunctor.sumPow P n)
 infixl:70 " ⊕^ " => PFunctor.sumPow
 
-def SumF.inl {P1 P2 : PFunctor.{u}} (x : P1.M) : (SumF P1 P2).M  :=
+def SumF.inl {P1 P2 : PFunctor} (x : P1.M) : (SumF P1 P2).M  :=
   .corec (λ x =>
     let ⟨s, c⟩ := x.dest
     ⟨.inl s, λ sl => c sl⟩
   ) x
 
-def SumF.inr {P1 P2 : PFunctor.{u}} (x : P2.M) : (SumF P1 P2).M  :=
+def SumF.inr {P1 P2 : PFunctor} (x : P2.M) : (SumF P1 P2).M  :=
   .corec (λ x =>
     let ⟨s, c⟩ := x.dest
     ⟨.inr s, λ sr => c sr⟩
@@ -167,7 +167,7 @@ def SumF.destL (x : P1 (SumF P1 P2).M) : (SumF P1 P2).M :=
 def SumF.destR (x : P2 (SumF P1 P2).M) : (SumF P1 P2).M :=
   .mk ⟨.inr x.fst, x.snd⟩
 
-def PFunctor.fold {P : PFunctor.{u}} (x : P.M) : (n : Nat) → (P ⊕^ n).M
+def PFunctor.fold {P : PFunctor} (x : P.M) : (n : Nat) → (P ⊕^ n).M
 | 0 => x
 | n + 1 =>
   let x' := P.fold x n
@@ -191,14 +191,14 @@ P.comp P => P
 -/
 
 /-- constructor for composition -/
-def PFunctor.comp.pmk (P₂ P₁ : PFunctor.{u}) {α : Type u} (x : P₂ (P₁ α)) : comp P₂ P₁ α :=
+def PFunctor.comp.pmk (P₂ P₁ : PFunctor) {α : Type u} (x : P₂ (P₁ α)) : comp P₂ P₁ α :=
   ⟨⟨x.1, Sigma.fst ∘ x.2⟩, fun a₂a₁ => (x.2 a₂a₁.1).2 a₂a₁.2⟩
 
 /-- universe polymorphic destructor for composition -/
-def PFunctor.comp.pget {P₂ P₁ : PFunctor.{u}} {α : Type u} (x : comp P₂ P₁ α) : P₂ (P₁ α) :=
+def PFunctor.comp.pget {P₂ P₁ : PFunctor} {α : Type u} (x : comp P₂ P₁ α) : P₂ (P₁ α) :=
   ⟨x.1.1, fun a₂ => ⟨x.1.2 a₂, fun a₁ => x.2 ⟨a₂, a₁⟩⟩⟩
 
-def PFunctor.unfold1 {P : PFunctor.{u}} (x : (P ⊕^ 1).M) : P.M :=
+def PFunctor.unfold1 {P : PFunctor} (x : (P ⊕^ 1).M) : P.M :=
   .corec (λ x =>
     match SumF.case x with
     | .inl x =>
@@ -211,7 +211,7 @@ def PFunctor.unfold1 {P : PFunctor.{u}} (x : (P ⊕^ 1).M) : P.M :=
       x
   ) x
 
-def PFunctor.M.corec2 {P : PFunctor.{u}} {α : Type u}
+def PFunctor.M.corec2 {P : PFunctor} {α : Type u}
   (F : ∀ {X : Type u}, (α → X) → α → P.M ⊕ P (P X) ⊕ P X) (x : α) : P.M :=
   .corec (λ (a : P.M ⊕ P α ⊕ α) =>
     match a with
@@ -227,13 +227,13 @@ def PFunctor.M.corec2 {P : PFunctor.{u}} {α : Type u}
       | .inr (.inr ⟨s, c⟩) => ⟨s, λ i => .inr <| .inr <| c i⟩
   ) (.inr <| .inr x)
 
-inductive PFunctor.UpTo3 (P : PFunctor.{u}) (X : Type u)
+inductive PFunctor.UpTo3 (P : PFunctor) (X : Type u)
 | res (x : P.M)
 | one (x : P X)
 | two (x : P <| P X)
 | three (x : P <| P <| P X)
 
-def PFunctor.unfold2 {P : PFunctor.{u}} (x : (P ⊕^ 2).M) : P.M :=
+def PFunctor.unfold2 {P : PFunctor} (x : (P ⊕^ 2).M) : P.M :=
   .corec (λ x =>
     match SumF.case x with
     | .inl x =>

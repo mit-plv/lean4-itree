@@ -29,7 +29,9 @@ namespace CTree
   abbrev Euttc (r : Rel ρ σ) (t1 : CTree ε ρ) (t2 : CTree ε σ) :=
     ∃ p1 p2, Euttc' r p1 p2 t1 t2
 
-  theorem EuttcF.idx_mono {t1 : CTree ε ρ} {t2 : CTree ε σ}
+  theorem EuttcF.idx_mono
+    {sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop}
+    {t1 : CTree ε ρ} {t2 : CTree ε σ}
     {p1' p1 p2' p2 : ENat} (h1 : p1' ≤ p1) (h2 : p2' ≤ p2) (h : EuttcF r sim p1' p2' t1 t2)
     : EuttcF r sim p1 p2 t1 t2 := by
     apply And.intro
@@ -96,7 +98,7 @@ namespace CTree
 
   theorem EuttcF.dest_tau_left
     (h : EuttcF r (Euttc' r) p1 p2 t1.tau t2) : EuttcF (flip r) (Euttc' r) p1 p2 t1 t2 := by
-    
+
     sorry
 
   theorem Euttc'.flip_iff : Euttc' r p1 p2 t1 t2 ↔ Euttc' (flip r) p2 p1 t2 t1 := by

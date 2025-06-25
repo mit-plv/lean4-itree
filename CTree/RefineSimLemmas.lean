@@ -627,7 +627,8 @@ lemma refine_event_correspondence {ε : Type → Type} {β : Type}
   · rfl
   · exact href
 
-  lemma RefineF.ret_of_weak_step {x : ρ} (h : WeakStep (C[ t ]) (Label.val x) t') : RefineF Eq sim p1 p2 (CTree.ret x) t := by
+  lemma RefineF.ret_of_weak_step {sim : ENat → ENat → CTree ε ρ → CTree ε ρ → Prop}
+    {x : ρ} (h : WeakStep (C[ t ]) (Label.val x) t') : RefineF Eq sim p1 p2 (CTree.ret x) t := by
     obtain ⟨t1, t2, n1, n2, htau1, hs, htau2⟩ := h
     revert t
     induction n1 with
@@ -657,7 +658,7 @@ lemma refine_event_correspondence {ε : Type → Type} {β : Type}
         · exact le_refl _
         · exact le_top
         · exact h
-      case choice_right ih =>
+      case choice_right =>
         intro l t1 t2 t3 hstep h hl
         have h := h hl
         whnf at *
@@ -685,7 +686,7 @@ lemma refine_event_correspondence {ε : Type → Type} {β : Type}
         intro t _ h
         apply RefineF.tau_right
         exact RefineF.idx_mono (le_refl _) le_top h
-      case choice_left ih =>
+      case choice_left =>
         intro l t1 t2 t3 hs h hl
         subst hl
         have h := h rfl
@@ -699,7 +700,7 @@ lemma refine_event_correspondence {ε : Type → Type} {β : Type}
         · exact le_refl _
         · exact le_top
         · exact ih
-      case choice_right ih =>
+      case choice_right =>
         intro l t1 t2 t3 hs h hl
         subst hl
         have h := h rfl
@@ -772,7 +773,9 @@ lemma refine_event_correspondence {ε : Type → Type} {β : Type}
       · rfl
       · exact @ih t1' htaun
 
-theorem RefineF.of_WeakStep_event {k : KTree ε α ρ}
+theorem RefineF.of_WeakStep_event
+  {sim : State ε ρ → State ε ρ → Prop}
+  {k : KTree ε α ρ}
   (hsim : IsWeakSimulation sim)
   (h : sim (K[ k ]) t2')
   (hws : WeakStep (C[ t2 ]) (Label.event α e) t2')

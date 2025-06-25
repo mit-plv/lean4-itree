@@ -22,6 +22,9 @@ namespace CTree
       | ⟨.ret v, _⟩ => .inl <| ret v
       | ⟨.tau, t⟩ => .inr <| tau' <| rec (t _fin0)
       | ⟨.vis α e, k⟩ =>
+        let he := handler e
+        let x := fun (i : α) => rec (k <| .up i)
+
         let k := handler e >>= fun i =>
           let res := rec (k <| .up i)
           sorry
