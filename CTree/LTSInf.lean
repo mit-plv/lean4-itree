@@ -73,4 +73,27 @@ namespace CTree
 
   def Bisim {ε : Type → Type} {ρ : Type} : Rel (StateInf ε ρ) (StateInf ε ρ) :=
     λ p q => ∃ sim, IsBisimulation sim ∧ sim p q
+
+  theorem infTau_diverge : Diverge (@infTau ε ρ) := by
+    apply Diverge.fixpoint_induct (fun x => x = infTau) _
+    · rfl
+    · intro x h
+      subst h
+      conv =>
+        arg 2
+        rw [infTau_eq]
+      apply DivergeF.tau
+      rfl
+
+  theorem infND_diverge : Diverge (@infND ε ρ) := by
+    apply Diverge.fixpoint_induct (fun x => x = infND) _
+    · rfl
+    · intro x h
+      subst h
+      conv =>
+        arg 2
+        rw [infND_eq]
+      apply DivergeF.choice_left
+      rfl
+
 end CTree
