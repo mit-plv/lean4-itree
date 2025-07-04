@@ -18,7 +18,7 @@ namespace CTree
   | bindS (t : CTree ε (ι ⊕ ρ))
 
   def iter {ε ρ ι} (step : ι → CTree ε (ι ⊕ ρ)) (i : ι) : CTree ε ρ :=
-    corec' (fun rec (s : iterState) =>
+    .corec' (fun rec (s : iterState) =>
       match s with
       | .bindS t =>
         match t.dest with
@@ -41,7 +41,7 @@ namespace CTree
     Interpret `CTree`s of one effect type into a `CTree` with a different effect type.
   -/
   def interp {ε1 ε2 ρ} (handler : ε1 ⟹ CTree ε2) (t : CTree ε1 ρ) : CTree ε2 ρ :=
-    corec' (fun rec (s : interpState) =>
+    .corec' (fun rec (s : interpState) =>
       match s with
       | .bindS t tk =>
         match t.dest with

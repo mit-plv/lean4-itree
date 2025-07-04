@@ -3,7 +3,7 @@ import CTree.Basic
 namespace CTree
   /- Functor Instance -/
   def map (f : α → β) (t : CTree ε α) : CTree ε β :=
-    corec' (λ rec t =>
+    .corec' (λ rec t =>
       match t.dest with
       | ⟨.ret v, _⟩ =>
         .inl <| ret <| f v
@@ -24,14 +24,14 @@ namespace CTree
 
   /- Basic map lemmas -/
   theorem map_ret {ε : Type → Type} : map (ε := ε) f (ret v) = ret (f v) := by
-    simp only [map, corec', PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
+    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
       tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice',
       PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
     congr
     exact _elim0_eq_all _
 
   theorem map_tau {ε : Type → Type} {c : CTree ε ρ} : map f (tau c) = tau (map f c) := by
-    simp only [map, corec', PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
+    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
       tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice', tau,
       PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
     congr
@@ -43,7 +43,7 @@ namespace CTree
 
   theorem map_vis {ε : Type → Type} {α : Type} {e : ε α} {k : α → CTree ε ρ} {f : ρ → σ}
     : map f (vis e k) = vis e (λ x => map f <| k x) := by
-    simp only [map, corec', PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
+    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
       tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice', vis,
       PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
     congr
@@ -51,14 +51,14 @@ namespace CTree
     simp only [Function.comp_apply, PFunctor.M.corec_def]
 
   theorem map_zero {ε} {f : α → β} : map (ε := ε) f zero = zero := by
-    simp only [map, corec', PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
+    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
       tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice',
       PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
     congr
     exact _elim0_eq_all _
 
   theorem map_choice {f : α → β} : map f (choice c1 c2) = choice (map f c1) (map f c2) := by
-    simp only [map, corec', PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
+    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
       tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice', choice,
       PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
     congr
@@ -90,7 +90,7 @@ namespace CTree
 
   /- Monad Instance -/
   def bind {σ} (t : CTree ε ρ) (f : ρ → CTree ε σ) : CTree ε σ :=
-    corec' (λ rec t =>
+    .corec' (λ rec t =>
       match t.dest with
       | ⟨.ret v, _⟩ =>
         .inl <| f v
@@ -115,7 +115,7 @@ namespace CTree
 
   /- Bind monad lemmas -/
   theorem bind_ret : bind (ret v) f = f v := by
-    simp only [bind, corec', PFunctor.M.corec', PFunctor.M.corec₁, Bind.bind, Sum.bind, tau',
+    simp only [bind, PFunctor.M.corec', PFunctor.M.corec₁, Bind.bind, Sum.bind, tau',
       Function.comp_apply, id_eq, vis', Function.id_comp, zero, mk, zero', choice', ret, ret',
       PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_map]
     rw [PFunctor.M.map_dest]
@@ -129,7 +129,7 @@ namespace CTree
       simp only [implies_true]
 
   theorem bind_tau : bind (tau c) f = tau (bind c f) := by
-    simp only [bind, corec', PFunctor.M.corec', PFunctor.M.corec₁, Bind.bind, Sum.bind, tau',
+    simp only [bind, PFunctor.M.corec', PFunctor.M.corec₁, Bind.bind, Sum.bind, tau',
       Function.comp_apply, id_eq, vis', Function.id_comp, zero, mk, zero', choice', PFunctor.map,
       tau, PFunctor.M.corec_def, PFunctor.M.dest_mk]
     congr
@@ -140,7 +140,7 @@ namespace CTree
       rfl
 
   theorem bind_vis : bind (vis e k) f = vis e λ x => bind (k x) f := by
-    simp only [bind, corec', PFunctor.M.corec', PFunctor.M.corec₁, Bind.bind, Sum.bind, tau',
+    simp only [bind, PFunctor.M.corec', PFunctor.M.corec₁, Bind.bind, Sum.bind, tau',
       Function.comp_apply, id_eq, vis', Function.id_comp, zero, mk, zero', choice', PFunctor.map,
       vis, PFunctor.M.corec_def, PFunctor.M.dest_mk]
     congr
@@ -149,14 +149,14 @@ namespace CTree
     rfl
 
   theorem bind_zero : bind zero f = zero := by
-    simp only [bind, corec', PFunctor.M.corec', PFunctor.M.corec₁, Bind.bind, Sum.bind, tau',
+    simp only [bind, PFunctor.M.corec', PFunctor.M.corec₁, Bind.bind, Sum.bind, tau',
       Function.comp_apply, id_eq, vis', Function.id_comp, zero, mk, zero', choice', PFunctor.map,
       PFunctor.M.corec_def, PFunctor.M.dest_mk]
     congr
     exact _elim0_eq_all _
 
   theorem bind_choice : bind (choice c1 c2) f = choice (bind c1 f) (bind c2 f) := by
-    simp [bind, corec', PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def, PFunctor.map, Bind.bind, Sum.bind]
+    simp [bind, PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def, PFunctor.map, Bind.bind, Sum.bind]
     congr
     funext i
     match i with

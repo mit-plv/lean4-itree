@@ -139,19 +139,6 @@ namespace CTree
     have := eq_of_heq (Sigma.mk.inj (PFunctor.M.mk_inj h)).right
     exact _fin2Const_inj this
 
-  /- Specialized utilitie functions from Mathlib -/
-  abbrev dest : CTree ε ρ → P ε ρ (CTree ε ρ) := PFunctor.M.dest (F := P ε ρ)
-
-  abbrev P.map (f : α → β) := PFunctor.map (P ε ρ) f
-
-  abbrev corec {α : Type u} := PFunctor.M.corec (F := P ε ρ) (X := α)
-
-  abbrev corecOn {α : Type u} := PFunctor.M.corecOn (F := P ε ρ) (X := α)
-
-  abbrev corec₁ {α : Type 1} := PFunctor.M.corec₁ (P := P ε ρ) (α := α)
-
-  abbrev corec' {α : Type 1} := PFunctor.M.corec' (P := P ε ρ) (α := α)
-
   def matchOn {motive : Sort u} (x : CTree ε ρ)
     (ret : (v : ρ) → motive)
     (tau : (c : CTree ε ρ) → motive)
@@ -235,17 +222,17 @@ namespace CTree
 
   /-- Infinite Taus -/
   def infTau : CTree ε ρ :=
-    corec' (α := PUnit) (λ rec x =>
+    PFunctor.M.corec' (λ rec x =>
       .inr <| CTree.tau' (rec x)
-    ) PUnit.unit
+    ) ()
 
   theorem infTau_eq : @infTau ε ρ = tau infTau := by
     apply PFunctor.M.bisim (λ t1 t2 => t1 = infTau ∧ t2 = tau infTau) _
     · apply And.intro <;> rfl
     · intro x y ⟨hx, hy⟩
-      simp only [infTau, corec', PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, tau',
+      simp only [infTau, PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, tau',
         Function.comp_apply, id_eq, PFunctor.map, Function.id_comp, PFunctor.M.corec_def] at hx
-      simp only [tau, mk, tau', infTau, corec', PFunctor.M.corec', PFunctor.M.corec₁, bind,
+      simp only [tau, mk, tau', infTau, PFunctor.M.corec', PFunctor.M.corec₁, bind,
         Sum.bind, Function.comp_apply, id_eq, PFunctor.map, Function.id_comp,
         PFunctor.M.corec_def] at hy
       subst hx hy
@@ -255,7 +242,7 @@ namespace CTree
       apply And.intro
       · match i with
         | .up (.ofNat' 0) =>
-          simp only [Fin2.ofNat', Function.comp_apply, infTau, corec', PFunctor.M.corec',
+          simp only [Fin2.ofNat', Function.comp_apply, infTau, PFunctor.M.corec',
             PFunctor.M.corec₁, bind, Sum.bind, tau', id_eq, PFunctor.map, Function.id_comp]
           rfl
       · match i with
@@ -265,24 +252,24 @@ namespace CTree
           funext i
           match i with
           | .up (.ofNat' 0) =>
-            simp only [Fin2.ofNat', Function.comp_apply, _fin1Const, infTau, corec',
+            simp only [Fin2.ofNat', Function.comp_apply, _fin1Const, infTau,
               PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, tau', id_eq, PFunctor.map,
               Function.id_comp]
 
   /-- Infinite Nondeterminism -/
   def infND : CTree ε ρ :=
-    corec' (α := PUnit) (λ rec x =>
+    PFunctor.M.corec' (λ rec x =>
       .inr <| CTree.choice' (rec x) (rec x)
-    ) PUnit.unit
+    ) ()
 
   theorem infND_eq : @infND ε ρ = (infND ⊕ infND) := by
     apply PFunctor.M.bisim (λ t1 t2 => t1 = infND ∧ t2 = (infND ⊕ infND)) _
     · apply And.intro <;> rfl
     · intro x y h
       have ⟨hx, hy⟩ := h
-      simp only [infND, corec', PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def,
+      simp only [infND, PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def,
         PFunctor.map, Bind.bind, Sum.bind, choice'] at hx
-      simp only [infND, corec', PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def,
+      simp only [infND, PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def,
         PFunctor.map, Bind.bind, Sum.bind, choice'] at hy
       rw [hx, hy]
       simp only [PFunctor.M.dest_mk]
@@ -292,11 +279,11 @@ namespace CTree
       · match i with
         | .up (.ofNat' 0) =>
           simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
-            Nat.reduceAdd, Vector3.cons_fz, infND, corec', PFunctor.M.corec', PFunctor.M.corec₁,
+            Nat.reduceAdd, Vector3.cons_fz, infND, PFunctor.M.corec', PFunctor.M.corec₁,
             Bind.bind, Sum.bind, choice', PFunctor.map]
         | .up (.ofNat' 1) =>
           simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
-            Nat.reduceAdd, Vector3.cons_fs, Vector3.cons_fz, infND, corec', PFunctor.M.corec',
+            Nat.reduceAdd, Vector3.cons_fs, Vector3.cons_fz, infND, PFunctor.M.corec',
             PFunctor.M.corec₁, Bind.bind, Sum.bind, choice', PFunctor.map]
       · match i with
         | .up (.ofNat' 0) =>
@@ -306,11 +293,11 @@ namespace CTree
           match i with
           | .up (.ofNat' 0) =>
             simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
-              Nat.reduceAdd, Vector3.cons_fz, infND, corec', PFunctor.M.corec', PFunctor.M.corec₁,
+              Nat.reduceAdd, Vector3.cons_fz, infND, PFunctor.M.corec', PFunctor.M.corec₁,
               Bind.bind, Sum.bind, choice', PFunctor.map]
           | .up (.ofNat' 1) =>
             simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
-              Nat.reduceAdd, Vector3.cons_fs, Vector3.cons_fz, infND, corec', PFunctor.M.corec',
+              Nat.reduceAdd, Vector3.cons_fs, Vector3.cons_fz, infND, PFunctor.M.corec',
               PFunctor.M.corec₁, Bind.bind, Sum.bind, choice', PFunctor.map]
         | .up (.ofNat' 1) =>
           simp only [choice, mk, choice', PFunctor.M.children_mk, cast_eq, _fin2Const, Fin2.ofNat', Vector3.cons, Fin2.cases']
@@ -319,11 +306,11 @@ namespace CTree
           match i with
           | .up (.ofNat' 0) =>
             simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
-              Nat.reduceAdd, Vector3.cons_fz, infND, corec', PFunctor.M.corec', PFunctor.M.corec₁,
+              Nat.reduceAdd, Vector3.cons_fz, infND, PFunctor.M.corec', PFunctor.M.corec₁,
               Bind.bind, Sum.bind, choice', PFunctor.map]
           | .up (.ofNat' 1) =>
             simp only [Function.comp_apply, id_eq, Function.id_comp, Fin2.ofNat', _fin2Const,
-              Nat.reduceAdd, Vector3.cons_fs, Vector3.cons_fz, infND, corec', PFunctor.M.corec',
+              Nat.reduceAdd, Vector3.cons_fs, Vector3.cons_fz, infND, PFunctor.M.corec',
               PFunctor.M.corec₁, Bind.bind, Sum.bind, choice', PFunctor.map]
 
   def KTree (ε : Type → Type) (α β : Type) : Type 1 := α → CTree ε β

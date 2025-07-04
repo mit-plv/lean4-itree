@@ -25,7 +25,7 @@ namespace CTree
   infixr:60 " ‖ₛ " => ParState.parS
 
   def parAux (ps : ParState ε α β) : CTree ε (α × β) :=
-    corec' (λ {_} rec state =>
+    .corec' (λ {_} rec state =>
       match state with
       | t1 ◁ t2 =>
         match t1.dest with
@@ -96,7 +96,7 @@ namespace CTree
   macro "simp_corec_full" : tactic => `(tactic|(
     simp_all only [
       -- `PFunctor.M.corec` related
-      corec', PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def,
+      PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def,
       -- Other `PFunctor` things
       PFunctor.map, PFunctor.map_eq, PFunctor.M.dest_mk, PFunctor.M.children_mk,
       -- Get rid of `Sum.bind` in `PFunctor.M.corec'`
@@ -191,7 +191,7 @@ namespace CTree
   ))
 
   macro "parAux_eq_def_left_right " ps:term : tactic => `(tactic|(
-    simp only [parAux, corec', PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.dest_corec]
+    simp only [parAux, PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.dest_corec]
     match ($ps) with
     | t1 ◁ t2 =>
       simp only [parAux_def, PFunctor.map, Bind.bind, Sum.bind]
