@@ -23,14 +23,14 @@ namespace CTree
     map := map
 
   /- Basic map lemmas -/
-  theorem map_ret {ε : Type → Type} : map (ε := ε) f (ret v) = ret (f v) := by
+  theorem map_ret {ε : Type u1 → Type v1} : map (ε := ε) f (ret v) = ret (f v) := by
     simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
       tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice',
       PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
     congr
     exact _elim0_eq_all _
 
-  theorem map_tau {ε : Type → Type} {c : CTree ε ρ} : map f (tau c) = tau (map f c) := by
+  theorem map_tau {ε : Type u1 → Type v1} {c : CTree ε ρ} : map f (tau c) = tau (map f c) := by
     simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
       tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice', tau,
       PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
@@ -41,7 +41,7 @@ namespace CTree
       simp only [_fin1Const, Fin2.ofNat', Function.comp_apply, PFunctor.M.corec_def]
       rfl
 
-  theorem map_vis {ε : Type → Type} {α : Type} {e : ε α} {k : α → CTree ε ρ} {f : ρ → σ}
+  theorem map_vis {ε : Type u1 → Type v1} {α : Type u1} {e : ε α} {k : α → CTree ε ρ} {f : ρ → σ}
     : map f (vis e k) = vis e (λ x => map f <| k x) := by
     simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
       tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice', vis,

@@ -4,11 +4,11 @@ abbrev parametricFun (E : Type u → Type v1) (F : Type u → Type v2) :=
   ∀ {α : Type u}, E α → F α
 infixr:50 " ⟹ "=> parametricFun
 
-inductive SumE (ε1 ε2 : Type → Type) : Type → Type
-  | inl {α : Type} (e1 : ε1 α) : SumE ε1 ε2 α
-  | inr {α : Type} (e2 : ε2 α) : SumE ε1 ε2 α
+inductive SumE (ε1 ε2 : Type u → Type v) : Type u → Type v
+  | inl {α : Type u} (e1 : ε1 α) : SumE ε1 ε2 α
+  | inr {α : Type u} (e2 : ε2 α) : SumE ε1 ε2 α
 
-instance : Add (Type → Type) where
+instance : Add (Type u → Type v) where
   add := SumE
 
 namespace CTree
@@ -32,6 +32,16 @@ namespace CTree
         | ⟨.choice, cts⟩ => .inr <| choice' (rec <| .bindS <| cts _fin0) (rec <| .bindS <| cts _fin1)
       | .iterS i => .inr <| tau' <| rec <| .bindS (step i)
     ) (.iterS i)
+
+  def interp' {ε1 ε2 ρ} (handler : ε1 ⟹ CTree ε2) (t : CTree ε1 ρ) : CTree ε2 ρ :=
+    iter (fun t =>
+      t.matchOn
+      (fun v => ret <| .inr v)
+      (fun t => ret <| .inl t)
+      (fun e k => handler e >>= fun a => ret <| .inl <| k a)
+      zero
+      (fun c1 c2 => ret <| .inl <| c1 ⊕ c2)
+    ) t
 
   inductive interpState {ε1 ε2 ρ}
   | iterS (i : CTree ε1 ρ)

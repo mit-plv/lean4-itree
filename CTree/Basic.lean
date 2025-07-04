@@ -3,21 +3,24 @@ import Mathlib.Data.Vector3
 import Mathlib.Data.Rel
 import CTree.Utils
 
-inductive CTree.shape (ε : Type → Type) (ρ : Type) : Type 1
-| ret (v : ρ)
-| tau
-| vis (α : Type) (e : ε α)
-| zero
-| choice
+inductive CTree.shape (ε : Type u1 → Type v) (ρ : Type u2)
+  : Type (max (max (u1 + 1) u2) v)
+  | ret (v : ρ)
+  | tau
+  | vis (α : Type u1) (e : ε α)
+  | zero
+  | choice
 
-def CTree.children {ε : Type → Type} {ρ : Type} : CTree.shape ε ρ → Type 1
-| .ret _ => ULift (Fin2 0)
-| .tau => ULift (Fin2 1)
-| .vis α _ => ULift α
-| .zero => ULift (Fin2 0)
-| .choice => ULift (Fin2 2)
+def CTree.children.{u1, v1, u2, v2} {ε : Type u1 → Type v1} {ρ : Type u2}
+  : CTree.shape ε ρ → Type (max u1 v2)
+  | .ret _ => ULift (Fin2 0)
+  | .tau => ULift (Fin2 1)
+  | .vis α _ => ULift α
+  | .zero => ULift (Fin2 0)
+  | .choice => ULift (Fin2 2)
 
-def CTree.P (ε : Type → Type) (ρ : Type) : PFunctor.{1} := ⟨CTree.shape ε ρ, CTree.children⟩
+def CTree.P.{u1, v1, u2, v2} (ε : Type u1 → Type v1) (ρ : Type u2) : PFunctor :=
+  ⟨CTree.shape.{u1, v1, u2} ε ρ, CTree.children.{u1, v1, u2, v2}⟩
 
 /--
 Coinductive Choice Tree defined with `PFunctor.M`.
@@ -31,11 +34,12 @@ coinductive CTree (ε : Type → Type) (ρ : Type)
 | choice (l r : CTree ε ρ)
 ```
 -/
-def CTree (ε : Type → Type) (ρ : Type) := (CTree.P ε ρ).M
+def CTree (ε : Type u1 → Type v) (ρ : Type u2) :=
+  (CTree.P ε ρ).M
 
 namespace CTree
   section
-  variable {ε : Type → Type} {ρ : Type}
+  variable {ε : Type u1 → Type v1} {ρ : Type u2}
 
   /- Functor Constructors -/
   section
@@ -53,7 +57,7 @@ namespace CTree
     .mk .tau (_fin1Const t)
 
   @[simp]
-  def vis' {α : Type} (e : ε α) (k : α → X) : P ε ρ X :=
+  def vis' {α : Type u1} (e : ε α) (k : α → X) : P ε ρ X :=
     .mk (.vis α e) (k ·.down)
 
   @[simp]
@@ -85,7 +89,7 @@ namespace CTree
     | n + 1 => tau (tauN n t)
 
   @[match_pattern, simp]
-  def vis {α : Type} (e : ε α) (k : α → CTree ε ρ) : CTree ε ρ :=
+  def vis {α : Type u1} (e : ε α) (k : α → CTree ε ρ) : CTree ε ρ :=
     .mk <| vis' e k
 
   @[match_pattern, simp]
@@ -97,7 +101,7 @@ namespace CTree
     .mk <| choice' t1 t2
   infixr:70 " ⊕ " => CTree.choice
 
-  def trigger {α : Type} (e : ε α) : CTree ε α :=
+  def trigger {α : Type u1} (e : ε α) : CTree ε α :=
     vis e (λ x => ret x)
 
   /- Injectivity of the constructors -/
@@ -142,7 +146,7 @@ namespace CTree
   def matchOn {motive : Sort u} (x : CTree ε ρ)
     (ret : (v : ρ) → motive)
     (tau : (c : CTree ε ρ) → motive)
-    (vis : {α : Type} → (e : ε α) → (k : α → CTree ε ρ) → motive)
+    (vis : {α : Type u1} → (e : ε α) → (k : α → CTree ε ρ) → motive)
     (zero : motive)
     (choice : (c1 c2 : CTree ε ρ) → motive)
     : motive :=
@@ -162,7 +166,7 @@ namespace CTree
   def dMatchOn {motive : CTree ε ρ → Sort u} (x : CTree ε ρ)
     (ret : (v : ρ) → x = ret v → motive x)
     (tau : (c : CTree ε ρ) → x = tau c → motive x)
-    (vis : (α : Type) → (e : ε α) → (k : α → CTree ε ρ) → x = vis e k → motive x)
+    (vis : (α : Type u1) → (e : ε α) → (k : α → CTree ε ρ) → x = vis e k → motive x)
     (zero : x = zero → motive x)
     (choice : (c1 c2 : CTree ε ρ) → x = choice c1 c2 → motive x)
     : motive x :=
@@ -313,9 +317,9 @@ namespace CTree
               Nat.reduceAdd, Vector3.cons_fs, Vector3.cons_fz, infND, PFunctor.M.corec',
               PFunctor.M.corec₁, Bind.bind, Sum.bind, choice', PFunctor.map]
 
-  def KTree (ε : Type → Type) (α β : Type) : Type 1 := α → CTree ε β
+  def KTree (ε : Type u1 → Type v1) (α β : Type u2) := α → CTree ε β
 
-  inductive State (ε : Type → Type) (ρ : Type)
+  inductive State (ε : Type u1 → Type v1) (ρ : Type u2)
   | ct : CTree ε ρ → State ε ρ
   | kt {α} : KTree ε α ρ → State ε ρ
 
@@ -329,7 +333,7 @@ namespace CTree
   | choice_left {t1 t2} : ContainsRet v t1 → ContainsRet v (t1 ⊕ t2)
   | choice_right {t1 t2} : ContainsRet v t2 → ContainsRet v (t1 ⊕ t2)
 
-  inductive ContainsVis {α : Type} (e : ε α) (k : α → CTree ε ρ) : CTree ε ρ → Prop
+  inductive ContainsVis {ε : Type u1 → Type v1} {α : Type u1} (e : ε α) (k : α → CTree ε ρ) : CTree ε ρ → Prop
   | vis : ContainsVis e k (vis e k)
   | tau {t} : ContainsVis e k t → ContainsVis e k t.tau
   | choice_left {t1 t2} : ContainsVis e k t1 → ContainsVis e k (t1 ⊕ t2)
