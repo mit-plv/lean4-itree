@@ -13,22 +13,50 @@ instance : Add (Type → Type) where
 
 namespace CTree
 
+  inductive iterState {ε ρ ι}
+  | iterS (i : ι)
+  | bindS (t : CTree ε (ι ⊕ ρ))
+
+  def iter {ε ρ ι} (step : ι → CTree ε (ι ⊕ ρ)) (i : ι) : CTree ε ρ :=
+    corec' (fun rec (s : iterState) =>
+      match s with
+      | .bindS t =>
+        match t.dest with
+        | ⟨.ret v, _⟩ =>
+          match v with
+          | .inl l => .inr <| tau' <| rec <| .bindS (step l)
+          | .inr r => .inl <| ret r
+        | ⟨.tau, c⟩ => .inr <| tau' <| rec <| .bindS <| c _fin0
+        | ⟨.vis _ e, k⟩ => .inr <| vis' e <| fun a => rec <| .bindS <| k (ULift.up a)
+        | ⟨.zero, _⟩ => .inr <| zero'
+        | ⟨.choice, cts⟩ => .inr <| choice' (rec <| .bindS <| cts _fin0) (rec <| .bindS <| cts _fin1)
+      | .iterS i => .inr <| tau' <| rec <| .bindS (step i)
+    ) (.iterS i)
+
+  inductive interpState {ε1 ε2 ρ}
+  | iterS (i : CTree ε1 ρ)
+  | bindS (t : CTree ε2 α) (tk : α → CTree ε1 ρ)
+
   /--
     Interpret `CTree`s of one effect type into a `CTree` with a different effect type.
   -/
   def interp {ε1 ε2 ρ} (handler : ε1 ⟹ CTree ε2) (t : CTree ε1 ρ) : CTree ε2 ρ :=
-    corec' (fun {X} rec t =>
-      match t.dest with
-      | ⟨.ret v, _⟩ => .inl <| ret v
-      | ⟨.tau, t⟩ => .inr <| tau' <| rec (t _fin0)
-      | ⟨.vis α e, k⟩ =>
-        -- We need to recurse inside the continuation of `bind`
-        let res := handler e >>= fun i =>
-          let res := rec (k <| .up i)
-          sorry
-        .inl res
-      | ⟨.zero, _⟩ => .inl zero
-      | ⟨.choice, cs⟩ => .inr <| choice' (rec <| cs _fin0) (rec <| cs _fin1)
-    ) t
+    corec' (fun rec (s : interpState) =>
+      match s with
+      | .bindS t tk =>
+        match t.dest with
+        | ⟨.ret v, _⟩ => .inr <| tau' <| rec <| .iterS (tk v)
+        | ⟨.tau, c⟩ => .inr <| tau' <| rec <| .bindS (c _fin0) tk
+        | ⟨.vis _ e, k⟩ => .inr <| vis' e <| fun a => rec <| .bindS (k (ULift.up a)) tk
+        | ⟨.zero, _⟩ => .inr <| zero'
+        | ⟨.choice, cts⟩ => .inr <| choice' (rec <| .bindS (cts _fin0) tk) (rec <| .bindS (cts _fin1) tk)
+      | .iterS t =>
+        match t.dest with
+        | ⟨.ret v, _⟩ => .inl <| ret v
+        | ⟨.tau, c⟩ => .inr <| tau' <| rec <| .iterS (c _fin0)
+        | ⟨.vis _ e, k⟩ => .inr <| tau' <| rec <| .bindS (handler e) (fun a => k <| .up a)
+        | ⟨.zero, _⟩ => .inr <| zero'
+        | ⟨.choice, cts⟩ => .inr <| choice' (rec <| .iterS (cts _fin0)) (rec <| .iterS (cts _fin1))
+    ) (.iterS t)
 
 end CTree
