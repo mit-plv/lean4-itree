@@ -31,9 +31,9 @@ namespace CTree
   -/
   def Diverge {ε : Type → Type} {ρ : Type} (t : CTree ε ρ) : Prop :=
     DivergeF Diverge t
-  greatest_fixpoint monotonicity by
-    intro _ _ hsim _ h
-    exact DivergeF.monotone _ _ hsim h
+    coinductive_fixpoint monotonicity by
+      intro _ _ hsim _ h
+      exact DivergeF.monotone _ _ hsim h
 
   inductive Label (ε : Type → Type) (ρ : Type)
   | val (v : ρ)
@@ -75,7 +75,7 @@ namespace CTree
     λ p q => ∃ sim, IsBisimulation sim ∧ sim p q
 
   theorem infTau_diverge : Diverge (@infTau ε ρ) := by
-    apply Diverge.fixpoint_induct (fun x => x = infTau) _
+    apply Diverge.coinduct (fun x => x = infTau) _
     · rfl
     · intro x h
       subst h
@@ -86,7 +86,7 @@ namespace CTree
       rfl
 
   theorem infND_diverge : Diverge (@infND ε ρ) := by
-    apply Diverge.fixpoint_induct (fun x => x = infND) _
+    apply Diverge.coinduct (fun x => x = infND) _
     · rfl
     · intro x h
       subst h

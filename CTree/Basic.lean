@@ -11,16 +11,16 @@ inductive CTree.shape (ε : Type u1 → Type v) (ρ : Type u2)
   | zero
   | choice
 
-def CTree.children.{u1, v1, u2, v2} {ε : Type u1 → Type v1} {ρ : Type u2}
-  : CTree.shape ε ρ → Type (max u1 v2)
+def CTree.children.{u1, v1, u2} {ε : Type u1 → Type v1} {ρ : Type u2}
+  : CTree.shape ε ρ → Type (u1 + 1)
   | .ret _ => ULift (Fin2 0)
   | .tau => ULift (Fin2 1)
-  | .vis α _ => ULift α
+  | .vis α _ => PLift α
   | .zero => ULift (Fin2 0)
   | .choice => ULift (Fin2 2)
 
-def CTree.P.{u1, v1, u2, v2} (ε : Type u1 → Type v1) (ρ : Type u2) : PFunctor :=
-  ⟨CTree.shape.{u1, v1, u2} ε ρ, CTree.children.{u1, v1, u2, v2}⟩
+def CTree.P.{u1, v1, u2} (ε : Type u1 → Type v1) (ρ : Type u2) : PFunctor :=
+  ⟨CTree.shape.{u1, v1, u2} ε ρ, CTree.children.{u1, v1, u2}⟩
 
 /--
 Coinductive Choice Tree defined with `PFunctor.M`.
@@ -187,7 +187,7 @@ namespace CTree
     | ⟨.vis α e, k⟩ =>
       vis α e (k ∘ .up) (by
         simp only [CTree.vis, vis', mk]
-        have : (fun x => (k ∘ ULift.up) x.down) = k := by
+        have : (fun x => (k ∘ PLift.up) x.down) = k := by
           simp_all only [Function.comp_apply]
           rfl
         rw [this]
@@ -215,7 +215,7 @@ namespace CTree
   theorem dest_tau : PFunctor.M.dest (F := P ε ρ) (tau t) = ⟨.tau, _fin1Const t⟩ :=
     rfl
 
-  theorem dest_vis : PFunctor.M.dest (F := P ε ρ) (vis e k) = ⟨.vis _ e, k ∘ ULift.down⟩ :=
+  theorem dest_vis : PFunctor.M.dest (F := P ε ρ) (vis e k) = ⟨.vis _ e, k ∘ PLift.down⟩ :=
     rfl
 
   theorem dest_zero : PFunctor.M.dest (F := P ε ρ) zero = ⟨.zero, _elim0⟩ :=

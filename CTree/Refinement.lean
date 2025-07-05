@@ -47,7 +47,7 @@ namespace CTree
 
   def Refine' (r : Rel ρ σ) (p1 p2 : ENat) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
     RefineF r (Refine' r) p1 p2 t1 t2
-    greatest_fixpoint monotonicity by
+    coinductive_fixpoint monotonicity by
       intro _ _ hsim _ _ _ _ h
       apply RefineF.monotone (hsim := hsim) (h := h)
 
@@ -195,7 +195,7 @@ namespace CTree
   theorem Refine'.coind (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
     (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
     (p1 p2 : ENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : Refine' r p1 p2 t1 t2 :=
-    Refine'.fixpoint_induct r sim adm p1 p2 t1 t2 h
+    Refine'.coinduct r sim adm p1 p2 t1 t2 h
 
   theorem Refine'.inv_ret_left {r1 : Rel ρ1 σ} {r2 : Rel ρ2 σ}
     {p1 p2 x} {t : CTree ε σ}
@@ -268,7 +268,7 @@ namespace CTree
     : ∀ y, (∀ z, r1 z x → r2 z y) → Refine' r2 p1 p2 t (.ret y) := by
     intro y hyz
     apply Refine'.coind (fun p1 p2 t1 t2 => ∃ x y t', t' = ret x ∧ Refine' r1 p1 p2 t1 t' ∧ (∀ z, r1 z x → r2 z y) ∧ ret y = t2)
-    on_goal 2 => exact ⟨x, ⟨y, ⟨ret x, by simp_all only [implies_true, and_self]⟩⟩⟩
+    on_goal 2 => exact ⟨x, ⟨y, ⟨ret x, by repeat (constructor; try assumption)⟩⟩⟩
     clear *-
     intro p1 p2 t1 t2 h
     have ⟨x, ⟨y, ⟨t', ⟨eq_ret, ⟨h', ⟨impl, eq_ret'⟩⟩⟩⟩⟩⟩ := h
@@ -836,7 +836,7 @@ namespace CTree
   theorem Refine.coind (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
     (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
     (p1 p2 : ENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : t1 ≤r≤ t2 :=
-    ⟨p1, p2, Refine'.fixpoint_induct r sim adm p1 p2 t1 t2 h⟩
+    ⟨p1, p2, Refine'.coinduct r sim adm p1 p2 t1 t2 h⟩
 
   @[refl]
   theorem Refine.refl {r : Rel ρ ρ} [IsRefl ρ r] (t : CTree ε ρ) : t ≤r≤ t := by
@@ -1111,7 +1111,7 @@ namespace CTree
 
   def IsInf (t : CTree ε ρ) : Prop :=
     IsInfF IsInf t
-    greatest_fixpoint monotonicity by
+    coinductive_fixpoint monotonicity by
       intro sim1 sim2 hsim x h
       cases h with
       | choice_left h => exact .choice_left (hsim _ h)
@@ -1120,7 +1120,7 @@ namespace CTree
 
   theorem infND_refine_left : infND ≤r≤ t → IsInf t := by
     intro h
-    apply IsInf.fixpoint_induct (λ t => infND ≤r≤ t) _ t h
+    apply IsInf.coinduct (λ t => infND ≤r≤ t) _ t h
     intro t h
     rw [Refine] at h
     obtain ⟨p1, p2, h⟩ := h

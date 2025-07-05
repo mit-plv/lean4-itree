@@ -22,7 +22,7 @@ namespace CTree
 
   def Euttc' (r : Rel ρ σ) (p1 p2 : ENat) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
     EuttcF r (Euttc' r) p1 p2 t1 t2
-    greatest_fixpoint monotonicity by
+    coinductive_fixpoint monotonicity by
       intro _ _ hsim _ _ _ _ h
       apply EuttcF.monotone (hsim := hsim) (h := h)
 
@@ -55,19 +55,19 @@ namespace CTree
   theorem EuttcF.coind (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
     (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → EuttcF r sim p1 p2 t1 t2)
     (p1 p2 : ENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : EuttcF r (Euttc' r) p1 p2 t1 t2 := by
-    have := Euttc'.fixpoint_induct r sim adm p1 p2 t1 t2 h
+    have := Euttc'.coinduct r sim adm p1 p2 t1 t2 h
     rw [Euttc'] at this
     exact this
 
   theorem Euttc'.coind (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
     (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → EuttcF r sim p1 p2 t1 t2)
     (p1 p2 : ENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : Euttc' r p1 p2 t1 t2 :=
-    Euttc'.fixpoint_induct r sim adm p1 p2 t1 t2 h
+    Euttc'.coinduct r sim adm p1 p2 t1 t2 h
 
   theorem Euttc.coind (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
     (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → EuttcF r sim p1 p2 t1 t2)
     (p1 p2 : ENat) {t1 : CTree ε ρ} {t2 : CTree ε σ} (h : sim p1 p2 t1 t2) : Euttc r t1 t2 :=
-    ⟨p1, p2, Euttc'.fixpoint_induct r sim adm p1 p2 t1 t2 h⟩
+    ⟨p1, p2, Euttc'.coinduct r sim adm p1 p2 t1 t2 h⟩
 
   @[refl]
   theorem Euttc.refl {r : Rel ρ ρ} [IsRefl ρ r] : Euttc r t t := by

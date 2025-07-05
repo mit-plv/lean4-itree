@@ -200,7 +200,7 @@ namespace CTree
         simp only [h, map_vis, bind_vis, dest_vis]
         apply exists_and_eq
         intro i
-        exists (k ∘ ULift.down) i
+        exists (k ∘ PLift.down) i
       · intro h
         simp only [h, map_zero, bind_zero, dest_zero]
         apply exists_and_eq
