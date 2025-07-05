@@ -27,7 +27,7 @@ namespace CTree
           | .inl l => .inr <| tau' <| rec <| .bindS (step l)
           | .inr r => .inl <| ret r
         | ⟨.tau, c⟩ => .inr <| tau' <| rec <| .bindS <| c _fin0
-        | ⟨.vis _ e, k⟩ => .inr <| vis' e <| fun a => rec <| .bindS <| k (PLift.up a)
+        | ⟨.vis _ e, k⟩ => .inr <| vis' e <| fun a => rec <| .bindS <| k a
         | ⟨.zero, _⟩ => .inr <| zero'
         | ⟨.choice, cts⟩ => .inr <| choice' (rec <| .bindS <| cts _fin0) (rec <| .bindS <| cts _fin1)
       | .iterS i => .inr <| tau' <| rec <| .bindS (step i)

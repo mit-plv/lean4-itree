@@ -35,7 +35,7 @@ namespace CTree
         | ⟨.choice, cts⟩ =>
           .inr <| choice' (rec <| (cts _fin0) ◁ t2) (rec <| (cts _fin1) ◁ t2)
         | ⟨.vis _ e, k⟩ =>
-          .inr <| vis' e (fun a => rec <| (k <| .up a) ‖ₛ t2)
+          .inr <| vis' e (fun a => rec <| (k a) ‖ₛ t2)
       | t1 ▷ t2 =>
         match t2.dest with
         | ⟨.ret _, _⟩ | ⟨.zero, _⟩ => .inl zero
@@ -44,7 +44,7 @@ namespace CTree
         | ⟨.choice, cts⟩ =>
           .inr <| choice' (rec <| t1 ▷ (cts _fin0)) (rec <| t1 ▷ (cts _fin1))
         | ⟨.vis _ e, k⟩ =>
-          .inr <| vis' e (fun a => rec <| t1 ‖ₛ (k <| .up a))
+          .inr <| vis' e (fun a => rec <| t1 ‖ₛ (k <| a))
       | t1 ◁▷ t2 =>
         .inr <| choice' (rec <| t1 ◁ t2) (rec <| t1 ▷ t2)
       | t1 ⋈ t2 =>
@@ -161,14 +161,14 @@ namespace CTree
       | ⟨.tau, c⟩ => tau (parAux <| (c _fin0) ‖ₛ t2)
       | ⟨.zero, _⟩ => zero
       | ⟨.choice, cts⟩ => (parAux <| (cts _fin0) ◁ t2) ⊕ (parAux <| (cts _fin1) ◁ t2)
-      | ⟨.vis _ e, k⟩ => vis e (fun a => parAux <| (k <| .up a) ‖ₛ t2)
+      | ⟨.vis _ e, k⟩ => vis e (fun a => parAux <| (k a) ‖ₛ t2)
     | t1 ▷ t2 =>
       match t2.dest with
       | ⟨.ret _, _⟩ => zero
       | ⟨.tau, c⟩ => tau (parAux <| t1 ‖ₛ (c _fin0))
       | ⟨.zero, _⟩ => zero
       | ⟨.choice, cts⟩ => (parAux <| t1 ▷ (cts _fin0)) ⊕ (parAux <| t1 ▷ (cts _fin1))
-      | ⟨.vis _ e, k⟩ => vis e (fun a => parAux <| t1 ‖ₛ (k <| .up a))
+      | ⟨.vis _ e, k⟩ => vis e (fun a => parAux <| t1 ‖ₛ (k a))
     | t1 ◁▷ t2 => (parAux <| t1 ◁ t2) ⊕ (parAux <| t1 ▷ t2)
     | .bothS t1 t2 =>
       match t1.dest, t2.dest with

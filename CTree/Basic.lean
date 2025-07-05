@@ -12,10 +12,10 @@ inductive CTree.shape (ε : Type u1 → Type v) (ρ : Type u2)
   | choice
 
 def CTree.children.{u1, v1, u2} {ε : Type u1 → Type v1} {ρ : Type u2}
-  : CTree.shape ε ρ → Type (u1 + 1)
+  : CTree.shape ε ρ → Type u1
   | .ret _ => ULift (Fin2 0)
   | .tau => ULift (Fin2 1)
-  | .vis α _ => PLift α
+  | .vis α _ => α
   | .zero => ULift (Fin2 0)
   | .choice => ULift (Fin2 2)
 
@@ -58,7 +58,7 @@ namespace CTree
 
   @[simp]
   def vis' {α : Type u1} (e : ε α) (k : α → X) : P ε ρ X :=
-    .mk (.vis α e) (k ·.down)
+    .mk (.vis α e) (k ·)
 
   @[simp]
   def zero' : P ε ρ X :=
@@ -122,7 +122,7 @@ namespace CTree
     · exact eq_of_heq (shape.vis.inj this.left).right
     · have := eq_of_heq this.right
       funext x
-      have := congr (a₁ := .up x) this rfl
+      have := congr (a₁ := x) this rfl
       simp only at this
       exact this
 
@@ -156,7 +156,7 @@ namespace CTree
     | ⟨.tau, c⟩ =>
       tau (c _fin0)
     | ⟨.vis _ e, k⟩ =>
-      vis e (k ∘ .up)
+      vis e k
     | ⟨.zero, _⟩ =>
       zero
     | ⟨.choice, cs⟩ =>
@@ -185,12 +185,8 @@ namespace CTree
         simp only [PFunctor.M.mk_dest]
       )
     | ⟨.vis α e, k⟩ =>
-      vis α e (k ∘ .up) (by
+      vis α e k (by
         simp only [CTree.vis, vis', mk]
-        have : (fun x => (k ∘ PLift.up) x.down) = k := by
-          simp_all only [Function.comp_apply]
-          rfl
-        rw [this]
         rw [←hm]
         simp only [PFunctor.M.mk_dest]
       )
@@ -215,7 +211,7 @@ namespace CTree
   theorem dest_tau : PFunctor.M.dest (F := P ε ρ) (tau t) = ⟨.tau, _fin1Const t⟩ :=
     rfl
 
-  theorem dest_vis : PFunctor.M.dest (F := P ε ρ) (vis e k) = ⟨.vis _ e, k ∘ PLift.down⟩ :=
+  theorem dest_vis : PFunctor.M.dest (F := P ε ρ) (vis e k) = ⟨.vis _ e, k⟩ :=
     rfl
 
   theorem dest_zero : PFunctor.M.dest (F := P ε ρ) zero = ⟨.zero, _elim0⟩ :=

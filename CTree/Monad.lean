@@ -10,7 +10,7 @@ namespace CTree
       | ⟨.tau, c⟩ =>
         .inr <| tau' <| rec <| c _fin0
       | ⟨.vis _ e, k⟩ =>
-        .inr <| vis' e (rec ∘ k ∘ .up)
+        .inr <| vis' e (rec ∘ k)
       | ⟨.zero, _⟩ =>
         .inl zero
       | ⟨.choice, cts⟩ =>
@@ -97,7 +97,7 @@ namespace CTree
       | ⟨.tau, c⟩ =>
         .inr <| tau' <| rec <| c _fin0
       | ⟨.vis _ e, k⟩ =>
-        .inr <| vis' e (rec ∘ k ∘ .up)
+        .inr <| vis' e (rec ∘ k)
       | ⟨.zero, _⟩ =>
         .inl zero
       | ⟨.choice, cts⟩ =>
@@ -200,7 +200,7 @@ namespace CTree
         simp only [h, map_vis, bind_vis, dest_vis]
         apply exists_and_eq
         intro i
-        exists (k ∘ PLift.down) i
+        exists (k i)
       · intro h
         simp only [h, map_zero, bind_zero, dest_zero]
         apply exists_and_eq
@@ -280,7 +280,7 @@ namespace CTree
           apply exists_and_eq
           intro i
           apply Or.inr
-          exists k i.down, y
+          exists k i, y
         · intro h
           simp only [h, bind_zero, map_zero]
           simp only [zero, mk, zero', PFunctor.M.dest_mk]
@@ -355,7 +355,7 @@ namespace CTree
           apply exists_and_eq
           intro i
           apply Or.inr
-          exists k i.down
+          exists k i
         · intro h
           simp only [h, bind_zero, map_zero]
           simp only [zero, mk, zero']
