@@ -209,7 +209,7 @@ elab "pinit" : tactic =>
     let originalHypNum := Meta.getIntrosSize (← mvarId.getType)
     let (_, mvarId) ← mvarId.introNP originalHypNum
     let goalType ← mvarId.getType
-    let goalHead := goalType.getAppFn
+    let goalHead := goalType.getAppFn'
     let Expr.const c _ := goalHead | throwError "{goalHead} is not a defined constant"
     let expanded ← Meta.deltaExpand goalType (c == ·)
     unless expanded.isAppOf ``Lean.Order.lfp_monotone do
@@ -347,11 +347,11 @@ macro_rules
 
 elab "pinit" " at " h:ident : tactic =>
   Tactic.withMainContext do
-    let some hyp := (← getLCtx).findDecl? (λ ldecl =>
-      if ldecl.userName == h.getId then some ldecl.fvarId
+    let some hypType := (← getLCtx).findDecl? (λ ldecl =>
+      if ldecl.userName == h.getId then some ldecl.type
       else none) | throwError "Cannot find hypothesis of name {h.getId}"
-    let hypType ← hyp.getType
-    let hypHead := hypType.getAppFn
+    let hypType ← instantiateMVars hypType
+    let hypHead := hypType.consumeMData.getAppFn
     let Expr.const c _ := hypHead | throwError "{hypHead} is not a defined constant"
     let expanded ← Meta.deltaExpand hypType (c == ·)
     unless expanded.isAppOf ``Lean.Order.lfp_monotone do
