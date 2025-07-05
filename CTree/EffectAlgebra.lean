@@ -1,7 +1,7 @@
 import CTree.Monad
 
-abbrev parametricFun (E : Type u → Type v1) (F : Type (max (max (u + 1) w1) w2) → Type v2) :=
-  ∀ {α : Type u}, E α → F (ULift (ULift.{w1, _} (PLift α)))
+abbrev parametricFun (E : Type u → Type v1) (F : Type u → Type v2) :=
+  ∀ {α : Type u}, E α → F α
 infixr:50 " ⟹ "=> parametricFun
 
 inductive SumE (ε1 ε2 : Type u → Type v) : Type u → Type v
@@ -34,14 +34,16 @@ namespace CTree
     ) (.iterS i)
 
   def interp' {ε1 : Type u1 → Type v1} {ε2 : Type u2 → Type v2}
-    (handler : ∀ {α : Type u1}, ε1 α → CTree ε2 (ULift (ULift.{v1, _} (PLift α))))
-    {ρ : Type v3} (t : CTree ε1 ρ) : CTree ε2 ρ :=
+    (handler : ε1 ⟹ CTree ε2) {ρ : Type v3} (t : CTree ε1 ρ) : CTree ε2 ρ :=
     iter (fun t =>
-      t.matchOn
-      (fun v => ret <| .inr v)
-      (fun t => ret <| .inl t)
-      (fun e k => handler e >>= fun a => ret <| .inl <| k a.down.down.down)
-      zero
-      (fun c1 c2 => ret <| .inl <| c1 ⊕ c2)
+      match t.dest with
+      | ⟨.ret v, _⟩ => ret <| .inr v
+      | ⟨.tau, c⟩ => ret <| .inl (c _fin0)
+      | ⟨.vis α e, k⟩ =>
+        let t : CTree ε2 α := handler e
+        let f : α → CTree ε2 (CTree ε1 ρ ⊕ ρ) := fun a => ret <| .inl <| k a
+        CTree.bind t f
+      | ⟨.zero, _⟩ => zero
+      | ⟨.choice, cts⟩ => ret <| .inl <| (cts _fin0) ⊕ (cts _fin1)
     ) t
 end CTree
