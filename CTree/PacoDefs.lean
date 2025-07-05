@@ -334,7 +334,8 @@ macro "pcofix" : tactic => `(tactic|(
     Lean.Order.ReverseImplicationOrder.instCompleteLattice,
     Lean.Order.ReverseImplicationOrder.instOrder
   ] at *
-  rw [converter, unpacker] at *
+  rw [converter] at *
+  try rw [unpacker] at *
   clear converter unpacker dummy
 ))
 

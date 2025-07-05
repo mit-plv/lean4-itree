@@ -2,6 +2,7 @@ import Mathlib.Data.QPF.Univariate.Basic
 import Mathlib.Data.Vector3
 import Mathlib.Data.Rel
 import CTree.Utils
+import CTree.Paco
 
 inductive CTree.shape (ε : Type u1 → Type v) (ρ : Type u2)
   : Type (max (max (u1 + 1) u2) v)
@@ -348,5 +349,102 @@ namespace CTree
     try (have := (Sigma.mk.inj (PFunctor.M.mk_inj $h)).left; contradiction)
   ))
 
+  inductive eqF (sim : CTree ε ρ → CTree ε ρ → Prop) : CTree ε ρ → CTree ε ρ → Prop
+  | eq_ret v : eqF sim (ret v) (ret v)
+  | eq_vis {α} e k1 k2 (h : ∀ a : α, sim (k1 a) (k2 a)) : eqF sim (vis e k1) (vis e k2)
+  | eq_tau t1 t2 (h : sim t1 t2) : eqF sim (tau t1) (tau t2)
+  | eq_zero : eqF sim zero zero
+  | eq_choice t11 t12 t21 t22 (h1 : sim t11 t21) (h2 : sim t12 t22) : eqF sim (t11 ⊕ t12) (t21 ⊕ t22)
+
+  lemma eqF_inv (sim : CTree ε ρ → CTree ε ρ → Prop) t1 t2 (h : eqF sim t1 t2) :
+    (∃ v, t1 = ret v ∧ t2 = ret v) ∨
+    (∃ α, ∃ e : ε α, ∃ k1, ∃ k2, (∀ a : α, sim (k1 a) (k2 a)) ∧ t1 = vis e k1 ∧ t2 = vis e k2) ∨
+    (∃ t1', ∃ t2', sim t1' t2' ∧ t1 = tau t1' ∧ t2 = tau t2') ∨
+    (t1 = zero ∧ t2 = zero) ∨
+    (∃ t11, ∃ t12, ∃ t21, ∃ t22, sim t11 t21 ∧ sim t12 t22 ∧ t1 = t11 ⊕ t12 ∧ t2 = t21 ⊕ t22) := by
+    cases h
+    · left
+      repeat (on_goal 1 => apply Exists.intro)
+      exact ⟨rfl, rfl⟩
+    · right; left
+      repeat (on_goal 1 => apply Exists.intro)
+      rename_i h; exact ⟨h, ⟨rfl, rfl⟩⟩
+    · right; right; left
+      repeat (on_goal 1 => apply Exists.intro)
+      rename_i h; exact ⟨h, ⟨rfl, rfl⟩⟩
+    · right; right; right; left
+      exact ⟨rfl, rfl⟩
+    · right; right; right; right
+      repeat (on_goal 1 => apply Exists.intro)
+      rename_i h1 h2; exact ⟨h1, ⟨h2, ⟨rfl, rfl⟩⟩⟩
+
+  theorem eqF_monotone sim sim' (hsim : ∀ (t1 t2 : CTree ε ρ), sim t1 t2 → sim' t1 t2) :
+    ∀ t1 t2, eqF sim t1 t2 → eqF sim' t1 t2 := by
+    intros t1 t2 h
+    cases h <;> constructor <;> intros <;> apply hsim <;> try assumption
+    rename_i h _; apply h
+
+  def eq (t1 t2 : CTree ε ρ) : Prop :=
+    eqF eq t1 t2
+    coinductive_fixpoint monotonicity fun sim' sim hsim =>
+      eqF_monotone sim sim' hsim
+
+  theorem eq_eq (t1 t2 : CTree ε ρ) : eq t1 t2 ↔ t1 = t2 := by
+    constructor
+    · intro h
+      apply PFunctor.M.bisim (λ t1 t2 => eq t1 t2) <;> try assumption
+      intro t1
+      apply CTree.dMatchOn (x := t1) <;>
+        (intros; rename_i h _ _; subst h; rename_i t2 h; revert h; apply CTree.dMatchOn (x := t2)) <;>
+        (intros; rename_i h _; subst h; rename_i h; simp only [CTree.eq] at h) <;>
+        try (apply eqF_inv at h; cases h; on_goal 1 =>
+          rename_i h; have ⟨_, ⟨h1, h2⟩⟩ := h; try solve | ctree_elim h1 | ctree_elim h2) <;>
+        try (rename_i h; cases h; on_goal 1 =>
+          rename_i h; have ⟨_, ⟨_, ⟨_, ⟨_, ⟨_, ⟨h1, h2⟩⟩⟩⟩⟩⟩ := h; try solve | ctree_elim h1 | ctree_elim h2) <;>
+        try (rename_i h; cases h; on_goal 1 =>
+          rename_i h; have ⟨_, ⟨_, ⟨_, ⟨h1, h2⟩⟩⟩⟩ := h; try solve | ctree_elim h1 | ctree_elim h2) <;>
+        try (rename_i h; cases h; on_goal 1 =>
+          rename_i h; have ⟨h1, h2⟩ := h; try solve | ctree_elim h1 | ctree_elim h2) <;>
+        try (rename_i h; on_goal 1 =>
+          rename_i h; have ⟨_, ⟨_, ⟨_, ⟨_, ⟨_, ⟨_, ⟨h1, h2⟩⟩⟩⟩⟩⟩⟩ := h; try solve | ctree_elim h1 | ctree_elim h2)
+      · apply ret_inj at h1; apply ret_inj at h2; subst h1 h2
+        repeat (on_goal 1 => apply Exists.intro)
+        apply And.intro rfl; apply And.intro rfl; intros i; cases i; rename_i i; cases i
+      · apply tau_inj at h1; apply tau_inj at h2; subst h1 h2
+        repeat (on_goal 1 => apply Exists.intro)
+        apply And.intro rfl; apply And.intro rfl; intros i
+        simp only [tau, mk, tau', PFunctor.M.children_mk]
+        match i with
+        | .up (.ofNat' 0) =>
+          simp only [_fin1Const, cast_eq, Fin2.ofNat']
+          assumption
+      · have h1' := vis_inj_α h1; subst h1'
+        have h2' := vis_inj_α h2; subst h2'
+        have ⟨h1, h1'⟩ := vis_inj h1; subst h1 h1'
+        have ⟨h2, h2'⟩ := vis_inj h2; subst h2 h2'
+        repeat (on_goal 1 => apply Exists.intro)
+        apply And.intro rfl; apply And.intro rfl; intros a
+        rename_i h; apply h
+      · repeat (on_goal 1 => apply Exists.intro)
+        apply And.intro rfl; apply And.intro rfl; intros i; cases i; rename_i i; cases i
+      · have ⟨h1, h1'⟩ := choice_inj h1; subst h1 h1'
+        have ⟨h2, h2'⟩ := choice_inj h2; subst h2 h2'
+        repeat (on_goal 1 => apply Exists.intro)
+        apply And.intro rfl; apply And.intro rfl; intros i
+        simp only [choice, mk, choice', PFunctor.M.children_mk]
+        match i with
+        | .up (.ofNat' 0) =>
+          simp only [_fin2Const, cast_eq, Fin2.ofNat']
+          assumption
+        | .up (.ofNat' 1) =>
+          simp only [_fin2Const, cast_eq, Fin2.ofNat']
+          assumption
+    · intro h; subst h
+      revert t1
+      pcofix
+      intros t1
+      pfold
+      apply t1.dMatchOn <;> intros <;> rename_i h <;> subst h <;> constructor
+      all_goals (intros; pleft; apply cih)
   end
 end CTree
