@@ -85,7 +85,7 @@ namespace CTree
             crush_refine
           · intro c heq
             subst heq
-            simp only [parAux_bothS_ret_tau, map_tau, map_zero]
+            simp only [parAux_bothS_ret_tau, map_zero]
             crush_refine
           · intro α e k heq
             subst heq

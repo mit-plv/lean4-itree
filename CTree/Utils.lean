@@ -80,10 +80,10 @@ theorem _fin2Const_fin0_fin1 {α} {cs : ULift (Fin2 2) → α} : _fin2Const (cs 
   funext i
   match i with
   | .up (.ofNat' 0) =>
-    simp only [_fin1Const, Fin2.ofNat', _fin0]
+    simp only [Fin2.ofNat', _fin0]
     rfl
   | .up (.ofNat' 1) =>
-    simp only [_fin1Const, Fin2.ofNat', _fin0]
+    simp only [Fin2.ofNat', _fin0]
     rfl
 
 theorem _fin1Const_inj (h : _fin1Const x = _fin1Const y) : x = y := by

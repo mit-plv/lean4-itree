@@ -1,4 +1,5 @@
 import CTree.Basic
+import CTree.Paco
 
 namespace CTree
   /-
@@ -75,25 +76,19 @@ namespace CTree
     λ p q => ∃ sim, IsBisimulation sim ∧ sim p q
 
   theorem infTau_diverge : Diverge (@infTau ε ρ) := by
-    apply Diverge.coinduct (fun x => x = infTau) _
-    · rfl
-    · intro x h
-      subst h
-      conv =>
-        arg 2
-        rw [infTau_eq]
-      apply DivergeF.tau
-      rfl
+    pcofix
+    pfold
+    rw [infTau_eq]
+    constructor
+    pleft
+    assumption
 
   theorem infND_diverge : Diverge (@infND ε ρ) := by
-    apply Diverge.coinduct (fun x => x = infND) _
-    · rfl
-    · intro x h
-      subst h
-      conv =>
-        arg 2
-        rw [infND_eq]
-      apply DivergeF.choice_left
-      rfl
+    pcofix
+    pfold
+    rw [infND_eq]
+    constructor
+    pleft
+    assumption
 
 end CTree

@@ -24,14 +24,14 @@ namespace CTree
 
   /- Basic map lemmas -/
   theorem map_ret {ε : Type u1 → Type v1} : map (ε := ε) f (ret v) = ret (f v) := by
-    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
+    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, ret, mk, ret',
       tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice',
       PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
     congr
     exact _elim0_eq_all _
 
   theorem map_tau {ε : Type u1 → Type v1} {c : CTree ε ρ} : map f (tau c) = tau (map f c) := by
-    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
+    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, ret, mk, ret',
       tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice', tau,
       PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
     congr
@@ -43,7 +43,7 @@ namespace CTree
 
   theorem map_vis {ε : Type u1 → Type v1} {α : Type u1} {e : ε α} {k : α → CTree ε ρ} {f : ρ → σ}
     : map f (vis e k) = vis e (λ x => map f <| k x) := by
-    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
+    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, ret, mk, ret',
       tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice', vis,
       PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
     congr
@@ -51,14 +51,14 @@ namespace CTree
     simp only [Function.comp_apply, PFunctor.M.corec_def]
 
   theorem map_zero {ε} {f : α → β} : map (ε := ε) f zero = zero := by
-    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
+    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, ret, mk, ret',
       tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice',
       PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
     congr
     exact _elim0_eq_all _
 
   theorem map_choice {f : α → β} : map f (choice c1 c2) = choice (map f c1) (map f c2) := by
-    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, bind, Sum.bind, ret, mk, ret',
+    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, ret, mk, ret',
       tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice', choice,
       PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
     congr
@@ -69,7 +69,7 @@ namespace CTree
         PFunctor.M.corec_def]
       rfl
     | .up (.ofNat' 1) =>
-      simp only [_fin2Const, Nat.reduceAdd, Fin2.ofNat', Function.comp_apply, Vector3.cons_fz,
+      simp only [_fin2Const, Nat.reduceAdd, Fin2.ofNat', Function.comp_apply,
         PFunctor.M.corec_def]
       rfl
 
@@ -85,7 +85,7 @@ namespace CTree
     on_goal 4 => intro _ _ heq
     all_goals
      (rw [heq] at h
-      simp only [heq, Functor.map, map_tau, map_vis, map_zero, map_choice] at h
+      simp only [Functor.map, map_tau, map_vis, map_zero, map_choice] at h
       ctree_elim h)
 
   /- Monad Instance -/
@@ -115,7 +115,7 @@ namespace CTree
 
   /- Bind monad lemmas -/
   theorem bind_ret : bind (ret v) f = f v := by
-    simp only [bind, PFunctor.M.corec', PFunctor.M.corec₁, Bind.bind, Sum.bind, tau',
+    simp only [bind, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, tau',
       Function.comp_apply, id_eq, vis', Function.id_comp, zero, mk, zero', choice', ret, ret',
       PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_map]
     rw [PFunctor.M.map_dest]
@@ -129,7 +129,7 @@ namespace CTree
       simp only [implies_true]
 
   theorem bind_tau : bind (tau c) f = tau (bind c f) := by
-    simp only [bind, PFunctor.M.corec', PFunctor.M.corec₁, Bind.bind, Sum.bind, tau',
+    simp only [bind, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, tau',
       Function.comp_apply, id_eq, vis', Function.id_comp, zero, mk, zero', choice', PFunctor.map,
       tau, PFunctor.M.corec_def, PFunctor.M.dest_mk]
     congr
@@ -140,7 +140,7 @@ namespace CTree
       rfl
 
   theorem bind_vis : bind (vis e k) f = vis e λ x => bind (k x) f := by
-    simp only [bind, PFunctor.M.corec', PFunctor.M.corec₁, Bind.bind, Sum.bind, tau',
+    simp only [bind, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, tau',
       Function.comp_apply, id_eq, vis', Function.id_comp, zero, mk, zero', choice', PFunctor.map,
       vis, PFunctor.M.corec_def, PFunctor.M.dest_mk]
     congr
@@ -149,14 +149,14 @@ namespace CTree
     rfl
 
   theorem bind_zero : bind zero f = zero := by
-    simp only [bind, PFunctor.M.corec', PFunctor.M.corec₁, Bind.bind, Sum.bind, tau',
+    simp only [bind, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, tau',
       Function.comp_apply, id_eq, vis', Function.id_comp, zero, mk, zero', choice', PFunctor.map,
       PFunctor.M.corec_def, PFunctor.M.dest_mk]
     congr
     exact _elim0_eq_all _
 
   theorem bind_choice : bind (choice c1 c2) f = choice (bind c1 f) (bind c2 f) := by
-    simp [bind, PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def, PFunctor.map, Bind.bind, Sum.bind]
+    simp [bind, PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def, PFunctor.map, Sum.bind]
     congr
     funext i
     match i with
@@ -333,7 +333,7 @@ namespace CTree
         rw [h.left, h.right]
         apply dMatchOn x
         · intro v h
-          simp only [h, bind_ret, map_ret]
+          simp only [h, bind_ret]
           match hm : PFunctor.M.dest (bind (f v) g) with
           | ⟨a, f⟩ =>
             exists a, f, f
@@ -341,7 +341,7 @@ namespace CTree
             intro
             exact Or.inl rfl
         · intro c h
-          simp only [h, bind_tau, map_tau]
+          simp only [h, bind_tau]
           simp only [tau, mk, tau']
           apply exists_and_eq
           intro i
@@ -350,20 +350,20 @@ namespace CTree
           | .up (.ofNat' 0) =>
             exists c
         · intro _ e k h
-          simp only [h, bind_vis, map_vis]
+          simp only [h, bind_vis]
           simp only [vis, mk, vis']
           apply exists_and_eq
           intro i
           apply Or.inr
           exists k i
         · intro h
-          simp only [h, bind_zero, map_zero]
+          simp only [h, bind_zero]
           simp only [zero, mk, zero']
           apply exists_and_eq
           intro i
           exact elim0_lift i
         · intro c1 c2 h
-          simp only [h, bind_choice, map_choice]
+          simp only [h, bind_choice]
           simp only [choice, mk, choice']
           apply exists_and_eq
           intro i

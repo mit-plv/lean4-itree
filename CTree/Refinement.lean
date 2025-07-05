@@ -1030,7 +1030,7 @@ namespace CTree
 
     lemma map_tauN : map f (tauN n t) = tauN n (map f t) := by
       induction n with
-      | zero => simp only [tauN, map_tau]
+      | zero => simp only [tauN]
       | succ => simp only [tauN, map_tau]; congr
 
     theorem congr_map {t1 t2 : CTree ε ρ} {f : ρ → σ} (h : t1 ≤ t2) : t1.map f ≤ t2.map f := by

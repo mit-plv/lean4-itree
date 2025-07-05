@@ -24,14 +24,14 @@ namespace Lean.Order.CompleteLattice
       cases h <;> (rename_i h; subst h; assumption)
 
   theorem meet_le_left [CompleteLattice α] (x : α) : x ⊑ z → x ⊓ y ⊑ z := by
-    simp only [min, inf_spec]
+    simp only [min]
     intros
     apply rel_trans _ (by assumption)
     apply sup_le
     intros; rename_i h; apply h; left; rfl
 
   theorem meet_le_right [CompleteLattice α] (y : α) : y ⊑ z → x ⊓ y ⊑ z := by
-    simp only [min, inf_spec]
+    simp only [min]
     intros
     apply rel_trans _ (by assumption)
     apply sup_le
