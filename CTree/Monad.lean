@@ -120,7 +120,7 @@ namespace CTree
     `t` is the tree to be reverted
   -/
   macro "ctree_eq" t:ident : tactic => `(tactic|(
-    rw [← CEq_eq]
+    rw [← CEq_Eq]
     revert $t
     pcofix cih
     intro t
@@ -169,7 +169,7 @@ namespace CTree
   -/
   macro "ctree_eq_map_const" x:ident y:ident : tactic => `(tactic|(
     simp only [SeqRight.seqRight, SeqLeft.seqLeft, Seq.seq, Functor.map]
-    rw [← CEq_eq]
+    rw [← CEq_Eq]
     revert $x $y
     pcofix cih
     intro x y
@@ -216,7 +216,7 @@ namespace CTree
 
   theorem bind_assoc (x : CTree ε α) (f : α → CTree ε β) (g : β → CTree ε γ)
     : bind (bind x f) g = bind x λ x => bind (f x) g := by
-    rw [← CEq_eq]
+    rw [← CEq_Eq]
     revert x f g
     pcofix cih
     intro x f g

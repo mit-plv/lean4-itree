@@ -25,7 +25,7 @@ def CTree.P.{u1, v1, u2} (ε : Type u1 → Type v1) (ρ : Type u2) : PFunctor :=
 
 /--
 Coinductive Choice Tree defined with `PFunctor.M`.
-CEquivalent to the following definition:
+Equivalent to the following definition:
 ```
 coinductive CTree (ε : Type → Type) (ρ : Type)
 | ret (v : ρ)
@@ -330,7 +330,7 @@ namespace CTree
     coinductive_fixpoint monotonicity fun sim' sim hsim =>
       CEqF_monotone sim sim' hsim
 
-  theorem CEq_eq (t1 t2 : CTree ε ρ) : CEq t1 t2 ↔ t1 = t2 := by
+  theorem CEq_Eq (t1 t2 : CTree ε ρ) : CEq t1 t2 ↔ t1 = t2 := by
     constructor
     · intro h
       apply PFunctor.M.bisim (λ t1 t2 => CEq t1 t2) <;> try assumption
@@ -390,6 +390,6 @@ namespace CTree
 
     theorem CEqF_refl {sim} {hsim : ∀ t1 t2, CEq t1 t2 → sim t1 t2} (t : CTree ε ρ) : CEqF sim t t := by
       apply CEqF_monotone <;> try assumption
-      rw [← CEq, CEq_eq]
+      rw [← CEq, CEq_Eq]
   end
 end CTree
