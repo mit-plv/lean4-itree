@@ -134,30 +134,23 @@ theorem unfold_corec'.{uA, uB, u} {P : PFunctor.{uA, uB}} {α : Type u}
   conv =>
     lhs
     simp only [PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def, PFunctor.map, Sum.bind, Function.id_comp]
-  cases (F (@Sum.inr P.M α) x)
-  · rename_i v
+  match F (@Sum.inr P.M α) x with
+  | .inl v =>
     simp only
-    conv =>
-      rhs
-      rw [← (PFunctor.M.mk_dest v)]
+    conv => rhs; rw [← (PFunctor.M.mk_dest v)]
     congr
     have ⟨a, g⟩ := v.dest
-    simp only; congr; funext
-    rename_i i
+    simp only; congr; funext i
     simp only [Function.comp]
     apply PFunctor.M.bisim (λ t1 t2 => t1 = PFunctor.M.corec _ (Sum.inl t2)) <;> try rfl
     intros t1 t2 h; subst h
     simp only [PFunctor.M.dest_corec, PFunctor.map]
     have ⟨a, g⟩ := t2.dest
-    simp only; apply exists_and_eq
+    simp only; refine ⟨_, ⟨_, ⟨_, ⟨rfl, ⟨rfl, ?_⟩⟩⟩⟩⟩
     intro i
     simp only [Function.comp_apply]
-  · rename_i v
-    have ⟨a, g⟩ := v
-    simp only
-    congr
-    funext
-    rename_i i
+  | .inr ⟨a, g⟩ =>
+    simp only; congr; funext i
     simp only [Function.comp]
     match g i with
     | .inl l =>
@@ -166,7 +159,7 @@ theorem unfold_corec'.{uA, uB, u} {P : PFunctor.{uA, uB}} {α : Type u}
       intros t1 t2 h; subst h
       simp only [PFunctor.M.dest_corec, PFunctor.map]
       have ⟨a, g⟩ := t2.dest
-      simp only; apply exists_and_eq
+      simp only; refine ⟨_, ⟨_, ⟨_, ⟨rfl, ⟨rfl, ?_⟩⟩⟩⟩⟩
       intro i
       simp only [Function.comp_apply]
     | .inr r =>
