@@ -233,9 +233,7 @@ namespace CTree
       simp [infTau]
     rw [unfold_corec']
     simp only [tau, tau']
-    congr
-    funext
-    rename_i i
+    congr; funext i
     match i with
     | .up (.ofNat' 0) => rfl
 
@@ -251,9 +249,7 @@ namespace CTree
       simp [infND]
     rw [unfold_corec']
     simp only [choice, choice']
-    congr
-    funext
-    rename_i i
+    congr; funext i
     match i with
     | .up (.ofNat' 0) => rfl
     | .up (.ofNat' 1) => rfl

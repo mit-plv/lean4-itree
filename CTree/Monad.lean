@@ -46,7 +46,7 @@ namespace CTree
     conv => lhs; simp only [map]
     rw [unfold_corec', dest_zero]
 
-theorem map_choice {f : α → β} : map f (choice c1 c2) = choice (map f c1) (map f c2) := by
+  theorem map_choice {f : α → β} : map f (choice c1 c2) = choice (map f c1) (map f c2) := by
     conv => lhs; simp only [map]
     rw [unfold_corec', dest_choice]
     simp only [choice, choice']
@@ -220,9 +220,9 @@ theorem map_choice {f : α → β} : map f (choice c1 c2) = choice (map f c1) (m
     revert x f g
     pcofix cih
     intro x f g
+    pfold
     apply dMatchOn x <;> (intros; rename_i h; subst h)
     · repeat rw [bind_ret]
-      rename_i a; pfold
       apply eq_refl
       intros _ _ h
       pinit at h
@@ -230,13 +230,13 @@ theorem map_choice {f : α → β} : map f (choice c1 c2) = choice (map f c1) (m
       pmon <;> try assumption
       ptop
     · repeat rw [bind_tau]
-      pfold; constructor; pleft; apply cih
+      constructor; pleft; apply cih
     · repeat rw [bind_vis]
-      pfold; constructor; intros; pleft; apply cih
+      constructor; intros; pleft; apply cih
     · repeat rw [bind_zero]
-      pfold; constructor
+      constructor
     · repeat rw [bind_choice]
-      pfold; constructor <;> (pleft; apply cih)
+      constructor <;> (pleft; apply cih)
 
   instance : LawfulMonad (CTree ε) where
     seqLeft_eq := seqLeft_eq
