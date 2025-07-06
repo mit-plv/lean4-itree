@@ -103,23 +103,14 @@ theorem exists_and_eq {α : Type u} {β : α → Type v} {a : α} {b1 b2 : β a}
   : ∃ a' b1' b2', Sigma.mk a b1 = ⟨a', b1'⟩ ∧ Sigma.mk a b2 = ⟨a', b2'⟩ ∧ P a' b1' b2' := by
   exists a, b1, b2
 
-theorem corec_inl_eq_id {P : PFunctor.{u}} {F : P.M ⊕ β → P (P.M ⊕ β)} {g : γ → P.M}
-  : (∀ x, F (Sum.inl x) = P.map Sum.inl x.dest) → (((PFunctor.M.corec F) ∘ Sum.inl) ∘ g) = g := by
-  intro hF
-  funext i
-  apply PFunctor.M.bisim (λ t1 t2 => ∃ t, t1 = (((PFunctor.M.corec F) ∘ Sum.inl) ∘ t) i ∧ t2 = t i)
-  · intro x y h
-    have ⟨t, h⟩ := h
-    rw [h.left, h.right]
-    match hm : (t i).dest with
-    | ⟨fst, snd⟩ =>
-      simp only [Function.comp_apply, PFunctor.M.corec_def, hF, hm, PFunctor.map, PFunctor.M.dest_mk]
-      apply exists_and_eq
-      intro ii
-      exists λ _ => snd ii
-      apply And.intro _ rfl
-      simp only [Function.comp_apply, PFunctor.M.corec_def, PFunctor.map, hF]
-  · exists g
+macro "unfold_corec'_left" : tactic => `(tactic|(
+  apply PFunctor.M.bisim (λ t1 t2 => t1 = PFunctor.M.corec _ (Sum.inl t2)) <;> try rfl
+  intros t1 t2 h; subst h
+  simp only [PFunctor.M.dest_corec, PFunctor.map]
+  have ⟨a, g⟩ := t2.dest
+  simp only; refine ⟨_, ⟨_, ⟨_, ⟨rfl, ⟨rfl, ?_⟩⟩⟩⟩⟩
+  intro i
+  simp only [Function.comp_apply]))
 
 theorem unfold_corec'.{uA, uB, u} {P : PFunctor.{uA, uB}} {α : Type u}
   (F : ∀ {X : Type (max u uA uB)}, (α → X) → α → P.M ⊕ P X) (x : α) :
@@ -142,26 +133,14 @@ theorem unfold_corec'.{uA, uB, u} {P : PFunctor.{uA, uB}} {α : Type u}
     have ⟨a, g⟩ := v.dest
     simp only; congr; funext i
     simp only [Function.comp]
-    apply PFunctor.M.bisim (λ t1 t2 => t1 = PFunctor.M.corec _ (Sum.inl t2)) <;> try rfl
-    intros t1 t2 h; subst h
-    simp only [PFunctor.M.dest_corec, PFunctor.map]
-    have ⟨a, g⟩ := t2.dest
-    simp only; refine ⟨_, ⟨_, ⟨_, ⟨rfl, ⟨rfl, ?_⟩⟩⟩⟩⟩
-    intro i
-    simp only [Function.comp_apply]
+    unfold_corec'_left
   | .inr ⟨a, g⟩ =>
     simp only; congr; funext i
     simp only [Function.comp]
     match g i with
     | .inl l =>
       simp only
-      apply PFunctor.M.bisim (λ t1 t2 => t1 = PFunctor.M.corec _ (Sum.inl t2)) <;> try rfl
-      intros t1 t2 h; subst h
-      simp only [PFunctor.M.dest_corec, PFunctor.map]
-      have ⟨a, g⟩ := t2.dest
-      simp only; refine ⟨_, ⟨_, ⟨_, ⟨rfl, ⟨rfl, ?_⟩⟩⟩⟩⟩
-      intro i
-      simp only [Function.comp_apply]
+      unfold_corec'_left
     | .inr r =>
       simp only [PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.map, Sum.bind, Function.id_comp]
 

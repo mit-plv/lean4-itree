@@ -25,7 +25,7 @@ def CTree.P.{u1, v1, u2} (ε : Type u1 → Type v1) (ρ : Type u2) : PFunctor :=
 
 /--
 Coinductive Choice Tree defined with `PFunctor.M`.
-Equivalent to the following definition:
+CEquivalent to the following definition:
 ```
 coinductive CTree (ε : Type → Type) (ρ : Type)
 | ret (v : ρ)
@@ -289,14 +289,14 @@ namespace CTree
     try (have := (Sigma.mk.inj (PFunctor.M.mk_inj $h)).left; contradiction)
   ))
 
-  inductive eqF (sim : CTree ε ρ → CTree ε ρ → Prop) : CTree ε ρ → CTree ε ρ → Prop
-  | eq_ret v : eqF sim (ret v) (ret v)
-  | eq_vis {α} e k1 k2 (h : ∀ a : α, sim (k1 a) (k2 a)) : eqF sim (vis e k1) (vis e k2)
-  | eq_tau t1 t2 (h : sim t1 t2) : eqF sim (tau t1) (tau t2)
-  | eq_zero : eqF sim zero zero
-  | eq_choice t11 t12 t21 t22 (h1 : sim t11 t21) (h2 : sim t12 t22) : eqF sim (t11 ⊕ t12) (t21 ⊕ t22)
+  inductive CEqF (sim : CTree ε ρ → CTree ε ρ → Prop) : CTree ε ρ → CTree ε ρ → Prop
+  | CEq_ret v : CEqF sim (ret v) (ret v)
+  | CEq_vis {α} e k1 k2 (h : ∀ a : α, sim (k1 a) (k2 a)) : CEqF sim (vis e k1) (vis e k2)
+  | CEq_tau t1 t2 (h : sim t1 t2) : CEqF sim (tau t1) (tau t2)
+  | CEq_zero : CEqF sim zero zero
+  | CEq_choice t11 t12 t21 t22 (h1 : sim t11 t21) (h2 : sim t12 t22) : CEqF sim (t11 ⊕ t12) (t21 ⊕ t22)
 
-  lemma eqF_inv (sim : CTree ε ρ → CTree ε ρ → Prop) t1 t2 (h : eqF sim t1 t2) :
+  lemma CEqF_inv (sim : CTree ε ρ → CTree ε ρ → Prop) t1 t2 (h : CEqF sim t1 t2) :
     (∃ v, t1 = ret v ∧ t2 = ret v) ∨
     (∃ α, ∃ e : ε α, ∃ k1, ∃ k2, (∀ a : α, sim (k1 a) (k2 a)) ∧ t1 = vis e k1 ∧ t2 = vis e k2) ∨
     (∃ t1', ∃ t2', sim t1' t2' ∧ t1 = tau t1' ∧ t2 = tau t2') ∨
@@ -318,26 +318,27 @@ namespace CTree
       repeat (on_goal 1 => apply Exists.intro)
       rename_i h1 h2; exact ⟨h1, ⟨h2, ⟨rfl, rfl⟩⟩⟩
 
-  theorem eqF_monotone sim sim' (hsim : ∀ (t1 t2 : CTree ε ρ), sim t1 t2 → sim' t1 t2) :
-    ∀ t1 t2, eqF sim t1 t2 → eqF sim' t1 t2 := by
+  theorem CEqF_monotone sim sim' (hsim : ∀ (t1 t2 : CTree ε ρ), sim t1 t2 → sim' t1 t2) :
+    ∀ t1 t2, CEqF sim t1 t2 → CEqF sim' t1 t2 := by
     intros t1 t2 h
     cases h <;> constructor <;> intros <;> apply hsim <;> try assumption
     rename_i h _; apply h
 
-  def eq (t1 t2 : CTree ε ρ) : Prop :=
-    eqF eq t1 t2
+  /-- Custom equality predicate between CTrees -/
+  def CEq (t1 t2 : CTree ε ρ) : Prop :=
+    CEqF CEq t1 t2
     coinductive_fixpoint monotonicity fun sim' sim hsim =>
-      eqF_monotone sim sim' hsim
+      CEqF_monotone sim sim' hsim
 
-  theorem eq_eq (t1 t2 : CTree ε ρ) : eq t1 t2 ↔ t1 = t2 := by
+  theorem CEq_eq (t1 t2 : CTree ε ρ) : CEq t1 t2 ↔ t1 = t2 := by
     constructor
     · intro h
-      apply PFunctor.M.bisim (λ t1 t2 => eq t1 t2) <;> try assumption
+      apply PFunctor.M.bisim (λ t1 t2 => CEq t1 t2) <;> try assumption
       intro t1
       apply CTree.dMatchOn (x := t1) <;>
         (intros; rename_i h _ _; subst h; rename_i t2 h; revert h; apply CTree.dMatchOn (x := t2)) <;>
-        (intros; rename_i h _; subst h; rename_i h; simp only [CTree.eq] at h) <;>
-        try (apply eqF_inv at h; cases h; on_goal 1 =>
+        (intros; rename_i h _; subst h; rename_i h; simp only [CEq] at h) <;>
+        try (apply CEqF_inv at h; cases h; on_goal 1 =>
           rename_i h; have ⟨_, ⟨h1, h2⟩⟩ := h; try solve | ctree_elim h1 | ctree_elim h2) <;>
         try (rename_i h; cases h; on_goal 1 =>
           rename_i h; have ⟨_, ⟨_, ⟨_, ⟨_, ⟨_, ⟨h1, h2⟩⟩⟩⟩⟩⟩ := h; try solve | ctree_elim h1 | ctree_elim h2) <;>
@@ -387,8 +388,8 @@ namespace CTree
       apply t1.dMatchOn <;> intros <;> rename_i h <;> subst h <;> constructor
       all_goals (intros; pleft; apply cih)
 
-    theorem eq_refl {sim} {hsim : ∀ t1 t2, eq t1 t2 → sim t1 t2} (t : CTree ε ρ) : eqF sim t t := by
-      apply eqF_monotone <;> try assumption
-      rw [← eq, eq_eq]
+    theorem CEqF_refl {sim} {hsim : ∀ t1 t2, CEq t1 t2 → sim t1 t2} (t : CTree ε ρ) : CEqF sim t t := by
+      apply CEqF_monotone <;> try assumption
+      rw [← CEq, CEq_eq]
   end
 end CTree

@@ -4,9 +4,9 @@ import CTree.Euttc
 import Mathlib.Data.Vector3
 
 namespace CTree
-  /- Paralle Opeartor -/
+  /- Parallel Opeartor -/
 
-  inductive ParState (ε : Type → Type) (α β : Type)
+  inductive ParState (ε : Type u → Type v) (α : Type w1) (β : Type w2)
     | lS (t1 : CTree ε α) (t2 : CTree ε β)    -- · ◁ ·
     | rS (t1 : CTree ε α) (t2 : CTree ε β)    -- · ▷ ·
     | lrS (t1 : CTree ε α) (t2 : CTree ε β)   -- (· ◁ ·) ⊕ (· ▷ ·)
@@ -131,11 +131,10 @@ namespace CTree
       | .up (.ofNat' 1) => rfl
     | .bothS t1 t2 =>
       rw [unfold_corec']; simp only
-      simp only [choice, choice']
       apply dMatchOn t1 <;> (intros; rename_i h; subst h) <;>
       apply dMatchOn t2 <;> (intros; rename_i h; subst h) <;>
       simp only [dest_ret, dest_vis, dest_choice, dest_tau, dest_zero] <;>
-      simp only [vis, vis', tau, tau'] <;>
+      simp only [vis, vis', tau, tau', choice, choice'] <;>
       (congr; try funext i) <;>
       solve
       | match i with

@@ -33,16 +33,13 @@ namespace CTree
       | .iterS i => .inr <| tau' <| rec <| .bindS (step i)
     ) (.iterS i)
 
-  def interp' {ε1 : Type u1 → Type v1} {ε2 : Type u2 → Type v2}
+  def interp {ε1 : Type u1 → Type v1} {ε2 : Type u2 → Type v2}
     (handler : ε1 ⟹ CTree ε2) {ρ : Type v3} (t : CTree ε1 ρ) : CTree ε2 ρ :=
     iter (fun t =>
       match t.dest with
       | ⟨.ret v, _⟩ => ret <| .inr v
       | ⟨.tau, c⟩ => ret <| .inl (c _fin0)
-      | ⟨.vis α e, k⟩ =>
-        let t : CTree ε2 α := handler e
-        let f : α → CTree ε2 (CTree ε1 ρ ⊕ ρ) := fun a => ret <| .inl <| k a
-        CTree.bind t f
+      | ⟨.vis _ e, k⟩ => (handler e).bind <| fun a => ret <| .inl <| k a
       | ⟨.zero, _⟩ => zero
       | ⟨.choice, cts⟩ => ret <| .inl <| (cts _fin0) ⊕ (cts _fin1)
     ) t
