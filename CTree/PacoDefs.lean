@@ -376,6 +376,7 @@ macro_rules
 elab "psplit_prepare" : tactic =>
   Tactic.withMainContext do
     let goalType ← Tactic.getMainTarget
+    let goalType := goalType.cleanupAnnotations
     unless goalType.isAppOf ``uplfp do
       throwError "not uplfp"
     let hmArg := goalType.getAppArgs[3]!

@@ -24,54 +24,38 @@ namespace CTree
 
   /- Basic map lemmas -/
   theorem map_ret {ε : Type u1 → Type v1} : map (ε := ε) f (ret v) = ret (f v) := by
-    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, ret, mk, ret',
-      tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice',
-      PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
-    congr
-    exact _elim0_eq_all _
+    conv => lhs; simp only [map]
+    rw [unfold_corec']
+    simp only [ret, ret', mk, PFunctor.M.dest_mk]
 
   theorem map_tau {ε : Type u1 → Type v1} {c : CTree ε ρ} : map f (tau c) = tau (map f c) := by
-    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, ret, mk, ret',
-      tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice', tau,
-      PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
-    congr
-    funext i
+    conv => lhs; simp only [map]
+    rw [unfold_corec']
+    simp only [tau, tau', mk, PFunctor.M.dest_mk]
+    congr; funext i
     match i with
-    | .up (.ofNat' 0) =>
-      simp only [_fin1Const, Fin2.ofNat', Function.comp_apply, PFunctor.M.corec_def]
-      rfl
+    | (.up (.ofNat' 0)) => rfl
 
   theorem map_vis {ε : Type u1 → Type v1} {α : Type u1} {e : ε α} {k : α → CTree ε ρ} {f : ρ → σ}
     : map f (vis e k) = vis e (λ x => map f <| k x) := by
-    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, ret, mk, ret',
-      tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice', vis,
-      PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
+    conv => lhs; simp only [map]
+    rw [unfold_corec']
+    simp only [vis, vis', mk, PFunctor.M.dest_mk]
     congr
-    funext i
-    simp only [Function.comp_apply, PFunctor.M.corec_def]
 
   theorem map_zero {ε} {f : α → β} : map (ε := ε) f zero = zero := by
-    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, ret, mk, ret',
-      tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice',
-      PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
-    congr
-    exact _elim0_eq_all _
+    conv => lhs; simp only [map]
+    rw [unfold_corec']
+    simp only [zero, zero', mk, PFunctor.M.dest_mk]
 
   theorem map_choice {f : α → β} : map f (choice c1 c2) = choice (map f c1) (map f c2) := by
-    simp only [map, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, ret, mk, ret',
-      tau', Function.comp_apply, id_eq, vis', Function.id_comp, zero, zero', choice', choice,
-      PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_eq]
-    congr
-    funext i
+    conv => lhs; simp only [map]
+    rw [unfold_corec']
+    simp only [choice, choice', mk, PFunctor.M.dest_mk]
+    congr; funext i
     match i with
-    | .up (.ofNat' 0) =>
-      simp only [_fin2Const, Nat.reduceAdd, Fin2.ofNat', Function.comp_apply, Vector3.cons_fz,
-        PFunctor.M.corec_def]
-      rfl
-    | .up (.ofNat' 1) =>
-      simp only [_fin2Const, Nat.reduceAdd, Fin2.ofNat', Function.comp_apply,
-        PFunctor.M.corec_def]
-      rfl
+    | .up (.ofNat' 0) => rfl
+    | .up (.ofNat' 1) => rfl
 
   theorem map_ret_eq (h : f <$> t1 = ret y) : ∃ x, f x = y ∧ t1 = ret x := by
     apply dMatchOn t1
@@ -115,57 +99,37 @@ namespace CTree
 
   /- Bind monad lemmas -/
   theorem bind_ret : bind (ret v) f = f v := by
-    simp only [bind, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, tau',
-      Function.comp_apply, id_eq, vis', Function.id_comp, zero, mk, zero', choice', ret, ret',
-      PFunctor.M.corec_def, PFunctor.M.dest_mk, PFunctor.map_map]
-    rw [PFunctor.M.map_dest]
-    conv =>
-      rhs
-      rw [←PFunctor.M.mk_dest (x := f v)]
-    match hm : PFunctor.M.dest (f v) with
-    | ⟨fst, snd⟩ =>
-      congr
-      apply corec_inl_eq_id
-      simp only [implies_true]
+    conv => lhs; simp only [bind]
+    rw [unfold_corec']
+    simp only [ret, ret', mk, PFunctor.M.dest_mk]
 
   theorem bind_tau : bind (tau c) f = tau (bind c f) := by
-    simp only [bind, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, tau',
-      Function.comp_apply, id_eq, vis', Function.id_comp, zero, mk, zero', choice', PFunctor.map,
-      tau, PFunctor.M.corec_def, PFunctor.M.dest_mk]
-    congr
-    funext i
+    conv => lhs; simp only [bind]
+    rw [unfold_corec']
+    simp only [tau, tau', mk, PFunctor.M.dest_mk]
+    congr; funext i
     match i with
-    | .up (.ofNat' 0) =>
-      simp only [Function.comp_apply, PFunctor.M.corec_def]
-      rfl
+    | .up (.ofNat' 0) => rfl
 
   theorem bind_vis : bind (vis e k) f = vis e λ x => bind (k x) f := by
-    simp only [bind, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, tau',
-      Function.comp_apply, id_eq, vis', Function.id_comp, zero, mk, zero', choice', PFunctor.map,
-      vis, PFunctor.M.corec_def, PFunctor.M.dest_mk]
+    conv => lhs; simp only [bind]
+    rw [unfold_corec']
+    simp only [vis, vis', mk, PFunctor.M.dest_mk]
     congr
-    funext i
-    simp only [Function.comp_apply, PFunctor.M.corec_def]
-    rfl
 
   theorem bind_zero : bind zero f = zero := by
-    simp only [bind, PFunctor.M.corec', PFunctor.M.corec₁, Sum.bind, tau',
-      Function.comp_apply, id_eq, vis', Function.id_comp, zero, mk, zero', choice', PFunctor.map,
-      PFunctor.M.corec_def, PFunctor.M.dest_mk]
-    congr
-    exact _elim0_eq_all _
+    conv => lhs; simp only [bind]
+    rw [unfold_corec']
+    simp only [zero, zero', mk, PFunctor.M.dest_mk]
 
   theorem bind_choice : bind (choice c1 c2) f = choice (bind c1 f) (bind c2 f) := by
-    simp [bind, PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def, PFunctor.map, Sum.bind]
-    congr
-    funext i
+    conv => lhs; simp only [bind]
+    rw [unfold_corec']
+    simp only [choice, choice', mk, PFunctor.M.dest_mk]
+    congr; funext i
     match i with
-    | .up (.ofNat' 0) =>
-      simp only [_fin0, _fin2Const, Nat.reduceAdd, Function.comp_apply, PFunctor.M.corec_def]
-      rfl
-    | .up (.ofNat' 1) =>
-      simp only [_fin0, _fin2Const, Nat.reduceAdd, Function.comp_apply, PFunctor.M.corec_def]
-      rfl
+    | .up (.ofNat' 0) => rfl
+    | .up (.ofNat' 1) => rfl
 
   /- Functor Laws -/
 
@@ -317,62 +281,31 @@ namespace CTree
 
   theorem bind_assoc (x : CTree ε α) (f : α → CTree ε β) (g : β → CTree ε γ)
     : bind (bind x f) g = bind x λ x => bind (f x) g := by
-    apply PFunctor.M.bisim (λ t1 t2 => t1 = t2 ∨ ∃ x, t1 = bind (bind x f) g ∧ t2 = bind x λ x => bind (f x) g) _
-    · apply Or.inr
-      exists x
-    · intro x y h
-      match h with
-      | .inl h =>
-        match hm : PFunctor.M.dest x with
-        | ⟨a, f⟩ =>
-          exists a, f, f
-          apply And.intro rfl
-          apply And.intro _ λ _ => Or.inl rfl
-          rw [←hm, h]
-      | .inr ⟨x, h⟩ =>
-        rw [h.left, h.right]
-        apply dMatchOn x
-        · intro v h
-          simp only [h, bind_ret]
-          match hm : PFunctor.M.dest (bind (f v) g) with
-          | ⟨a, f⟩ =>
-            exists a, f, f
-            repeat apply And.intro rfl
-            intro
-            exact Or.inl rfl
-        · intro c h
-          simp only [h, bind_tau]
-          simp only [tau, mk, tau']
-          apply exists_and_eq
-          intro i
-          apply Or.inr
-          match i with
-          | .up (.ofNat' 0) =>
-            exists c
-        · intro _ e k h
-          simp only [h, bind_vis]
-          simp only [vis, mk, vis']
-          apply exists_and_eq
-          intro i
-          apply Or.inr
-          exists k i
-        · intro h
-          simp only [h, bind_zero]
-          simp only [zero, mk, zero']
-          apply exists_and_eq
-          intro i
-          exact elim0_lift i
-        · intro c1 c2 h
-          simp only [h, bind_choice]
-          simp only [choice, mk, choice']
-          apply exists_and_eq
-          intro i
-          apply Or.inr
-          match i with
-          | .up (.ofNat' 0) =>
-            exists c1
-          | .up (.ofNat' 1) =>
-            exists c2
+    rw [← eq_eq]
+    revert x f g
+    pcofix
+    intro x f g
+    apply dMatchOn x <;> (intros; rename_i h; subst h)
+    · repeat rw [bind_ret]
+      rename_i a; pfold
+      have : eq ((f a).bind g) ((f a).bind g) := by rw [eq_eq]
+      pinit at this
+      punfold at this
+      apply eqF_monotone
+      on_goal 2 => exact this
+      intros _ _ h
+      pclearbot at h
+      pright
+      pmon <;> try assumption
+      ptop
+    · repeat rw [bind_tau]
+      pfold; constructor; pleft; apply cih
+    · repeat rw [bind_vis]
+      pfold; constructor; intros; pleft; apply cih
+    · repeat rw [bind_zero]
+      pfold; constructor
+    · repeat rw [bind_choice]
+      pfold; constructor <;> (pleft; apply cih)
 
   instance : LawfulMonad (CTree ε) where
     seqLeft_eq := seqLeft_eq
