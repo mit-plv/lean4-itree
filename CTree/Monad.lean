@@ -55,21 +55,6 @@ theorem map_choice {f : α → β} : map f (choice c1 c2) = choice (map f c1) (m
     | .up (.ofNat' 0) => rfl
     | .up (.ofNat' 1) => rfl
 
-  theorem map_ret_eq (h : f <$> t1 = ret y) : ∃ x, f x = y ∧ t1 = ret x := by
-    apply dMatchOn t1
-    · intro x heq
-      simp only [heq, Functor.map, map_ret] at h
-      exists x
-      exact And.intro (ret_inj h) heq
-    on_goal 1 => intro _ heq
-    on_goal 2 => intro _ _ _ heq
-    on_goal 3 => intro heq
-    on_goal 4 => intro _ _ heq
-    all_goals
-     (rw [heq] at h
-      simp only [Functor.map, map_tau, map_vis, map_zero, map_choice] at h
-      ctree_elim h)
-
   /- Monad Instance -/
   def bind {σ} (t : CTree ε ρ) (f : ρ → CTree ε σ) : CTree ε σ :=
     .corec' (λ rec t =>
@@ -130,54 +115,11 @@ theorem map_choice {f : α → β} : map f (choice c1 c2) = choice (map f c1) (m
   /- Functor Laws -/
 
   /--
-    `ctree_eq R t` tries to prove the equivalence of two `CTree`s transformed by `map` and `bind`.
+    `ctree_eq t` tries to prove the equivalence of two `CTree`s transformed by `map` and `bind`.
 
-    `R` should be of the form `λ t1 t2 => ∃ t, t1 = f t ∧ t2 = g t` where `f` and `g` are some function from `CTree` to `CTree` potentially involving `map` and `bind`.
-
-    `t` is the initial value passed to the existential in `R`.
+    `t` is the tree to be reverted
   -/
-  macro "ctree_eq" " (" R:term ") " t:term : tactic => `(tactic|(
-    apply PFunctor.M.bisim $R _
-    · exists $t
-    · intro x y h
-      obtain ⟨t, h⟩ := h
-      rw [h.left, h.right]
-      apply dMatchOn t
-      · intro v h
-        simp only [h, map_ret, bind_ret, dest_ret, id]
-        apply exists_and_eq
-        intro i
-        exact elim0_lift i
-      · intro c h
-        simp only [h, map_tau, bind_tau, dest_tau]
-        apply exists_and_eq
-        intro i
-        exists c
-        match i with
-        | .up (.ofNat' 0) =>
-          apply And.intro <;> simp only [_fin1Const, Fin2.ofNat']
-      · intro α e k h
-        simp only [h, map_vis, bind_vis, dest_vis]
-        apply exists_and_eq
-        intro i
-        exists (k i)
-      · intro h
-        simp only [h, map_zero, bind_zero, dest_zero]
-        apply exists_and_eq
-        intro i
-        exact elim0_lift i
-      · intro c1 c2 h
-        simp only [h, map_choice, bind_choice, dest_choice]
-        apply exists_and_eq
-        intro i
-        match i with
-        | .up (.ofNat' 0) =>
-          exists c1
-        | .up (.ofNat' 1) =>
-          exists c2
-  ))
-
-  macro "ctree_eq'" t:ident : tactic => `(tactic|(
+  macro "ctree_eq" t:ident : tactic => `(tactic|(
     rw [← eq_eq]
     revert $t
     pcofix cih
@@ -185,21 +127,26 @@ theorem map_choice {f : α → β} : map f (choice c1 c2) = choice (map f c1) (m
     pfold
     apply dMatchOn t <;> (intros; rename_i h; subst h)
     · repeat rw [map_ret]
+      repeat rw [bind_ret]
       constructor
     · repeat rw [map_tau]
+      repeat rw [bind_tau]
       constructor; pleft; apply cih
     · repeat rw [map_vis]
+      repeat rw [bind_vis]
       constructor; intros; pleft; apply cih
     · repeat rw [map_zero]
+      repeat rw [bind_zero]
       constructor
     · repeat rw [map_choice]
+      repeat rw [bind_choice]
       constructor <;> (pleft; apply cih)
   ))
 
-  theorem id_map (t : CTree ε ρ) : map id t = t := by ctree_eq' t
+  theorem id_map (t : CTree ε ρ) : map id t = t := by ctree_eq t
 
   theorem comp_map (g : α → β) (h : β → γ) (t : CTree ε α) : map (h ∘ g) t = map h (map g t) := by
-    ctree_eq' t
+    ctree_eq t
 
   instance : LawfulFunctor (CTree ε) where
     map_const := by simp only [Functor.mapConst, Functor.map, implies_true]
@@ -209,86 +156,60 @@ theorem map_choice {f : α → β} : map f (choice c1 c2) = choice (map f c1) (m
   /- Monad Laws -/
 
   theorem map_const_left : map (Function.const α v) t = bind t λ _ => ret v := by
-    ctree_eq (λ t1 t2 => ∃ t, t1 = map (Function.const α v) t ∧ t2 = t.bind λ _ => ret v) t
+    ctree_eq t
 
   theorem map_const_right : map (Function.const α id v) t = t := by
-    ctree_eq (λ t1 t2 => ∃ t, t1 = map (Function.const α id v) t ∧ t2 = t) t
+    rw [Function.const]
+    apply id_map
 
   /--
     `ctree_eq_map_const R t` tries to prove the equivalence of two `CTree`s transformed by `seq` and `map` with `Function.const`.
 
-    `R` should be of the form `λ t1 t2 => t1 = t2 ∨ ∃ x y, t1 = f x y ∧ t2 = g x y`.
-
-    `x` and `y` are the initial values passed to the existential in `R`.
+    `x` and `y` are the trees to be reverted
   -/
-  macro "ctree_eq_map_const" " (" R:term ") " x:term ", " y:term : tactic => `(tactic|(
-    apply PFunctor.M.bisim $R _
-    · apply Or.inr
-      exists $x, $y
-    · intro x y h
-      match h with
-      | .inl h =>
-        match hm : x.dest with
-        | ⟨a, f⟩ =>
-          exists a, f, f
-          apply And.intro rfl
-          apply And.intro _ λ _ => .inl rfl
-          rw [←hm, h]
-      | .inr ⟨x, y, h⟩ =>
-        rw [h.left, h.right]
-        simp only [SeqLeft.seqLeft, SeqRight.seqRight, Seq.seq, Functor.map]
-        apply dMatchOn x
-        · intro v h
-          simp only [h, bind_ret, map_ret, map_const_left, map_const_right]
-          apply exists_and_eq
-          intro i
-          exact Or.inl rfl
-        · intro c h
-          simp only [h, bind_tau, map_tau]
-          simp only [tau, mk, tau', PFunctor.M.dest_mk]
-          apply exists_and_eq
-          intro i
-          apply Or.inr
-          match i with
-          | .up (.ofNat' 0) =>
-            exists c, y
-        · intro _ e k h
-          simp only [h, bind_vis, map_vis]
-          simp only [vis, mk, vis']
-          apply exists_and_eq
-          intro i
-          apply Or.inr
-          exists k i, y
-        · intro h
-          simp only [h, bind_zero, map_zero]
-          simp only [zero, mk, zero', PFunctor.M.dest_mk]
-          apply exists_and_eq
-          intro i
-          exact elim0_lift i
-        · intro c1 c2 h
-          simp only [h, bind_choice, map_choice]
-          simp only [choice, mk, choice', PFunctor.M.dest_mk]
-          apply exists_and_eq
-          intro i
-          apply Or.inr
-          match i with
-          | .up (.ofNat' 0) =>
-            exists c1, y
-          | .up (.ofNat' 1) =>
-            exists c2, y
+  macro "ctree_eq_map_const" x:ident y:ident : tactic => `(tactic|(
+    simp only [SeqRight.seqRight, SeqLeft.seqLeft, Seq.seq, Functor.map]
+    rw [← eq_eq]
+    revert $x $y
+    pcofix cih
+    intro x y
+    pfold
+    apply dMatchOn x <;> (intros; rename_i h; subst h)
+    · repeat rw [map_ret]
+      repeat rw [bind_ret]
+      repeat rw [map_const_left]
+      repeat rw [map_const_right]
+      apply eq_refl
+      intros _ _ h
+      pright
+      pinit at h
+      pmon <;> try assumption
+      ptop
+    · repeat rw [map_tau]
+      repeat rw [bind_tau]
+      constructor; pleft; apply cih
+    · repeat rw [map_vis]
+      repeat rw [bind_vis]
+      constructor; intros; pleft; apply cih
+    · repeat rw [map_zero]
+      repeat rw [bind_zero]
+      constructor
+    · repeat rw [map_choice]
+      repeat rw [bind_choice]
+      constructor <;> (pleft; apply cih)
   ))
 
   theorem seqLeft_eq (x : CTree ε α) (y : CTree ε β) : x <* y = Function.const β <$> x <*> y := by
-    ctree_eq_map_const (λ t1 t2 => (t1 = t2) ∨ ∃ (x : CTree ε α) (y : CTree ε β), (t1 = x <* y ∧ t2 = (Function.const β <$> x <*> y))) x, y
+    ctree_eq_map_const x y
 
   theorem seqRight_eq (x : CTree ε α) (y : CTree ε β) : x *> y = Function.const α id <$> x <*> y := by
-    ctree_eq_map_const (λ t1 t2 => t1 = t2 ∨ ∃ (x : CTree ε α) (y : CTree ε β), t1 = x *> y ∧ t2 = Function.const α id <$> x <*> y) x, y
+    ctree_eq_map_const x y
 
   theorem pure_seq (g : α → β) (x : CTree ε α) : pure g <*> x = g <$> x := by
     simp only [Seq.seq, pure, bind_ret]
 
   theorem bind_pure_comp (f : α → β) (x : CTree ε α) : bind x (pure ∘ f) = map f x := by
-    ctree_eq (λ t1 t2 => ∃ x, t1 = bind x (pure ∘ f) ∧ t2 = map f x) x
+    ctree_eq x
 
   theorem pure_bind (x : α) (f : α → CTree ε β) : bind (pure x) f = f x := by
     simp only [pure, bind_ret]
@@ -302,13 +223,9 @@ theorem map_choice {f : α → β} : map f (choice c1 c2) = choice (map f c1) (m
     apply dMatchOn x <;> (intros; rename_i h; subst h)
     · repeat rw [bind_ret]
       rename_i a; pfold
-      have : eq ((f a).bind g) ((f a).bind g) := by rw [eq_eq]
-      pinit at this
-      punfold at this
-      apply eqF_monotone
-      on_goal 2 => exact this
+      apply eq_refl
       intros _ _ h
-      pclearbot at h
+      pinit at h
       pright
       pmon <;> try assumption
       ptop

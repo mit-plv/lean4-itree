@@ -390,5 +390,9 @@ namespace CTree
       pfold
       apply t1.dMatchOn <;> intros <;> rename_i h <;> subst h <;> constructor
       all_goals (intros; pleft; apply cih)
+
+    theorem eq_refl {sim} {hsim : ∀ t1 t2, eq t1 t2 → sim t1 t2} (t : CTree ε ρ) : eqF sim t t := by
+      apply eqF_monotone <;> try assumption
+      rw [← eq, eq_eq]
   end
 end CTree
