@@ -25,13 +25,12 @@ namespace CTree
   /- Basic map lemmas -/
   theorem map_ret {ε : Type u1 → Type v1} : map (ε := ε) f (ret v) = ret (f v) := by
     conv => lhs; simp only [map]
-    rw [unfold_corec']
-    simp only [ret, ret', mk, PFunctor.M.dest_mk]
+    rw [unfold_corec', dest_ret]
 
   theorem map_tau {ε : Type u1 → Type v1} {c : CTree ε ρ} : map f (tau c) = tau (map f c) := by
     conv => lhs; simp only [map]
-    rw [unfold_corec']
-    simp only [tau, tau', mk, PFunctor.M.dest_mk]
+    rw [unfold_corec', dest_tau]
+    simp only [tau, tau']
     congr; funext i
     match i with
     | (.up (.ofNat' 0)) => rfl
@@ -39,19 +38,18 @@ namespace CTree
   theorem map_vis {ε : Type u1 → Type v1} {α : Type u1} {e : ε α} {k : α → CTree ε ρ} {f : ρ → σ}
     : map f (vis e k) = vis e (λ x => map f <| k x) := by
     conv => lhs; simp only [map]
-    rw [unfold_corec']
-    simp only [vis, vis', mk, PFunctor.M.dest_mk]
+    rw [unfold_corec', dest_vis]
+    simp only [vis, vis']
     congr
 
   theorem map_zero {ε} {f : α → β} : map (ε := ε) f zero = zero := by
     conv => lhs; simp only [map]
-    rw [unfold_corec']
-    simp only [zero, zero', mk, PFunctor.M.dest_mk]
+    rw [unfold_corec', dest_zero]
 
-  theorem map_choice {f : α → β} : map f (choice c1 c2) = choice (map f c1) (map f c2) := by
+theorem map_choice {f : α → β} : map f (choice c1 c2) = choice (map f c1) (map f c2) := by
     conv => lhs; simp only [map]
-    rw [unfold_corec']
-    simp only [choice, choice', mk, PFunctor.M.dest_mk]
+    rw [unfold_corec', dest_choice]
+    simp only [choice, choice']
     congr; funext i
     match i with
     | .up (.ofNat' 0) => rfl
@@ -100,32 +98,30 @@ namespace CTree
   /- Bind monad lemmas -/
   theorem bind_ret : bind (ret v) f = f v := by
     conv => lhs; simp only [bind]
-    rw [unfold_corec']
-    simp only [ret, ret', mk, PFunctor.M.dest_mk]
+    rw [unfold_corec', dest_ret]
 
   theorem bind_tau : bind (tau c) f = tau (bind c f) := by
     conv => lhs; simp only [bind]
-    rw [unfold_corec']
-    simp only [tau, tau', mk, PFunctor.M.dest_mk]
+    rw [unfold_corec', dest_tau]
+    simp only [tau, tau']
     congr; funext i
     match i with
     | .up (.ofNat' 0) => rfl
 
   theorem bind_vis : bind (vis e k) f = vis e λ x => bind (k x) f := by
     conv => lhs; simp only [bind]
-    rw [unfold_corec']
-    simp only [vis, vis', mk, PFunctor.M.dest_mk]
+    rw [unfold_corec', dest_vis]
+    simp only [vis, vis']
     congr
 
   theorem bind_zero : bind zero f = zero := by
     conv => lhs; simp only [bind]
-    rw [unfold_corec']
-    simp only [zero, zero', mk, PFunctor.M.dest_mk]
+    rw [unfold_corec', dest_zero]
 
   theorem bind_choice : bind (choice c1 c2) f = choice (bind c1 f) (bind c2 f) := by
     conv => lhs; simp only [bind]
-    rw [unfold_corec']
-    simp only [choice, choice', mk, PFunctor.M.dest_mk]
+    rw [unfold_corec', dest_choice]
+    simp only [choice, choice']
     congr; funext i
     match i with
     | .up (.ofNat' 0) => rfl
@@ -181,11 +177,29 @@ namespace CTree
           exists c2
   ))
 
-  theorem id_map (t : CTree ε ρ) : map id t = t := by
-    ctree_eq (λ t1 t2 => ∃ t, t1 = map id t ∧ t2 = t) t
+  macro "ctree_eq'" t:ident : tactic => `(tactic|(
+    rw [← eq_eq]
+    revert $t
+    pcofix cih
+    intro t
+    pfold
+    apply dMatchOn t <;> (intros; rename_i h; subst h)
+    · repeat rw [map_ret]
+      constructor
+    · repeat rw [map_tau]
+      constructor; pleft; apply cih
+    · repeat rw [map_vis]
+      constructor; intros; pleft; apply cih
+    · repeat rw [map_zero]
+      constructor
+    · repeat rw [map_choice]
+      constructor <;> (pleft; apply cih)
+  ))
+
+  theorem id_map (t : CTree ε ρ) : map id t = t := by ctree_eq' t
 
   theorem comp_map (g : α → β) (h : β → γ) (t : CTree ε α) : map (h ∘ g) t = map h (map g t) := by
-    ctree_eq (λ t1 t2 => ∃ t, t1 = map (h ∘ g) t ∧ t2 = map h (map g t)) t
+    ctree_eq' t
 
   instance : LawfulFunctor (CTree ε) where
     map_const := by simp only [Functor.mapConst, Functor.map, implies_true]
@@ -283,7 +297,7 @@ namespace CTree
     : bind (bind x f) g = bind x λ x => bind (f x) g := by
     rw [← eq_eq]
     revert x f g
-    pcofix
+    pcofix cih
     intro x f g
     apply dMatchOn x <;> (intros; rename_i h; subst h)
     · repeat rw [bind_ret]

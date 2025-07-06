@@ -76,7 +76,7 @@ namespace CTree
     λ p q => ∃ sim, IsBisimulation sim ∧ sim p q
 
   theorem infTau_diverge : Diverge (@infTau ε ρ) := by
-    pcofix
+    pcofix cih
     pfold
     rw [infTau_eq]
     constructor
@@ -84,7 +84,7 @@ namespace CTree
     assumption
 
   theorem infND_diverge : Diverge (@infND ε ρ) := by
-    pcofix
+    pcofix cih
     pfold
     rw [infND_eq]
     constructor

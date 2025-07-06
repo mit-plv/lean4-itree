@@ -385,7 +385,7 @@ namespace CTree
           assumption
     · intro h; subst h
       revert t1
-      pcofix
+      pcofix cih
       intros t1
       pfold
       apply t1.dMatchOn <;> intros <;> rename_i h <;> subst h <;> constructor

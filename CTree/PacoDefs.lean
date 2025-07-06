@@ -319,7 +319,7 @@ elab "destruct_last_and" : tactic =>
     let mvarId ← mvarId.clear lastId
     return [mvarId]
 
-macro "pcofix" : tactic => `(tactic|(
+macro "pcofix" cih:ident : tactic => `(tactic|(
   pinit; rw [@plfp_init] at *; pcofix_intro_acc; pcofix_wrap
   rename_i x; exists x -- proof for plfp_acc
   intros; constructor -- proof for converter
@@ -328,7 +328,7 @@ macro "pcofix" : tactic => `(tactic|(
     repeat (destruct_last_and; rename_i h' _; subst h')
     apply h; try assumption
   rename_i unpacker converter
-  intro $(mkIdent `φ) dummy $(mkIdent `cih) -- main goal
+  intro $(mkIdent `φ) dummy $cih -- main goal
   simp only [
     Lean.Order.instCompleteLatticePi,
     Lean.Order.instOrderPi,

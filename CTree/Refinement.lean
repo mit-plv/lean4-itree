@@ -206,7 +206,7 @@ namespace CTree
     generalize eq_t1' : ret x = t1' at h
     revert x y t1
     revert p1 p2 t1' t
-    pcofix
+    pcofix cih
     intro p1 p2 t t1' h
     punfold at h
     induction h with
