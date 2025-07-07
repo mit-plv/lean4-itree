@@ -214,11 +214,7 @@ elab "pinit" : tactic =>
     let expanded ← Meta.deltaExpand goalType (c == ·)
     unless expanded.isAppOf ``Lean.Order.lfp_monotone do
       throwError "{expanded} is not constructed with lfp_monotone"
-    -- unfold all instances of the predicate, even in the context
-    let mvarId ← mvarId.revertAll
-    let revertedHypNum := Meta.getIntrosSize (← mvarId.getType)
     let mvarId ← mvarId.deltaTarget (c == ·)
-    let (_, mvarId) ← mvarId.introNP revertedHypNum
     return [mvarId]
 
 elab "pcofix_intro_acc" : tactic =>
@@ -349,25 +345,20 @@ macro_rules
 
 elab "pinit" " at " h:ident : tactic =>
   Tactic.withMainContext do
-    let some hypType := (← getLCtx).findDecl? (λ ldecl =>
-      if ldecl.userName == h.getId then some ldecl.type
+    let some hyp := (← getLCtx).findDecl? (λ ldecl =>
+      if ldecl.userName == h.getId then some ldecl.fvarId
       else none) | throwError "Cannot find hypothesis of name {h.getId}"
-    let hypType ← instantiateMVars hypType
-    let hypType := hypType.cleanupAnnotations
+    let hypType ← hyp.getType
+    let hypType ← instantiateMVars hypType.cleanupAnnotations
     let hypHead := hypType.getAppFn
     let Expr.const c _ := hypHead | throwError "{hypHead} is not a defined constant"
     let expanded ← Meta.deltaExpand hypType (c == ·)
     unless expanded.isAppOf ``Lean.Order.lfp_monotone do
       throwError "{expanded} is not constructed with lfp_monotone"
     Tactic.liftMetaTactic λ mvarId => do
-      let originalHypNum := Meta.getIntrosSize (← mvarId.getType)
-      let mvarId ← mvarId.revertAll
-      let revertedHypNum := Meta.getIntrosSize (← mvarId.getType)
-      -- unfold all instances of the predicate, even in the context
-      let mvarId ← mvarId.deltaTarget (c == ·)
-      let (_, mvarId) ← mvarId.introNP (revertedHypNum - originalHypNum)
+      let mvarId ← mvarId.deltaLocalDecl hyp (c == ·)
       return [mvarId]
-    Tactic.evalTactic <| ← `(tactic|rw [@plfp_init] at *)
+    Tactic.evalTactic <| ← `(tactic|rw [@plfp_init] at $h:ident)
 
 syntax "pclearbot" " at " ident : tactic
 macro_rules

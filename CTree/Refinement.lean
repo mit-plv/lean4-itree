@@ -734,21 +734,15 @@ namespace CTree
     on_goal 2 =>
       apply RefineF.trans <;> try assumption
     on_goal 3 =>
-      intros; rename_i h; punfold at h
-      apply RefineF.monotone <;> try assumption
-      intros; rename_i h; pclearbot at h
+      intros; rename_i h; rw [Refine'] at h
       assumption
     · intro p11 p22 t1 t3 ⟨p12, ⟨t2, ⟨p21, ⟨h1, h2⟩⟩⟩⟩
       pleft
-      punfold at h1
-      apply cih p11 p12 <;> try assumption
+      rw [Refine'] at h1
+      apply cih p11 p12 <;> assumption
+    · intros; rename_i h; rw [Refine'] at h
       apply RefineF.monotone <;> try assumption
-      intros; rename_i h; pclearbot at h
-      assumption
-    · intros; rename_i h; punfold at h
-      apply RefineF.monotone <;> try assumption
-      intros; rename_i h; pclearbot at h
-      assumption
+      intros; assumption
 
   theorem Refine.coind (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
     (adm : ∀ p1 p2 t1 t2, sim p1 p2 t1 t2 → RefineF r sim p1 p2 t1 t2)
