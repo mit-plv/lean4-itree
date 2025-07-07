@@ -254,7 +254,7 @@ namespace CTree
     | .up (.ofNat' 0) => rfl
     | .up (.ofNat' 1) => rfl
 
-  def KTree (ε : Type u1 → Type v1) (α β : Type u2) := α → CTree ε β
+  def KTree (ε : Type u1 → Type v1) (α : Type u1) (β : Type u2) := α → CTree ε β
 
   inductive State (ε : Type u1 → Type v1) (ρ : Type u2)
   | ct : CTree ε ρ → State ε ρ

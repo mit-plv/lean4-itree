@@ -169,14 +169,14 @@ lemma Step.vis_tau (h : Step (C[ vis e k ]) .tau t) : False := by
   generalize hv : CTree.vis e k = tv at *
   cases h <;> ctree_elim hv
 
-lemma Step.vis_event_α {ε : Type → Type} {e1 : ε α1} {e2 : ε α2} {t : State ε β} {k : KTree ε α1 β}
+lemma Step.vis_event_α {ε : Type u → Type v} {e1 : ε α1} {e2 : ε α2} {t : State ε β} {k : KTree ε α1 β}
   (h : Step (C[ vis e1 k ]) (.event α2 e2) t) : α1 = α2 := by
   generalize hc : C[ vis e1 k ] = c at *
   cases h
   case event => exact vis_inj_α <| State.ct.inj hc
   all_goals ctree_elim (State.ct.inj hc)
 
-lemma WeakStep.vis_event_α {ε : Type → Type} {e1 : ε α1} {e2 : ε α2} {t : State ε β} {k : KTree ε α1 β}
+lemma WeakStep.vis_event_α {ε : Type u → Type v} {e1 : ε α1} {e2 : ε α2} {t : State ε β} {k : KTree ε α1 β}
   (h : WeakStep (C[ vis e1 k ]) (.event α2 e2) t) : α1 = α2 := by
   obtain ⟨_, _, n1, _, htau, hs, _⟩ := h
   match n1 with
@@ -188,7 +188,7 @@ lemma WeakStep.vis_event_α {ε : Type → Type} {e1 : ε α1} {e2 : ε α2} {t 
     obtain ⟨_, hs, _⟩ := htau
     exfalso; exact hs.vis_tau
 
-lemma Step.vis_event_e {ε : Type → Type} {e1 e2 : ε α} {t : State ε β} {k : KTree ε α β}
+lemma Step.vis_event_e {ε : Type u → Type v} {e1 e2 : ε α} {t : State ε β} {k : KTree ε α β}
   (h : Step (C[ vis e1 k ]) (.event α e2) t) : e1 = e2 := by
   generalize hv : CTree.vis e1 k = tv at *
   cases h <;> ctree_elim hv
@@ -196,7 +196,7 @@ lemma Step.vis_event_e {ε : Type → Type} {e1 e2 : ε α} {t : State ε β} {k
   subst he
   rfl
 
-lemma WeakStep.vis_event_e {ε : Type → Type} {e1 e2 : ε α} {t : State ε β} {k : KTree ε α β}
+lemma WeakStep.vis_event_e {ε : Type u → Type v} {e1 e2 : ε α} {t : State ε β} {k : KTree ε α β}
   (h : WeakStep (C[ vis e1 k ]) (.event α e2) t) : e1 = e2 := by
   obtain ⟨t1Tau, t3Tau, n1, n2, htau1, hs, htau2⟩ := h
   match n1 with
@@ -209,7 +209,7 @@ lemma WeakStep.vis_event_e {ε : Type → Type} {e1 e2 : ε α} {t : State ε β
     obtain ⟨_, hs, _⟩ := htau1
     exfalso; exact hs.vis_tau
 
-lemma Step.vis_event {ε : Type → Type} {α : Type} {e : ε α} {t : State ε β} {k : KTree ε α β}
+lemma Step.vis_event {ε : Type u → Type v} {α : Type u} {e : ε α} {t : State ε β} {k : KTree ε α β}
   (h : Step (C[ vis e k ]) (.event α e) t) : t = K[ k ] := by
   generalize hc : C[ vis e k ] = c at *
   cases h
@@ -318,7 +318,7 @@ lemma WeakStep.dest_tau_left {t1 : CTree ε ρ}
   | .response α a =>
     exfalso; exact h.elim_ct_response
 
-lemma WeakStep.vis_event {ε : Type → Type} {α : Type} {e : ε α} {t : State ε β} {k : KTree ε α β}
+lemma WeakStep.vis_event {ε : Type u → Type v} {α : Type u} {e : ε α} {t : State ε β} {k : KTree ε α β}
   (h : WeakStep (C[ vis e k ]) (.event α e) t) : t = K[ k ] := by
   obtain ⟨t1Tau, t3Tau, n1, n2, htau1, hs, htau2⟩ := h
   match n1 with
@@ -560,7 +560,7 @@ lemma refine_ntau_correspondence {t1 t2 : CTree ε ρ} {p1 p2 : ENat}
     apply ih _ htau_n
     exact refine_tau_correspondence href _ htau
 
-lemma weak_step_of_ContainsVis {ε : Type → Type} {α : Type} {e : ε α} {t : CTree ε ρ} {k : KTree ε α ρ}
+lemma weak_step_of_ContainsVis {ε : Type u → Type v} {α : Type u} {e : ε α} {t : CTree ε ρ} {k : KTree ε α ρ}
   (h : ContainsVis e k t)
   : WeakStep (C[ t ]) (.event α e) (K[ k ]) := by
   induction h with
@@ -582,7 +582,7 @@ lemma weak_step_of_ContainsVis {ε : Type → Type} {α : Type} {e : ε α} {t :
   | choice_right _ ih => exact WeakStep.choice_left_right ih
 
 -- Lemma for event steps
-lemma refine_event_correspondence {ε : Type → Type} {β : Type}
+lemma refine_event_correspondence {ε : Type u → Type v} {β : Type w}
   {p1 p2 : ENat} {t1 t2 : CTree ε β} (href : Refine' Eq p1 p2 t1 t2)
   : ∀ {α} {e : ε α} (k1 : KTree ε α β), Step (C[ t1 ]) (.event α e) (K[ k1 ]) →
     ∃ k2, WeakStep (C[ t2 ]) (.event α e) (K[ k2 ]) ∧ Refine'K Eq p1 p2 k1 k2 := by

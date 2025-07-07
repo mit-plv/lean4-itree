@@ -5,13 +5,15 @@ namespace CTree
     Labelled transition system for `CTree`s.
   -/
 
-  inductive Label (ε : Type → Type) (ρ : Type)
+  inductive Label (ε : Type u → Type v) (ρ : Type w)
   | val (v : ρ)
-  | event (α : Type) (e : ε α)
-  | response (α : Type) (a : α)
+  | event (α : Type u) (e : ε α)
+  | response (α : Type u) (a : α)
   | tau
 
-  inductive Step {ε ρ} : State ε ρ → Label ε ρ → State ε ρ → Prop
+  variable {ε : Type u → Type v} {ρ : Type w}
+
+  inductive Step : State ε ρ → Label ε ρ → State ε ρ → Prop
   | ret {v : ρ} : Step (C[ @ret ε ρ v ]) (.val v) (C[ zero ])
   | event {α} {e : ε α} {k : α → CTree ε ρ}
       : Step (C[ vis e k ]) (.event α e) (K[ k ])
