@@ -4,7 +4,7 @@ import CTree.Refinement
 import Mathlib.Data.ENat.Basic
 
 namespace CTree
-  def EuttcF {ε : Type → Type} {ρ σ : Type}
+  def EuttcF {ε : Type u → Type v} {ρ : Type w1} {σ : Type w2}
     (r : Rel ρ σ) (sim : ENat → ENat → CTree ε ρ → CTree ε σ → Prop)
     (p1 p2 : ENat) (t1 : CTree ε ρ) (t2 : CTree ε σ) : Prop :=
     RefineF r sim p1 p2 t1 t2 ∧

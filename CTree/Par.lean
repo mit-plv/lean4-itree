@@ -63,8 +63,8 @@ namespace CTree
     parAux (t1 ‖ₛ t2)
   infixr:60 " ‖ " => par
 
-  def parR (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε β :=
-    Prod.snd <$> (t1 ‖ t2)
+  def parR {ε : Type u → Type v} {α : Type w1} {β : Type w2} (t1 : CTree ε α) (t2 : CTree ε β) : CTree ε β :=
+    (t1 ‖ t2).map Prod.snd -- using <$> messes up universes
   infixr:60 " ‖→ " => parR
 
   def parAux_def (ps : ParState ε α β) : CTree ε (α × β) :=

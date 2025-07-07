@@ -39,7 +39,7 @@ namespace CTree
       match t.dest with
       | ⟨.ret v, _⟩ => ret <| .inr v
       | ⟨.tau, c⟩ => ret <| .inl (c _fin0)
-      | ⟨.vis _ e, k⟩ => (handler e).bind <| fun a => ret <| .inl <| k a
+      | ⟨.vis _ e, k⟩ => (handler e).bind <| fun a => ret <| .inl <| k a -- using >>= messes up universes
       | ⟨.zero, _⟩ => zero
       | ⟨.choice, cts⟩ => ret <| .inl <| (cts _fin0) ⊕ (cts _fin1)
     ) t

@@ -2,13 +2,13 @@ import CTree.Basic
 import CTree.Monad
 
 namespace CTree
-  inductive Trace (ε : Type → Type) (ρ : Type)
+  inductive Trace (ε : Type u → Type v) (ρ : Type w)
   | nil : Trace ε ρ
   | ret (v : ρ) : Trace ε ρ
   | event_end {α} (e : ε α) : Trace ε ρ
   | event_response {α} (e : ε α) (a : α) (cont : Trace ε ρ) : Trace ε ρ
 
-  inductive IsTraceOf {ε : Type → Type} {ρ : Type} : Rel (CTree ε ρ) (Trace ε ρ)
+  inductive IsTraceOf {ε : Type u → Type v} {ρ : Type w} : Rel (CTree ε ρ) (Trace ε ρ)
   | empty {t} : IsTraceOf t .nil
   | ret (v) : IsTraceOf (.ret v) (.ret v)
   | tau {t} (tr) : IsTraceOf t tr → IsTraceOf t.tau tr
