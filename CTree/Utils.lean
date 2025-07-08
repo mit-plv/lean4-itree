@@ -103,25 +103,26 @@ theorem exists_and_eq {α : Type u} {β : α → Type v} {a : α} {b1 b2 : β a}
   : ∃ a' b1' b2', Sigma.mk a b1 = ⟨a', b1'⟩ ∧ Sigma.mk a b2 = ⟨a', b2'⟩ ∧ P a' b1' b2' := by
   exists a, b1, b2
 
-macro "unfold_corec'_left" : tactic => `(tactic|(
-  apply PFunctor.M.bisim (λ t1 t2 => t1 = PFunctor.M.corec _ (Sum.inl t2)) <;> try rfl
+theorem unfold_corec'_left.{uA, uB, u} {P : PFunctor.{uA, uB}} {α : Type u}
+  (F : P.M ⊕ α → P (P.M ⊕ α))
+  (h_eq : ∀ l, F (.inl l) = ⟨l.dest.1, Sum.inl ∘ l.dest.2⟩) :
+  ∀ l, PFunctor.M.corec F (.inl l) = l := by
+  intros
+  apply PFunctor.M.bisim (λ t1 t2 => t1 = PFunctor.M.corec _ (Sum.inl t2)) _ _ _ rfl
   intros t1 t2 h; subst h
-  simp only [PFunctor.M.dest_corec, PFunctor.map]
+  simp only [PFunctor.M.dest_corec, PFunctor.map, h_eq]
   have ⟨a, g⟩ := t2.dest
-  simp only; refine ⟨_, ⟨_, ⟨_, ⟨rfl, ⟨rfl, ?_⟩⟩⟩⟩⟩
-  intro i
-  simp only [Function.comp_apply]))
+  exact ⟨_, _, _, rfl, rfl, fun _ => rfl⟩
 
 theorem unfold_corec'.{uA, uB, u} {P : PFunctor.{uA, uB}} {α : Type u}
   (F : ∀ {X : Type (max u uA uB)}, (α → X) → α → P.M ⊕ P X) (x : α) :
-  PFunctor.M.corec' F x =
+  .corec' F x =
   match F (@Sum.inr P.M α) x with
   | .inl l => l
-  | .inr ⟨a, g⟩ => PFunctor.M.mk ⟨a, fun i ↦
+  | .inr ⟨a, g⟩ => .mk ⟨a, fun i ↦
     match g i with
     | .inl l => l
-    | .inr r => PFunctor.M.corec' F r⟩
-  := by
+    | .inr r => .corec' F r⟩ := by
   conv =>
     lhs
     simp only [PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def, PFunctor.map, Sum.bind, Function.id_comp]
@@ -132,15 +133,14 @@ theorem unfold_corec'.{uA, uB, u} {P : PFunctor.{uA, uB}} {α : Type u}
     congr
     have ⟨a, g⟩ := v.dest
     simp only; congr; funext i
-    simp only [Function.comp]
-    unfold_corec'_left
+    apply unfold_corec'_left _ (fun _ => rfl)
   | .inr ⟨a, g⟩ =>
     simp only; congr; funext i
     simp only [Function.comp]
     match g i with
     | .inl l =>
       simp only
-      unfold_corec'_left
+      apply unfold_corec'_left _ (fun _ => rfl)
     | .inr r =>
       simp only [PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.map, Sum.bind, Function.id_comp]
 
