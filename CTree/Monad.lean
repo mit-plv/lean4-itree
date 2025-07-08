@@ -24,36 +24,25 @@ namespace CTree
 
   /- Basic map lemmas -/
   theorem map_ret {ε : Type u1 → Type v1} : map (ε := ε) f (ret v) = ret (f v) := by
-    conv => lhs; simp only [map]
-    rw [unfold_corec', dest_ret]
+    conv => lhs; simp only [map]; rw [unfold_corec']
+    prove_unfold_lemma
 
   theorem map_tau {ε : Type u1 → Type v1} {c : CTree ε ρ} : map f (tau c) = tau (map f c) := by
-    conv => lhs; simp only [map]
-    rw [unfold_corec', dest_tau]
-    simp only [tau, tau']
-    congr; funext i
-    match i with
-    | (.up (.ofNat' 0)) => rfl
+    conv => lhs; simp only [map]; rw [unfold_corec']
+    prove_unfold_lemma
 
   theorem map_vis {ε : Type u1 → Type v1} {α : Type u1} {e : ε α} {k : α → CTree ε ρ} {f : ρ → σ}
     : map f (vis e k) = vis e (λ x => map f <| k x) := by
-    conv => lhs; simp only [map]
-    rw [unfold_corec', dest_vis]
-    simp only [vis, vis']
-    congr
+    conv => lhs; simp only [map]; rw [unfold_corec']
+    prove_unfold_lemma
 
   theorem map_zero {ε} {f : α → β} : map (ε := ε) f zero = zero := by
-    conv => lhs; simp only [map]
-    rw [unfold_corec', dest_zero]
+    conv => lhs; simp only [map]; rw [unfold_corec']
+    prove_unfold_lemma
 
   theorem map_choice {f : α → β} : map f (choice c1 c2) = choice (map f c1) (map f c2) := by
-    conv => lhs; simp only [map]
-    rw [unfold_corec', dest_choice]
-    simp only [choice, choice']
-    congr; funext i
-    match i with
-    | .up (.ofNat' 0) => rfl
-    | .up (.ofNat' 1) => rfl
+    conv => lhs; simp only [map]; rw [unfold_corec']
+    prove_unfold_lemma
 
   /- Monad Instance -/
   def bind {σ} (t : CTree ε ρ) (f : ρ → CTree ε σ) : CTree ε σ :=
@@ -82,35 +71,24 @@ namespace CTree
 
   /- Bind monad lemmas -/
   theorem bind_ret : bind (ret v) f = f v := by
-    conv => lhs; simp only [bind]
-    rw [unfold_corec', dest_ret]
+    conv => lhs; simp only [bind]; rw [unfold_corec']
+    prove_unfold_lemma
 
   theorem bind_tau : bind (tau c) f = tau (bind c f) := by
-    conv => lhs; simp only [bind]
-    rw [unfold_corec', dest_tau]
-    simp only [tau, tau']
-    congr; funext i
-    match i with
-    | .up (.ofNat' 0) => rfl
+    conv => lhs; simp only [bind]; rw [unfold_corec']
+    prove_unfold_lemma
 
   theorem bind_vis : bind (vis e k) f = vis e λ x => bind (k x) f := by
-    conv => lhs; simp only [bind]
-    rw [unfold_corec', dest_vis]
-    simp only [vis, vis']
-    congr
+    conv => lhs; simp only [bind]; rw [unfold_corec']
+    prove_unfold_lemma
 
   theorem bind_zero : bind zero f = zero := by
-    conv => lhs; simp only [bind]
-    rw [unfold_corec', dest_zero]
+    conv => lhs; simp only [bind]; rw [unfold_corec']
+    prove_unfold_lemma
 
   theorem bind_choice : bind (choice c1 c2) f = choice (bind c1 f) (bind c2 f) := by
-    conv => lhs; simp only [bind]
-    rw [unfold_corec', dest_choice]
-    simp only [choice, choice']
-    congr; funext i
-    match i with
-    | .up (.ofNat' 0) => rfl
-    | .up (.ofNat' 1) => rfl
+    conv => lhs; simp only [bind]; rw [unfold_corec']
+    prove_unfold_lemma
 
   /- Functor Laws -/
 

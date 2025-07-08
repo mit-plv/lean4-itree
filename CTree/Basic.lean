@@ -289,6 +289,22 @@ namespace CTree
     try (have := (Sigma.mk.inj (PFunctor.M.mk_inj $h)).left; contradiction)
   ))
 
+  /--
+  `prove_unfold_lemma` tries to finish a proof of an unfolding lemma defined by `corec'`
+  Note you have to first unfold `corec'` in the appropriate places, possibly by some combination of `conv` and `rw [unfold_corec']`.
+  -/
+  macro "prove_unfold_lemma" : tactic => `(tactic|(
+    (try simp only [dest_ret, dest_vis, dest_choice, dest_tau, dest_zero]) <;>
+    (try simp only [vis, vis', tau, tau', choice, choice']) <;>
+    (congr; try funext i) <;>
+    solve
+    | match i with
+      | .up (.ofNat' 0) => rfl
+      | .up (.ofNat' 1) => rfl
+    | match i with
+      | .up (.ofNat' 0) => rfl
+  ))
+
   inductive CEqF (sim : CTree ε ρ → CTree ε ρ → Prop) : CTree ε ρ → CTree ε ρ → Prop
   | CEq_ret v : CEqF sim (ret v) (ret v)
   | CEq_vis {α} e k1 k2 (h : ∀ a : α, sim (k1 a) (k2 a)) : CEqF sim (vis e k1) (vis e k2)

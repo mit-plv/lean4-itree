@@ -101,52 +101,22 @@ namespace CTree
     | .lS t1 t2 =>
       rw [unfold_corec']; simp only
       apply dMatchOn t1 <;> (intros; rename_i h; subst h) <;>
-      simp only [dest_ret, dest_vis, dest_choice, dest_tau, dest_zero] <;>
-      simp only [vis, vis', tau, tau', choice, choice'] <;>
-      (congr; try funext i) <;>
-      solve
-      | match i with
-        | .up (.ofNat' 0) => rfl
-        | .up (.ofNat' 1) => rfl
-      | match i with
-        | .up (.ofNat' 0) => rfl
+      prove_unfold_lemma
     | .rS t1 t2 =>
       rw [unfold_corec']; simp only
       apply dMatchOn t2 <;> (intros; rename_i h; subst h) <;>
-      simp only [dest_ret, dest_vis, dest_choice, dest_tau, dest_zero] <;>
-      simp only [vis, vis', tau, tau', choice, choice'] <;>
-      (congr; try funext i) <;>
-      solve
-      | match i with
-        | .up (.ofNat' 0) => rfl
-        | .up (.ofNat' 1) => rfl
-      | match i with
-        | .up (.ofNat' 0) => rfl
+      prove_unfold_lemma
     | .lrS t1 t2 =>
       rw [unfold_corec']; simp only
-      simp only [choice, choice']
-      congr; funext i
-      match i with
-      | .up (.ofNat' 0) => rfl
-      | .up (.ofNat' 1) => rfl
+      prove_unfold_lemma
     | .bothS t1 t2 =>
       rw [unfold_corec']; simp only
       apply dMatchOn t1 <;> (intros; rename_i h; subst h) <;>
       apply dMatchOn t2 <;> (intros; rename_i h; subst h) <;>
-      simp only [dest_ret, dest_vis, dest_choice, dest_tau, dest_zero] <;>
-      simp only [vis, vis', tau, tau', choice, choice'] <;>
-      (congr; try funext i) <;>
-      solve
-      | match i with
-        | .up (.ofNat' 0) => rfl
-        | .up (.ofNat' 1) => rfl
+      prove_unfold_lemma
     | .parS t1 t2 =>
       rw [unfold_corec']; simp only
-      simp only [choice, choice']
-      congr; funext i
-      match i with
-      | .up (.ofNat' 0) => rfl
-      | .up (.ofNat' 1) => rfl
+      prove_unfold_lemma
 
   macro "crush_parAux_eq" : tactic => `(tactic|(
     rw [parAux_eq_def, parAux_def]
