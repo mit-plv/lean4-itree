@@ -270,7 +270,7 @@ namespace ITree
     · intro h; subst h
       apply IEq.coinduct Eq _
       · rfl
-      · intro t1 t2 h; subst h
+      · intro t1
         apply t1.dMatchOn <;> grind
 
     theorem IEqF_refl {sim} {hsim : ∀ t1 t2, IEq t1 t2 → sim t1 t2} (t : ITree ε ρ) : IEqF sim t t := by
