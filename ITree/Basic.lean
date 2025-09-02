@@ -251,7 +251,7 @@ namespace ITree
     coinductive_fixpoint monotonicity fun sim' sim hsim =>
       IEqF_monotone sim sim' hsim
 
-  theorem IEq_Eq (t1 t2 : ITree ε ρ) : IEq t1 t2 ↔ t1 = t2 := by
+  theorem ieq_iff_eq (t1 t2 : ITree ε ρ) : IEq t1 t2 ↔ t1 = t2 := by
     constructor
     · intro h
       apply PFunctor.M.bisim (λ t1 t2 => IEq t1 t2) <;> try assumption
@@ -273,8 +273,8 @@ namespace ITree
       · intro t1
         apply t1.dMatchOn <;> grind
 
-    theorem IEqF_refl {sim} {hsim : ∀ t1 t2, IEq t1 t2 → sim t1 t2} (t : ITree ε ρ) : IEqF sim t t := by
+    theorem ief_rfl {sim} {hsim : ∀ t1 t2, IEq t1 t2 → sim t1 t2} (t : ITree ε ρ) : IEqF sim t t := by
       apply IEqF_monotone <;> try assumption
-      rw [← IEq, IEq_Eq]
+      rw [← IEq, ieq_iff_eq]
   end
 end ITree
