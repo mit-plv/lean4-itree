@@ -1,1 +1,1 @@
-Coinductive Choice Tree using QPFs
+Coinductive Interaction Trees using QPFs
