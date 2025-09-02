@@ -12,8 +12,8 @@ namespace CTree
     exists 0, 0
     exact RefineF.ret_of_weak_step hws
 
-  theorem refine_of_weak_sim_vis {ε : Type → Type} {ρ : Type} {sim : Rel (State ε ρ) (State ε ρ)}
-    {α : Type} {e : ε α} {t2 : CTree ε ρ} {k : KTree ε α ρ}
+  theorem refine_of_weak_sim_vis {ε : Type u → Type v} {ρ : Type w} {sim : Rel (State ε ρ) (State ε ρ)}
+    {α} {e : ε α} {t2 : CTree ε ρ} {k : KTree ε α ρ}
     (hsim : IsWeakSimulation sim) (h : sim (C[ vis e k ]) (C[ t2 ]))
     : RefineF Eq (λ _ _ t1 t2 => sim (C[ t1 ]) (C[ t2 ])) p1 p2 (vis e k) t2 := by
     ctree_match 2, t2
@@ -38,7 +38,7 @@ namespace CTree
         exact RefineF.vis (p1' := 0) (p2' := 0) hk
     case tau =>
       obtain ⟨t2', hws, h⟩ := hsim _ _ h (.event α e) (K[ k ]) .event
-      apply RefineF.tau_right
+      apply RefineF.tau_right (p2' := ⊤)
       have hws := hws.dest_tau_left
       simp only at hws
       exact RefineF.of_WeakStep_event hsim h hws
@@ -51,13 +51,13 @@ namespace CTree
       subst hk2
       apply hws.inv_choice_left.elim
       · intro hws
-        apply RefineF.choice_left
+        apply RefineF.choice_left (p2' := ⊤)
         exact RefineF.of_WeakStep_event hsim h hws
       · intro hws
-        apply RefineF.choice_right
+        apply RefineF.choice_right (p2' := ⊤)
         exact RefineF.of_WeakStep_event hsim h hws
 
-  theorem weak_sim_of_refine : IsWeakSimulation (@RefineS ρ ρ ε Eq) := by
+  theorem weak_sim_of_refine : IsWeakSimulation (@RefineS ε ρ _ Eq) := by
     intro t1 t2 href
     match t1, t2 with
     | C[ t1 ], C[ t2 ] =>

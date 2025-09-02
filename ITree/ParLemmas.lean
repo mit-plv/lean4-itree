@@ -52,9 +52,9 @@ namespace CTree
         subst heq
         simp only [parAux_rS_ret_choice, map_choice]
         crush_refine
-        · apply RefineF.choice_left
+        · apply RefineF.choice_left (p2' := ⊤)
           crush_refine; crush_parR_ret c1
-        · apply RefineF.choice_right
+        · apply RefineF.choice_right (p2' := ⊤)
           crush_refine; crush_parR_ret c2
     ))
 
@@ -73,7 +73,7 @@ namespace CTree
         | .lrS heq =>
           subst heq
           simp only [parAux_lrS, map_choice]
-          apply RefineF.choice_idemp
+          apply RefineF.choice_idemp (p1' := ⊤)
           · parR_ret_left_lS t2
           · parR_ret_left_rS t2
         | .bothS heq =>
@@ -85,7 +85,7 @@ namespace CTree
             crush_refine
           · intro c heq
             subst heq
-            simp only [parAux_bothS_ret_tau, map_tau, map_zero]
+            simp only [parAux_bothS_ret_tau, map_zero]
             crush_refine
           · intro α e k heq
             subst heq

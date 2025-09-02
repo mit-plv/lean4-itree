@@ -1,6 +1,6 @@
-name = "ctree"
+name = "itree"
 version = "0.1.0"
-defaultTargets = ["CTree"]
+defaultTargets = ["ITree"]
 
 [leanOptions]
 pp.unicode.fun = true # pretty-prints `fun a ↦ b`
@@ -11,10 +11,6 @@ relaxedAutoImplicit = false
 name = "mathlib"
 scope = "leanprover-community"
 
-# [[require]]
-# name = "Canonical"
-# scope = "chasenorman"
-
 [[lean_lib]]
-name = "CTree"
-globs = ["CTree.+"]
+name = "ITree"
+globs = ["ITree.+"]
