@@ -6,31 +6,30 @@ inductive BinOp
   | add
   | mul
 
-structure Port where
-  node : Nat
-  port : Nat
-deriving BEq, DecidableEq
+abbrev Addr := Nat
+
+abbrev FIFO := Nat
 
 inductive Node
-  | const (val : Nat) (out : Port)
-  | binOp (op : BinOp) (x y out : Port)
-  | store (addr : Nat) (val out : Port)
-  | load (addr : Nat) (out : Port)
+  | const (val : Nat) (out : FIFO)
+  | binOp (op : BinOp) (x y out : FIFO)
+  | store (addr : Addr) (val out : FIFO)
+  | load (addr : Addr) (out : FIFO)
 
 abbrev DFG := List Node
 
 abbrev Mem := Nat → Nat
 
-abbrev FifoState := Port → List Nat
+abbrev FifoState := FIFO → List Nat
 
 structure State where
   mem   : Mem       := fun _ => 0
   fifos : FifoState := fun _ => []
 
-def State.pop (port : Port) (s : State) (h : s.fifos port ≠ []) : (Nat × State) :=
+def State.pop (port : FIFO) (s : State) (h : s.fifos port ≠ []) : (Nat × State) :=
   ((s.fifos port).head h, {s with fifos := Function.update s.fifos port (s.fifos port).tail})
 
-def State.push (port : Port) (val : Nat) (s : State) : State :=
+def State.push (port : FIFO) (val : Nat) (s : State) : State :=
   {s with fifos := Function.update s.fifos port (val :: s.fifos port)}
 
 def State.set (addr : Nat) (val : Nat) (s : State) : State :=
