@@ -273,8 +273,9 @@ namespace ITree
       · intro t1
         apply t1.dMatchOn <;> grind
 
-    theorem ieq_rfl {sim} {hsim : ∀ t1 t2, IEq t1 t2 → sim t1 t2} (t : ITree ε ρ) : IEqF sim t t := by
-      apply IEqF_monotone <;> try assumption
-      rw [← IEq, ieq_iff_eq]
+  @[refl]
+  theorem ieq_rfl {sim} {hsim : ∀ t1 t2, IEq t1 t2 → sim t1 t2} (t : ITree ε ρ) : IEqF sim t t := by
+    apply IEqF_monotone <;> try assumption
+    rw [← IEq, ieq_iff_eq]
   end
 end ITree

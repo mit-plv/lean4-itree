@@ -1,4 +1,4 @@
-import CTree.PacoDefs
+import Paco.PacoDefs
 
 namespace Lean.Order.CompleteLattice
   notation "⊤ₚ" => top -- avoid clashing with Mathlib

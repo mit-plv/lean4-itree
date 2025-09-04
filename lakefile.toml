@@ -14,3 +14,7 @@ scope = "leanprover-community"
 [[lean_lib]]
 name = "ITree"
 globs = ["ITree.+"]
+
+[[lean_lib]]
+name = "Paco"
+globs = ["Paco.+"]
