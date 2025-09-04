@@ -2,62 +2,64 @@ import Lean.Meta
 import Lean.Elab
 
 namespace Lean.Order.CompleteLattice
-  open PartialOrder
-  -- \meet
-  instance [CompleteLattice α] : Min α where
-    min x y := inf (λ z => z = x ∨ z = y)
 
-  def top [CompleteLattice α] : α := sup (λ _ => True)
+open PartialOrder
+-- \meet
+instance [CompleteLattice α] : Min α where
+  min x y := inf (λ z => z = x ∨ z = y)
 
-  scoped notation "⊤" => top
-  scoped infixl:60 " ⊓ " => min
+def top [CompleteLattice α] : α := sup (λ _ => True)
 
-  theorem top_spec [CompleteLattice α] (x : α) : x ⊑ ⊤ := by
-    apply le_sup; constructor
+scoped notation "⊤" => top
+scoped infixl:60 " ⊓ " => min
 
-  theorem meet_spec [CompleteLattice α] (x y : α) : z ⊑ x ⊓ y ↔ z ⊑ x ∧ z ⊑ y := by
-    constructor <;> simp only [min, inf_spec]
-    · intro h
-      exact And.intro (h _ <| Or.intro_left _ rfl) <| (h _ <| Or.intro_right _ rfl)
-    · intro ⟨hx, hy⟩
-      intros; rename_i h
-      cases h <;> (rename_i h; subst h; assumption)
+theorem top_spec [CompleteLattice α] (x : α) : x ⊑ ⊤ := by
+  apply le_sup; constructor
 
-  theorem meet_le_left [CompleteLattice α] (x : α) : x ⊑ z → x ⊓ y ⊑ z := by
-    simp only [min]
-    intros
-    apply rel_trans _ (by assumption)
-    apply sup_le
-    intros; rename_i h; apply h; left; rfl
+theorem meet_spec [CompleteLattice α] (x y : α) : z ⊑ x ⊓ y ↔ z ⊑ x ∧ z ⊑ y := by
+  constructor <;> simp only [min, inf_spec]
+  · intro h
+    exact And.intro (h _ <| Or.intro_left _ rfl) <| (h _ <| Or.intro_right _ rfl)
+  · intro ⟨hx, hy⟩
+    intros; rename_i h
+    cases h <;> (rename_i h; subst h; assumption)
 
-  theorem meet_le_right [CompleteLattice α] (y : α) : y ⊑ z → x ⊓ y ⊑ z := by
-    simp only [min]
-    intros
-    apply rel_trans _ (by assumption)
-    apply sup_le
-    intros; rename_i h; apply h; right; rfl
+theorem meet_le_left [CompleteLattice α] (x : α) : x ⊑ z → x ⊓ y ⊑ z := by
+  simp only [min]
+  intros
+  apply rel_trans _ (by assumption)
+  apply sup_le
+  intros; rename_i h; apply h; left; rfl
 
-  theorem meet_top [CompleteLattice α] (x : α) : x ⊓ ⊤ = x := by
-    apply rel_antisymm
-    · exact meet_le_left _ rel_refl
-    · rw [meet_spec]; apply And.intro rel_refl (top_spec _)
+theorem meet_le_right [CompleteLattice α] (y : α) : y ⊑ z → x ⊓ y ⊑ z := by
+  simp only [min]
+  intros
+  apply rel_trans _ (by assumption)
+  apply sup_le
+  intros; rename_i h; apply h; right; rfl
 
-  theorem meet_comm [CompleteLattice α] (x y : α) : x ⊓ y = y ⊓ x := by
-    apply rel_antisymm <;> (rw [meet_spec]; apply And.intro)
-    all_goals solve
-      | apply meet_le_left; apply rel_refl
-      | apply meet_le_right; apply rel_refl
+theorem meet_top [CompleteLattice α] (x : α) : x ⊓ ⊤ = x := by
+  apply rel_antisymm
+  · exact meet_le_left _ rel_refl
+  · rw [meet_spec]; apply And.intro rel_refl (top_spec _)
 
-  theorem meet_assoc [CompleteLattice α] (x y z : α) : x ⊓ y ⊓ z = x ⊓ (y ⊓ z) := by
-    apply rel_antisymm <;> (rw [meet_spec]; apply And.intro)
-    · apply meet_le_left; apply meet_le_left; apply rel_refl
-    · rw [meet_spec]; apply And.intro
-      · apply meet_le_left; apply meet_le_right; apply rel_refl
-      · apply meet_le_right; apply rel_refl
-    · rw [meet_spec]; apply And.intro
-      · apply meet_le_left; apply rel_refl
-      · apply meet_le_right; apply meet_le_left; apply rel_refl
-    · apply meet_le_right; apply meet_le_right; apply rel_refl
+theorem meet_comm [CompleteLattice α] (x y : α) : x ⊓ y = y ⊓ x := by
+  apply rel_antisymm <;> (rw [meet_spec]; apply And.intro)
+  all_goals solve
+    | apply meet_le_left; apply rel_refl
+    | apply meet_le_right; apply rel_refl
+
+theorem meet_assoc [CompleteLattice α] (x y z : α) : x ⊓ y ⊓ z = x ⊓ (y ⊓ z) := by
+  apply rel_antisymm <;> (rw [meet_spec]; apply And.intro)
+  · apply meet_le_left; apply meet_le_left; apply rel_refl
+  · rw [meet_spec]; apply And.intro
+    · apply meet_le_left; apply meet_le_right; apply rel_refl
+    · apply meet_le_right; apply rel_refl
+  · rw [meet_spec]; apply And.intro
+    · apply meet_le_left; apply rel_refl
+    · apply meet_le_right; apply meet_le_left; apply rel_refl
+  · apply meet_le_right; apply meet_le_right; apply rel_refl
+
 end Lean.Order.CompleteLattice
 
 open Lean.Order PartialOrder CompleteLattice
