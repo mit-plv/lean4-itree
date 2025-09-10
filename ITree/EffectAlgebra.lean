@@ -53,13 +53,16 @@ def iter {ε ρ ι} (step : ι → ITree ε (IterState ι ρ)) (i : ι) : ITree 
 instance {ε : Type u → Type v} : MonadIter (ITree ε) where
   iter := ITree.iter
 
-def interp {ε m : Type u → Type v} {ρ : Type u} [MonadIter m]
-  (handler : ε ⟶ m) (t : ITree ε ρ) : m ρ :=
+def interp {ε : Type → Type} {m : Type 1 → Type} {ρ : Type} [Monad m] [MonadIter m]
+  (handler : {α : Type} → ε α → m (ULift α)) (t : ITree ε ρ) : m (ULift ρ) :=
   MonadIter.iter (fun t =>
     match t.dest with
-    | ⟨.ret v, _⟩ => ret <| .done v
-    | ⟨.tau, c⟩ => ret <| .recur (c 0)
-    | ⟨.vis _ e, k⟩ => (handler e).bind <| fun a => ret <| .recur <| k a -- using >>= messes up universes
+    | ⟨.ret v, _⟩ => return .done <| .up v
+    | ⟨.tau, c⟩   => return .recur (c 0)
+    | ⟨.vis _ e, k⟩ => do
+      let a ← handler e
+      let i := k (ULift.down a)
+      return .recur i
   ) t
 
 end ITree
