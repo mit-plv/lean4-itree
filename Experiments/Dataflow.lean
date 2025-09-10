@@ -119,6 +119,18 @@ def DFG.Safe (dfg : DFG) (init : State) : Prop :=
 # ------------------------------------------------------------------------------
 -/
 
+inductive NondetE : Type → Type
+  | choose (α : Type) : NondetE α
+
+abbrev CTree (ε : Type → Type) (ρ : Type) :=
+  ITree (ε + NondetE) ρ
+
+def CTree.deadlock {ε ρ} : CTree ε ρ :=
+  .vis (NondetE.choose Empty) Empty.elim
+
+def CTree.choice {ε ρ} (l : List (CTree ε ρ)) : CTree ε ρ :=
+  .vis (NondetE.choose <| Fin l.length) l.get
+
 inductive EventE : Type → Type
   | push (fifo : FIFO) (val : Nat) : EventE Unit
   | notEmpty (fifo : FIFO)         : EventE Bool
@@ -153,8 +165,14 @@ def Node.denote : Node → CTree EventE Unit
       return .recur ()
     ) ()
 
-def DFG.denote (dfg : DFG) : CTree EventE Unit :=
-  .choice (dfg.map Node.denote)
+def DFG.denoteEvent (dfg : DFG) (addr : Addr) : CTree EventE Nat :=
+  .choice (dfg.map Node.denote) >>= fun _ => .trigger (EventE.get addr)
+
+def DFG.denote (dfg : DFG) (addr : Addr) : ITree NondetE Nat :=
+  (dfg.denoteEvent addr).interp fun e =>
+    match e with
+    | .inl e => sorry
+    | .inr e => .trigger e
 
 /-!
 # ------------------------------------------------------------------------------
