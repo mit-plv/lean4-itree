@@ -30,6 +30,15 @@ inductive IterState (ι : Type u) (ρ : Type v)
 class MonadIter (m : Type u -> Type v) where
   iter : {ρ ι : Type u} → (ι -> m (IterState ι ρ)) -> ι -> m ρ
 
+instance instMonadIterStateT {σ m} [Monad m] [MI : MonadIter m] : MonadIter (StateT σ m) where
+  iter step i s :=
+    MonadIter.iter (fun (i, s) =>
+      step i s >>= fun (i, s) =>
+      match i with
+      | .done r  => pure <| .done  (r, s)
+      | .recur i => pure <| .recur (i, s)
+    ) (i, s)
+
 namespace ITree
 
 inductive IterMode {ε ρ ι}
@@ -53,7 +62,7 @@ def iter {ε ρ ι} (step : ι → ITree ε (IterState ι ρ)) (i : ι) : ITree 
 instance {ε : Type u → Type v} : MonadIter (ITree ε) where
   iter := ITree.iter
 
-def interp {ε : Type → Type} {m : Type 1 → Type} {ρ : Type} [Monad m] [MonadIter m]
+def interp {ε : Type → Type} {m : Type 1 → Type 1} {ρ : Type} [Monad m] [MI : MonadIter m]
   (handler : {α : Type} → ε α → m (ULift α)) (t : ITree ε ρ) : m (ULift ρ) :=
   MonadIter.iter (fun t =>
     match t.dest with

@@ -33,7 +33,7 @@ abbrev Mem := Addr → Nat
 
 abbrev FifoState := FIFO → List Nat
 
-structure State where
+structure State : Type 1 where
   mem   : Mem       := fun _ => 0
   fifos : FifoState := fun _ => []
 
@@ -138,6 +138,13 @@ inductive EventE : Type → Type
   | set (addr : Addr) (val : Nat)  : EventE Unit
   | get (addr : Addr)              : EventE Nat
 
+def EventE.handle {α : Type} : (EventE + NondetE) α → StateT State (ITree NondetE) (ULift α) :=
+  sorry
+  -- | .inl (.push fifo val => sorry | .notEmpty fifo => sorry
+  -- | .pop fifo => sorry
+  -- | .set addr val => sorry
+  -- | .get addr => sorry
+
 def Node.denote : Node → CTree EventE Unit
   | .const val out => .iter (fun _ => do
       let backpressure : Bool ← .trigger (EventE.notEmpty out)
@@ -165,14 +172,13 @@ def Node.denote : Node → CTree EventE Unit
       return .recur ()
     ) ()
 
-def DFG.denoteEvent (dfg : DFG) (addr : Addr) : CTree EventE Nat :=
+def DFG.denote (dfg : DFG) (addr : Addr) : CTree EventE Nat :=
   .choice (dfg.map Node.denote) >>= fun _ => .trigger (EventE.get addr)
 
-def DFG.denote (dfg : DFG) (addr : Addr) : ITree NondetE Nat :=
-  (dfg.denoteEvent addr).interp fun e =>
-    match e with
-    | .inl e => sorry
-    | .inr e => .trigger e
+def DFG.interp (dfg : DFG) (addr : Addr) : StateT State (ITree NondetE) (ULift Nat) :=
+  let ct := dfg.denote addr
+  let it := ct.interp (MI := instMonadIterStateT.{1, 1, 1}) EventE.handle
+  it
 
 /-!
 # ------------------------------------------------------------------------------
