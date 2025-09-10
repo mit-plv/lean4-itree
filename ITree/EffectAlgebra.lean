@@ -11,26 +11,29 @@ inductive SumE (ε1 ε2 : Type u → Type v) : Type u → Type v
 instance : Add (Type u → Type v) where
   add := SumE
 
-instance : Coe (ε1 α) (SumE ε1 ε2 α) where
+instance {ε1 ε2 : Type u → Type v} : Coe (ε1 α) (SumE ε1 ε2 α) where
   coe e := .inl e
 
-instance : Coe (ε2 α) (SumE ε1 ε2 α) where
+instance {ε1 ε2 : Type u → Type v} : Coe (ε2 α) (SumE ε1 ε2 α) where
+  coe e := .inr e
+
+instance {ε1 ε2 : Type u → Type v} : Coe (ε1 α) ((ε1 + ε2) α) where
+  coe e := .inl e
+
+instance {ε1 ε2 : Type u → Type v} : Coe (ε2 α) ((ε1 + ε2) α) where
   coe e := .inr e
 
 inductive NondetE : Type → Type
   | choose (α : Type) : NondetE α
-  | take   (α : Type) : NondetE α
 
-inductive State : Type → Type
-  | get : State Nat
-  | set (n : Nat) : State Unit
+abbrev CTree (ε : Type → Type) (ρ : Type) :=
+  ITree (ε + NondetE) ρ
 
-abbrev NDS := NondetE + State
+def CTree.deadlock {ε ρ} : CTree ε ρ :=
+  .vis (NondetE.choose Empty) Empty.elim
 
-def ndsGet : NDS Nat := .inr State.get
-
--- This doesn't work
--- def ndsGetCoe : NDS Nat := Coe.coe State.get
+def CTree.choice {ε ρ} (l : List (CTree ε ρ)) : CTree ε ρ :=
+  .vis (NondetE.choose <| Fin l.length) (fun i => l.get i)
 
 namespace ITree
 

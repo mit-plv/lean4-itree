@@ -126,42 +126,30 @@ inductive EventE : Type → Type
   | set (addr : Addr) (val : Nat)  : EventE Unit
   | get (addr : Addr)              : EventE Nat
 
-inductive NondetE : Type → Type
-  | choose (α : Type) : NondetE α
-
-abbrev CTree (ε : Type → Type) (ρ : Type) :=
-  ITree (SumE ε NondetE) ρ
-
-def CTree.deadlock {ε ρ} : CTree ε ρ :=
-  .vis (.inr <| .choose Empty) Empty.elim
-
-def CTree.choice {ε ρ} (l : List (CTree ε ρ)) : CTree ε ρ :=
-  .vis (.inr <| .choose <| Fin l.length) (fun i => l.get i)
-
 def Node.denote : Node → CTree EventE Unit
   | .const val out => .iter (fun _ => do
-      let backpressure ← .trigger (.inl <| .notEmpty out)
+      let backpressure : Bool ← .trigger (EventE.notEmpty out)
       if backpressure then return .done () else
-      .trigger (.inl <| .push out val)
+      .trigger (EventE.push out val)
       return .recur ()
     ) ()
   | .binOp op x y out => .iter (fun _ => do
-      let some xVal ← .trigger (.inl <| .pop x) | return .done ()
-      let some yVal ← .trigger (.inl <| .pop y) | return .done ()
-      .trigger (.inl <| .push out (op.denote xVal yVal))
+      let some xVal ← .trigger (EventE.pop x) | return .done ()
+      let some yVal ← .trigger (EventE.pop y) | return .done ()
+      .trigger (EventE.push out (op.denote xVal yVal))
       return .recur ()
     ) ()
   | .store addr val out => .iter (fun _ => do
-      let some val ← .trigger (.inl <| .pop val) | return .done ()
-      .trigger (.inl <| .set addr val)
-      .trigger (.inl <| .push out 1)
+      let some val ← .trigger (EventE.pop val) | return .done ()
+      .trigger (EventE.set addr val)
+      .trigger (EventE.push out 1)
       return .recur ()
     ) ()
   | .load addr out => .iter (fun _ => do
-      let backpressure ← .trigger (.inl <| .notEmpty out)
+      let backpressure : Bool ← .trigger (EventE.notEmpty out)
       if backpressure then return .done () else
-      let val ← .trigger (.inl <| .get addr)
-      .trigger (.inl <| .push out val)
+      let val ← .trigger (EventE.get addr)
+      .trigger (EventE.push out val)
       return .recur ()
     ) ()
 
