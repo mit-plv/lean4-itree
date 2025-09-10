@@ -103,9 +103,7 @@ theorem vis_inj {ε α ρ}
   · exact eq_of_heq (shape.vis.inj this.left).right
   · have := eq_of_heq this.right
     funext x
-    have := congr (a₁ := x) this rfl
-    simp only at this
-    exact this
+    exact (congr (a₁ := x) this rfl)
 
 theorem tau_inj {ε ρ} {t1 t2 : ITree ε ρ} (h : tau t1 = tau t2) : t1 = t2 := by
   simp only [tau, tau'] at h
@@ -150,6 +148,23 @@ theorem dest_vis {ε α ρ} {e : ε α} {k : KTree ε α ρ}
   : PFunctor.M.dest (F := P ε ρ) (vis e k) = ⟨.vis _ e, k⟩ :=
   rfl
 
+/--
+`prove_unfold_lemma` tries to finish a proof of an unfolding lemma defined by `corec'`
+Note you have to first unfold `corec'` in the appropriate places,
+possibly by some combination of `conv` and `rw [PFunctor.M.unfold_corec']`.
+-/
+macro "prove_unfold_lemma" : tactic => `(tactic|(
+  (try simp only [dest_ret, dest_vis, dest_tau]) <;>
+  (try simp only [vis, vis', tau, tau']) <;>
+  (congr; try funext i) <;>
+  solve
+  | match i with
+    | 0 => rfl
+    | 1 => rfl
+  | match i with
+    | 0 => rfl
+))
+
 /-- Infinite Taus -/
 def infTau : ITree ε ρ :=
   PFunctor.M.corec' (fun rec x =>
@@ -157,14 +172,9 @@ def infTau : ITree ε ρ :=
   ) ()
 
 theorem infTau_eq : @infTau ε ρ = tau infTau := by
-  conv =>
-    lhs
-    simp [infTau]
+  conv => lhs; simp [infTau]
   rw [PFunctor.M.unfold_corec']
-  simp only [tau, tau']
-  congr; funext i
-  match i with
-  | 0 => rfl
+  prove_unfold_lemma
 
 inductive State (ε : Type u1 → Type v1) (ρ : Type u2)
 | ct     : ITree ε ρ   → State ε ρ
@@ -201,23 +211,6 @@ macro "itree_elim " h:term : tactic => `(tactic|(
   try (have := (Sigma.mk.inj (PFunctor.M.mk_inj $h)).left; contradiction)
 ))
 
-/--
-`prove_unfold_lemma` tries to finish a proof of an unfolding lemma defined by `corec'`
-Note you have to first unfold `corec'` in the appropriate places,
-possibly by some combination of `conv` and `rw [PFunctor.M.unfold_corec']`.
--/
-macro "prove_unfold_lemma" : tactic => `(tactic|(
-  (try simp only [dest_ret, dest_vis, dest_tau]) <;>
-  (try simp only [vis, vis', tau, tau']) <;>
-  (congr; try funext i) <;>
-  solve
-  | match i with
-    | .up (.ofNat' 0) => rfl
-    | .up (.ofNat' 1) => rfl
-  | match i with
-    | .up (.ofNat' 0) => rfl
-))
-
 @[grind]
 inductive IEqF (sim : ITree ε ρ → ITree ε ρ → Prop) : ITree ε ρ → ITree ε ρ → Prop
 | ret v : IEqF sim (ret v) (ret v)
@@ -227,17 +220,11 @@ inductive IEqF (sim : ITree ε ρ → ITree ε ρ → Prop) : ITree ε ρ → IT
 lemma IEqF_inv (sim : ITree ε ρ → ITree ε ρ → Prop) t1 t2 (h : IEqF sim t1 t2) :
   (∃ v, t1 = ret v ∧ t2 = ret v) ∨
   (∃ α, ∃ e : ε α, ∃ k1, ∃ k2, (∀ a : α, sim (k1 a) (k2 a)) ∧ t1 = vis e k1 ∧ t2 = vis e k2) ∨
-  (∃ t1', ∃ t2', sim t1' t2' ∧ t1 = tau t1' ∧ t2 = tau t2') := by
-  cases h
-  · left
-    repeat (on_goal 1 => apply Exists.intro)
-    exact ⟨rfl, rfl⟩
-  · right; left
-    repeat (on_goal 1 => apply Exists.intro)
-    rename_i h; exact ⟨h, ⟨rfl, rfl⟩⟩
-  · right; right
-    repeat (on_goal 1 => apply Exists.intro)
-    rename_i h; exact ⟨h, ⟨rfl, rfl⟩⟩
+  (∃ t1', ∃ t2', sim t1' t2' ∧ t1 = tau t1' ∧ t2 = tau t2') :=
+  match h with
+  | .ret _ => .inl ⟨_, rfl, rfl⟩
+  | .vis _ _ _ h => .inr <| .inl ⟨_, _, _, _, h, rfl, rfl⟩
+  | .tau _ _ h => .inr <| .inr ⟨_, _, h, rfl, rfl⟩
 
 theorem IEqF_monotone sim sim' (hsim : ∀ (t1 t2 : ITree ε ρ), sim t1 t2 → sim' t1 t2) :
   ∀ t1 t2, IEqF sim t1 t2 → IEqF sim' t1 t2 := by
