@@ -1,10 +1,21 @@
 import Aesop
+import ITree
 import Mathlib.Logic.Function.Basic
 import Mathlib.Logic.Relation
+
+/-!
+# ------------------------------------------------------------------------------
+# ---------------------------Start: Syntax--------------------------------------
+# ------------------------------------------------------------------------------
+-/
 
 inductive BinOp
   | add
   | mul
+
+def BinOp.denote : BinOp → Nat → Nat → Nat
+  | add => Nat.add
+  | mul => Nat.mul
 
 abbrev Addr := Nat
 
@@ -18,7 +29,7 @@ inductive Node
 
 abbrev DFG := List Node
 
-abbrev Mem := Nat → Nat
+abbrev Mem := Addr → Nat
 
 abbrev FifoState := FIFO → List Nat
 
@@ -38,9 +49,17 @@ def State.set (addr : Nat) (val : Nat) (s : State) : State :=
 def State.get (addr : Nat) (s : State) : Nat :=
   s.mem addr
 
-def BinOp.denote : BinOp → Nat → Nat → Nat
-  | add => Nat.add
-  | mul => Nat.mul
+/-!
+# ------------------------------------------------------------------------------
+# -----------------------------End: Syntax--------------------------------------
+# ------------------------------------------------------------------------------
+-/
+
+/-!
+# ------------------------------------------------------------------------------
+# --------------------Start: Relational Semantics-------------------------------
+# ------------------------------------------------------------------------------
+-/
 
 def Node.fire (s : State) (n : Node) : Option State :=
   match n with
@@ -87,3 +106,70 @@ def DFG.Confluent (dfg : DFG) (init : State) : Prop :=
 
 def DFG.Safe (dfg : DFG) (init : State) : Prop :=
   dfg.Terminates init ∧ dfg.Confluent init
+
+/-!
+# ------------------------------------------------------------------------------
+# ----------------------End: Relational Semantics-------------------------------
+# ------------------------------------------------------------------------------
+-/
+
+/-!
+# ------------------------------------------------------------------------------
+# ----------------------Start: Denotational Semantics---------------------------
+# ------------------------------------------------------------------------------
+-/
+
+inductive EventE : Type → Type
+  | push (fifo : FIFO) (val : Nat) : EventE Unit
+  | notEmpty (fifo : FIFO)         : EventE Bool
+  | pop (fifo : FIFO)              : EventE (Option Nat)
+  | set (addr : Addr) (val : Nat)  : EventE Unit
+  | get (addr : Addr)              : EventE Nat
+
+inductive NondetE : Type → Type
+  | choose (α : Type) : NondetE α
+
+abbrev CTree (ε : Type → Type) (ρ : Type) :=
+  ITree (SumE ε NondetE) ρ
+
+def CTree.deadlock {ε ρ} : CTree ε ρ :=
+  .vis (.inr <| .choose Empty) Empty.elim
+
+def CTree.choice {ε ρ} (l : List (CTree ε ρ)) : CTree ε ρ :=
+  .vis (.inr <| .choose <| Fin l.length) (fun i => l.get i)
+
+def Node.denote : Node → CTree EventE Unit
+  | .const val out => .iter (fun _ => do
+      let backpressure ← .trigger (.inl <| .notEmpty out)
+      if backpressure then return .done () else
+      .trigger (.inl <| .push out val)
+      return .recur ()
+    ) ()
+  | .binOp op x y out => .iter (fun _ => do
+      let some xVal ← .trigger (.inl <| .pop x) | return .done ()
+      let some yVal ← .trigger (.inl <| .pop y) | return .done ()
+      .trigger (.inl <| .push out (op.denote xVal yVal))
+      return .recur ()
+    ) ()
+  | .store addr val out => .iter (fun _ => do
+      let some val ← .trigger (.inl <| .pop val) | return .done ()
+      .trigger (.inl <| .set addr val)
+      .trigger (.inl <| .push out 1)
+      return .recur ()
+    ) ()
+  | .load addr out => .iter (fun _ => do
+      let backpressure ← .trigger (.inl <| .notEmpty out)
+      if backpressure then return .done () else
+      let val ← .trigger (.inl <| .get addr)
+      .trigger (.inl <| .push out val)
+      return .recur ()
+    ) ()
+
+def DFG.denote (dfg : DFG) : CTree EventE Unit :=
+  .choice (dfg.map Node.denote)
+
+/-!
+# ------------------------------------------------------------------------------
+# ----------------------End: Denotational Semantics-----------------------------
+# ------------------------------------------------------------------------------
+-/
