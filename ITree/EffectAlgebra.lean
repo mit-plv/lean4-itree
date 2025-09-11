@@ -1,7 +1,7 @@
 import ITree.Monad
 
-abbrev naturalTransformation (ε1 : Type r → Type u) (ε2 : Type max _ r → Type v) :=
-  ∀ {ρ}, ε1 ρ → ε2 (ULift.{max _ r, _} ρ)
+abbrev naturalTransformation (ε1 : Type r → Type u) (ε2 : Type r → Type v) :=
+  ∀ {ρ}, ε1 ρ → ε2 ρ
 infixr:50 " ⟶ "=> naturalTransformation
 
 inductive SumE (ε1 ε2 : Type u → Type v) : Type u → Type v
@@ -23,15 +23,22 @@ instance {ε1 ε2 : Type u → Type v} : Coe (ε1 α) ((ε1 + ε2) α) where
 instance {ε1 ε2 : Type u → Type v} : Coe (ε2 α) ((ε1 + ε2) α) where
   coe e := .inr e
 
-inductive IterState (ι : Type u) (ρ : Type v)
+inductive IterState (ι : Type u) (ρ : Type u) : Type u
   | done  (r : ρ)
   | recur (i : ι)
 
-class MonadIter (m : Type max r i → Type v) where
-  iter {ρ : Type r} {ι : Type i} : (ι → m (IterState ι ρ)) → ι → m (ULift ρ)
+class MonadIter (m : Type (u + 1) → Type v) where
+  iter {ρ ι} : (ι → m (IterState ι ρ)) → ι → m ρ
 
-abbrev handler (ε : Type a → Type e) m [MonadIter.{max (a + 1) e r, r, _} m] :=
-  ∀ {α}, ε α → m (ULift.{max (a + 1) e r, _} α)
+instance instMonadIterStateT {σ} [Monad m] [MI : MonadIter m]
+  : MonadIter (StateT σ m) where
+  iter step i s :=
+    MonadIter.iter (fun (i, s) =>
+      step i s >>= fun (i', s') =>
+      match i' with
+      | .done r   => pure <| .done  (r, s')
+      | .recur i' => pure <| .recur (i', s')
+    ) (i, s)
 
 namespace ITree
 
@@ -39,26 +46,26 @@ inductive IterMode {ε ρ ι}
   | iterS (i : ι)
   | bindS (t : ITree ε (IterState ι ρ))
 
-def iter {ε : Type a → Type e} {ρ : Type r} {ι : Type i}
-  (step : ι → ITree ε (IterState ι ρ)) (i : ι) : ITree ε (ULift ρ) :=
+def iter {ε : Type a → Type a} {ρ ι : Type (a + 1)}
+  (step : ι → ITree ε (IterState ι ρ)) (i : ι) : ITree ε ρ :=
   .corec' (fun rec (s : IterMode) =>
     match s with
     | .bindS t =>
       match t.dest with
       | ⟨.ret v, _⟩ =>
         match v with
-        | .done r => .inl <| ret <| .up r
+        | .done r => .inl <| ret r
         | .recur l => .inr <| tau' <| rec <| .bindS (step l)
       | ⟨.tau, c⟩ => .inr <| tau' <| rec <| .bindS <| c 0
       | ⟨.vis _ e, k⟩ => .inr <| vis' e <| fun a => rec <| .bindS <| k a
     | .iterS i => .inr <| tau' <| rec <| .bindS (step i)
   ) (.iterS i)
 
-instance {ε : Type a → Type e} : MonadIter (ITree ε) where
+instance {ε : Type a → Type a} : MonadIter (ITree ε) where
   iter := ITree.iter
 
-def interp {ε : Type a → Type e} [Monad m] [MonadIter.{_, r, _} m] (h : handler ε m)
-  : ITree.{_, _, r} ε ⟶ m :=
+def interp {ε : Type a → Type a} [Monad m] [MonadIter m] (h : ε ⟶ (m ∘ PLift))
+  : ITree ε ⟶ m :=
   MonadIter.iter (fun t =>
     match t.dest with
     | ⟨.ret v, _⟩ => return .done v

@@ -19,15 +19,15 @@ instance : Functor (ITree ε) where
   map := map
 
 /- Basic map lemmas -/
-theorem map_ret {ε : Type u1 → Type v1} : map (ε := ε) f (ret v) = ret (f v) := by
+theorem map_ret {ε : Type u → Type u} : map (ε := ε) f (ret v) = ret (f v) := by
   conv => lhs; simp only [map]; rw [PFunctor.M.unfold_corec']
   prove_unfold_lemma
 
-theorem map_tau {ε : Type u1 → Type v1} {c : ITree ε ρ} : map f (tau c) = tau (map f c) := by
+theorem map_tau {ε : Type u → Type u} {c : ITree ε ρ} : map f (tau c) = tau (map f c) := by
   conv => lhs; simp only [map]; rw [PFunctor.M.unfold_corec']
   prove_unfold_lemma
 
-theorem map_vis {ε : Type u1 → Type v1} {α : Type u1} {e : ε α} {k : α → ITree ε ρ} {f : ρ → σ}
+theorem map_vis {ε : Type u → Type u} {α} {e : ε α} {k : α → ITree ε ρ} {f : ρ → σ}
   : map f (vis e k) = vis e (λ x => map f <| k x) := by
   conv => lhs; simp only [map]; rw [PFunctor.M.unfold_corec']
   prove_unfold_lemma

@@ -2,20 +2,18 @@ import Mathlib.Data.QPF.Univariate.Basic
 import Mathlib.Data.Vector3
 import ITree.Utils
 
-inductive ITree.shape.{a, e, r} (ε : Type a → Type e) (ρ : Type r)
-  : Type max (a + 1) e r
+inductive ITree.shape.{u} (ε : Type u → Type u) (ρ : Type (u + 1)) : Type (u + 1)
   | ret (v : ρ)
   | tau
-  | vis (α : Type a) (e : ε α)
+  | vis α (e : ε α)
 
-def ITree.children.{a, e, r} {ε : Type a → Type e} {ρ : Type r}
-  : ITree.shape ε ρ → Type a
+def ITree.children.{u} {ε : Type u → Type u} {ρ : Type (u + 1)} : ITree.shape ε ρ → Type u
   | .ret _   => ULift (Fin2 0)
   | .tau     => ULift (Fin2 1)
   | .vis α _ => α
 
-def ITree.P.{a, e, r} (ε : Type a → Type e) (ρ : Type r) : PFunctor.{max (a + 1) e r, a} :=
-  ⟨ITree.shape.{a, e, r} ε ρ, ITree.children.{a, e, r}⟩
+def ITree.P.{u} (ε : Type u → Type u) (ρ : Type (u + 1)) : PFunctor.{u + 1, u} :=
+  ⟨ITree.shape.{u} ε ρ, ITree.children.{u}⟩
 
 /--
 Coinductive Interaction Tree defined with `PFunctor.M`.
@@ -27,10 +25,10 @@ coinductive ITree (ε : Type → Type) (ρ : Type)
 | vis {α : Type} (e : ε α) (k : α → ITree ε ρ)
 ```
 -/
-def ITree.{a, e, r} (ε : Type a → Type e) (ρ : Type r) : Type max (a + 1) e r :=
+def ITree.{u} (ε : Type u → Type u) (ρ : Type (u + 1)) : Type (u + 1) :=
   (ITree.P ε ρ).M
 
-abbrev KTree.{a, e, r} (ε : Type a → Type e) (α : Type a) (β : Type r) : Type max (a + 1) e r :=
+abbrev KTree.{u} (ε : Type u → Type u) (α : Type u) (β : Type (u + 1)) : Type (u + 1) :=
   α → ITree ε β
 
 namespace ITree
@@ -38,11 +36,11 @@ namespace ITree
 instance {ε ρ} : OfNat ((P ε ρ).B shape.tau) 0 := ⟨.up <| .ofNat' 0⟩
 
 section
-variable {ε : Type u1 → Type v} {ρ : Type u2}
+variable {ε : Type u → Type u} {ρ : Type (u + 1)}
 
 /- Functor Constructors -/
 section
-variable {X : Type u}
+variable {X : Type (u + 1)}
 
 @[simp]
 def ret' (v : ρ) : P ε ρ X :=
@@ -53,7 +51,7 @@ def tau' (t : X) : P ε ρ X :=
   .mk .tau (fin1Const t)
 
 @[simp]
-def vis' {α : Type u1} (e : ε α) (k : α → X) : P ε ρ X :=
+def vis' {α : Type u} (e : ε α) (k : α → X) : P ε ρ X :=
   .mk (.vis α e) (k ·)
 
 end
@@ -74,11 +72,11 @@ def tauN (n : Nat) (t : ITree ε ρ) : ITree ε ρ :=
   | n + 1 => tau (tauN n t)
 
 @[match_pattern, simp]
-def vis {α : Type u1} (e : ε α) (k : α → ITree ε ρ) : ITree ε ρ :=
+def vis {α : Type u} (e : ε α) (k : α → ITree ε ρ) : ITree ε ρ :=
   .mk <| vis' e k
 
-def trigger {α : Type u1} (e : ε α) : ITree ε α :=
-  vis e (λ x => ret x)
+def trigger {α : Type u} (e : ε α) : ITree ε (PLift α) :=
+  vis e (λ x => ret <| .up x)
 
 /- Injectivity of the constructors -/
 theorem ret_inj {x y} (h : @ret ε ρ x = ret y) : x = y := by
@@ -111,10 +109,10 @@ theorem tau_inj {ε ρ} {t1 t2 : ITree ε ρ} (h : tau t1 = tau t2) : t1 = t2 :=
   exact fin1Const_inj this
 
 /-- Custom dependent match function for ITrees -/
-def dMatchOn {motive : ITree ε ρ → Sort u} (x : ITree ε ρ)
+def dMatchOn {motive : ITree ε ρ → Sort v} (x : ITree ε ρ)
   (ret : (v : ρ) → x = ret v → motive x)
   (tau : (c : ITree ε ρ) → x = tau c → motive x)
-  (vis : (α : Type u1) → (e : ε α) → (k : α → ITree ε ρ) → x = vis e k → motive x)
+  (vis : (α : Type u) → (e : ε α) → (k : α → ITree ε ρ) → x = vis e k → motive x)
   : motive x :=
   match hm : x.dest with
   | ⟨.ret v, snd⟩ =>
@@ -176,7 +174,7 @@ theorem infTau_eq : @infTau ε ρ = tau infTau := by
   rw [PFunctor.M.unfold_corec']
   prove_unfold_lemma
 
-inductive State (ε : Type u1 → Type v1) (ρ : Type u2)
+inductive State (ε : Type u → Type u) (ρ : Type (u + 1))
 | ct     : ITree ε ρ   → State ε ρ
 | kt {α} : KTree ε α ρ → State ε ρ
 
