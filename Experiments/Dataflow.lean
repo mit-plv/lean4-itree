@@ -190,11 +190,11 @@ def Node.denote : Node → CTree EventE Unit
       return .recur ()
     ) ()
 
-def DFG.denote (dfg : DFG) (addr : Addr) : CTree EventE Nat :=
-  .choice (dfg.map Node.denote) >>= fun _ => .trigger (EventE.get addr)
+def DFG.denote (dfg : DFG) : CTree EventE Unit :=
+  .choice (dfg.map Node.denote)
 
-def DFG.interp (dfg : DFG) (addr : Addr) : StateT State (ITree NondetE) (ULift Nat) :=
-  let ct := dfg.denote addr
+def DFG.interp (dfg : DFG) : StateT State (ITree NondetE) (ULift Unit) :=
+  let ct := dfg.denote
   let it := ct.interp (MI := instMonadIterStateT.{1, 1, 1}) EventE.handle
   it
 
@@ -203,3 +203,47 @@ def DFG.interp (dfg : DFG) (addr : Addr) : StateT State (ITree NondetE) (ULift N
 # ----------------------End: Denotational Semantics-----------------------------
 # ------------------------------------------------------------------------------
 -/
+
+inductive Exp
+  | const (n : Nat)
+  | var (addr : Addr)
+  | binOp (op : BinOp) (e1 e2 : Exp)
+  | assign (lhs : Addr) (rhs : Exp)
+  | seq (e1 e2 : Exp)
+
+def Exp.denote : Exp → StateM Mem Nat
+  | .const n => pure n
+  | .var addr => .get >>= fun s => pure (s addr)
+  | .binOp op e1 e2 => do
+    let e1 ← Exp.denote e1
+    let e2 ← Exp.denote e2
+    return op.denote e1 e2
+  | .assign lhs rhs => do
+    let rhs ← Exp.denote rhs
+    .modifyGet fun s =>
+    (rhs, Function.update s lhs rhs)
+  | .seq e1 e2 => do
+    let _ ← Exp.denote e1
+    Exp.denote e2
+
+def Exp.compileAux (freshId : FIFO) : Exp → (DFG × FIFO × FIFO)
+  | .const n =>
+    ([.const n freshId], freshId, freshId + 1)
+  | .var addr =>
+    ([.load addr freshId], freshId, freshId + 1)
+  | .binOp op e1 e2 =>
+    let (dfg1, e1, freshId) := e1.compileAux freshId
+    let (dfg2, e2, freshId) := e2.compileAux freshId
+    (.binOp op e1 e2 freshId :: dfg1 ++ dfg2, freshId, freshId + 1)
+  | .assign lhs rhs =>
+    let (dfg, val, freshId) := rhs.compileAux freshId
+    (.store lhs val freshId :: dfg, freshId, freshId + 1)
+  | .seq e1 e2 =>
+    let (dfg1, _, freshId) := e1.compileAux freshId
+    let (dfg2, e2, freshId) := e2.compileAux freshId
+    (dfg1 ++ dfg2, e2, freshId + 1)
+
+def Exp.compile (e : Exp) : DFG :=
+  (e.compileAux 0).1
+
+
