@@ -40,6 +40,12 @@ structure State : Type 1 where
 def State.pop (port : FIFO) (s : State) (h : s.fifos port ≠ []) : (Nat × State) :=
   ((s.fifos port).head h, {s with fifos := Function.update s.fifos port (s.fifos port).tail})
 
+def State.pop? (port : FIFO) (s : State) : (Option Nat × State) :=
+  ((s.fifos port).head?, {s with fifos := Function.update s.fifos port (s.fifos port).tail})
+
+def State.notEmpty (port : FIFO) (s : State) : Bool :=
+  !(s.fifos port).isEmpty
+
 def State.push (port : FIFO) (val : Nat) (s : State) : State :=
   {s with fifos := Function.update s.fifos port (val :: s.fifos port)}
 
@@ -138,12 +144,24 @@ inductive EventE : Type → Type
   | set (addr : Addr) (val : Nat)  : EventE Unit
   | get (addr : Addr)              : EventE Nat
 
-def EventE.handle {α : Type} : (EventE + NondetE) α → StateT State (ITree NondetE) (ULift α) :=
-  sorry
-  -- | .inl (.push fifo val => sorry | .notEmpty fifo => sorry
-  -- | .pop fifo => sorry
-  -- | .set addr val => sorry
-  -- | .get addr => sorry
+def EventE.handle {α : Type} : (EventE + NondetE) α → StateT State (ITree NondetE) (ULift α)
+  | .inl e =>
+    match e with
+    | .push fifo val =>
+      modifyGet fun s => (.up (), s.push fifo val)
+    | .notEmpty fifo =>
+      .get >>= fun s => pure <| .up <| s.notEmpty fifo
+    | .pop fifo =>
+      .modifyGet fun s =>
+      let (val, s) := s.pop? fifo
+      (.up val, s)
+    | .set addr val =>
+      .modifyGet fun s => (.up (), s.set addr val)
+    | .get addr =>
+      .get >>= fun s => pure <| .up <| s.get addr
+  | .inr nd => fun s =>
+    ITree.bind (ITree.trigger nd) fun a =>
+    ITree.ret (ULift.up a, s)
 
 def Node.denote : Node → CTree EventE Unit
   | .const val out => .iter (fun _ => do
