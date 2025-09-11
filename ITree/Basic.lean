@@ -2,20 +2,20 @@ import Mathlib.Data.QPF.Univariate.Basic
 import Mathlib.Data.Vector3
 import ITree.Utils
 
-inductive ITree.shape.{u1, v, u2} (ε : Type u1 → Type v) (ρ : Type u2)
-  : Type (max (max (u1 + 1) u2) v)
+inductive ITree.shape.{a, e, r} (ε : Type a → Type e) (ρ : Type r)
+  : Type max (a + 1) e r
   | ret (v : ρ)
   | tau
-  | vis (α : Type u1) (e : ε α)
+  | vis (α : Type a) (e : ε α)
 
-def ITree.children.{u1, v, u2} {ε : Type u1 → Type v} {ρ : Type u2}
-  : ITree.shape ε ρ → Type u1
+def ITree.children.{a, e, r} {ε : Type a → Type e} {ρ : Type r}
+  : ITree.shape ε ρ → Type a
   | .ret _   => ULift (Fin2 0)
   | .tau     => ULift (Fin2 1)
   | .vis α _ => α
 
-def ITree.P.{u1, v, u2} (ε : Type u1 → Type v) (ρ : Type u2) : PFunctor :=
-  ⟨ITree.shape.{u1, v, u2} ε ρ, ITree.children.{u1, v, u2}⟩
+def ITree.P.{a, e, r} (ε : Type a → Type e) (ρ : Type r) : PFunctor.{max (a + 1) e r, a} :=
+  ⟨ITree.shape.{a, e, r} ε ρ, ITree.children.{a, e, r}⟩
 
 /--
 Coinductive Interaction Tree defined with `PFunctor.M`.
@@ -27,10 +27,10 @@ coinductive ITree (ε : Type → Type) (ρ : Type)
 | vis {α : Type} (e : ε α) (k : α → ITree ε ρ)
 ```
 -/
-def ITree.{u1, v, u2} (ε : Type u1 → Type v) (ρ : Type u2) :=
+def ITree.{a, e, r} (ε : Type a → Type e) (ρ : Type r) : Type max (a + 1) e r :=
   (ITree.P ε ρ).M
 
-abbrev KTree.{u1, v, u2} (ε : Type u1 → Type v) (α : Type u1) (β : Type u2) :=
+abbrev KTree.{a, e, r} (ε : Type a → Type e) (α : Type a) (β : Type r) : Type max (a + 1) e r :=
   α → ITree ε β
 
 namespace ITree

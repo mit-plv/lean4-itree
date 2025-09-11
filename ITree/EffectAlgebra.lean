@@ -1,7 +1,9 @@
 import ITree.Monad
 
-abbrev naturalTransformation (ε1 : Type u → Type v1) (ε2 : Type (max u v) → Type v2) :=
-  ∀ {α : Type u}, ε1 α → ε2 (ULift α)
+-- ε1 usually takes the answer type or the return type
+-- ε2 is usually some iterative monad m ≥ max (a + 1) e r
+abbrev naturalTransformation (ε1 : Type u → Type v) (ε2 : Type max _ u → Type w) :=
+  ∀ {α}, ε1 α → ε2 (ULift.{max _ u, _} α)
 infixr:50 " ⟶ "=> naturalTransformation
 
 inductive SumE (ε1 ε2 : Type u → Type v) : Type u → Type v
@@ -27,7 +29,7 @@ inductive IterState (ι : Type u) (ρ : Type v)
   | done  (r : ρ)
   | recur (i : ι)
 
-class MonadIter (m : Type max i r → Type v) where
+class MonadIter (m : Type max r i → Type v) where
   iter {ρ : Type r} {ι : Type i} : (ι → m (IterState ι ρ)) → ι → m (ULift ρ)
 
 namespace ITree
@@ -51,20 +53,19 @@ def iter {ε : Type u → Type v} {ρ : Type r} {ι : Type i}
     | .iterS i => .inr <| tau' <| rec <| .bindS (step i)
   ) (.iterS i)
 
-instance {ε : Type u → Type v} : MonadIter (ITree ε) where
+instance {ε : Type a → Type e} : MonadIter (ITree ε) where
   iter := ITree.iter
 
-def interp {ε : Type u → Type v}
-  [Monad m] [MonadIter.{r, max (max (max (u + 1) r) v) u, _} m]
-  (h : ∀ {α}, ε α → m (ULift.{max (max (u + 1) r) v, u} α))
-  : ∀ {ρ : Type r}, ITree ε ρ → m (ULift.{max (max (u + 1) r) v, r} ρ) :=
-  fun t =>
-  MonadIter.iter.{r, max (max (max (u + 1) r) v) u, _} (fun t =>
+def interp {ε : Type a → Type e} [Monad m] [MonadIter.{max (a + 1) e r, r, _} m]
+  (handler : ∀ {α}, ε α → m (ULift.{max (a + 1) e r, _} α))
+  : ITree.{a, e, r} ε ⟶ m :=
+  MonadIter.iter (fun t =>
     match t.dest with
-    | ⟨.ret v, _⟩ => pure <| .done v
-    | ⟨.tau, c⟩ => pure <| .recur <| c 0
-    | ⟨.vis α e, k⟩ =>
-      Functor.map (fun a : ULift.{max (max (u + 1) r) v, _} α => .recur <| k a.down) (h e)
-  ) t
+    | ⟨.ret v, _⟩ => return .done v
+    | ⟨.tau, c⟩ => return .recur <| c 0
+    | ⟨.vis _ e, k⟩ => do
+      let a ← handler e
+      return .recur <| k a.down
+  )
 
 end ITree
