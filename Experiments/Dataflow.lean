@@ -131,9 +131,6 @@ inductive NondetE : Type → Type
 abbrev CTree (ε : Type → Type) (ρ : Type) :=
   ITree (ε + NondetE) ρ
 
-def CTree.deadlock {ε ρ} : CTree ε ρ :=
-  .vis (NondetE.choose Empty) Empty.elim
-
 def CTree.choice {ε ρ} (l : List (CTree ε ρ)) : CTree ε ρ :=
   .vis (NondetE.choose <| Fin l.length) l.get
 
@@ -245,5 +242,29 @@ def Exp.compileAux (freshId : FIFO) : Exp → (DFG × FIFO × FIFO)
 
 def Exp.compile (e : Exp) : DFG :=
   (e.compileAux 0).1
+
+
+/-# ------Examples-------- -/
+
+def A := 0
+def B := 1
+def C := 2
+def D := 4
+
+def tmp1 := 5
+def tmp2 := 6
+
+/-- D = (A + B) * C -/
+def addMul : DFG := [
+  .binOp .add A B tmp1,
+  .binOp .mul tmp1 C D,
+]
+
+/-- D = A * C + B * C -/
+def mulAdd : DFG := [
+  .binOp .mul A C tmp1,
+  .binOp .mul B C tmp2,
+  .binOp .add tmp1 tmp2 D,
+]
 
 
