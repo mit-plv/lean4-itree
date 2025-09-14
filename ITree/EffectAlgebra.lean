@@ -4,6 +4,10 @@ abbrev naturalTransformation (ε1 : Type u → Type v1) (ε2 : Type u → Type v
   ∀ {α : Type u}, ε1 α → ε2 α
 infixr:50 " ⟶ "=> naturalTransformation
 
+inductive VoidE : Type u → Type v
+
+#check Std.Do.WPMonad
+
 inductive SumE (ε1 ε2 : Type u → Type v) : Type u → Type v
   | inl {α : Type u} (e1 : ε1 α) : SumE ε1 ε2 α
   | inr {α : Type u} (e2 : ε2 α) : SumE ε1 ε2 α
