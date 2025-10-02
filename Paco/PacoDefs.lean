@@ -13,13 +13,11 @@ def top [CompleteLattice α] : α := sup (λ _ => True)
 scoped notation "⊤" => top
 scoped infixl:60 " ⊓ " => min
 
-theorem top_spec [CompleteLattice α] (x : α) : x ⊑ ⊤ := by
-  apply le_sup; constructor
+theorem top_spec [CompleteLattice α] (x : α) : x ⊑ ⊤ := le_sup True.intro
 
 theorem meet_spec [CompleteLattice α] (x y : α) : z ⊑ x ⊓ y ↔ z ⊑ x ∧ z ⊑ y := by
   constructor <;> simp only [min, inf_spec]
-  · intro h
-    exact And.intro (h _ <| Or.intro_left _ rfl) <| (h _ <| Or.intro_right _ rfl)
+  · exact λ h => ⟨h _ <| Or.intro_left _ rfl, h _ <| Or.intro_right _ rfl⟩
   · intro ⟨hx, hy⟩
     intros; rename_i h
     cases h <;> (rename_i h; subst h; assumption)
@@ -38,16 +36,13 @@ theorem meet_le_right [CompleteLattice α] (y : α) : y ⊑ z → x ⊓ y ⊑ z 
   apply sup_le
   intros; rename_i h; apply h; right; rfl
 
-theorem meet_top [CompleteLattice α] (x : α) : x ⊓ ⊤ = x := by
-  apply rel_antisymm
-  · exact meet_le_left _ rel_refl
-  · rw [meet_spec]; apply And.intro rel_refl (top_spec _)
+theorem meet_top [CompleteLattice α] (x : α) : x ⊓ ⊤ = x :=
+  rel_antisymm (meet_le_left _ rel_refl) <| (meet_spec x ⊤).mpr ⟨rel_refl, top_spec _⟩
 
-theorem meet_comm [CompleteLattice α] (x y : α) : x ⊓ y = y ⊓ x := by
-  apply rel_antisymm <;> (rw [meet_spec]; apply And.intro)
-  all_goals solve
-    | apply meet_le_left; apply rel_refl
-    | apply meet_le_right; apply rel_refl
+theorem meet_comm [CompleteLattice α] (x y : α) : x ⊓ y = y ⊓ x :=
+  rel_antisymm
+    ((meet_spec _ _).mpr ⟨meet_le_right _ rel_refl, meet_le_left _ rel_refl⟩)
+    ((meet_spec _ _).mpr ⟨meet_le_right _ rel_refl, meet_le_left _ rel_refl⟩)
 
 theorem meet_assoc [CompleteLattice α] (x y z : α) : x ⊓ y ⊓ z = x ⊓ (y ⊓ z) := by
   apply rel_antisymm <;> (rw [meet_spec]; apply And.intro)
@@ -125,11 +120,9 @@ theorem plfp_unfold [Lean.Order.CompleteLattice α] {f : α → α} (hm : monoto
   plfp f (hm := hm) r = f (uplfp f (hm := hm) r) := by
   rw [plfp]
   delta lfp_monotone
-  rw [lfp_fix]
-  rw [← lfp_monotone]
-  rw [← plfp]
-  · rfl
-  · apply plfp_arg_mon hm
+  have h := plfp_arg_mon hm r
+  rw [lfp_fix h]
+  congr
 
 theorem uplfp_goal [Lean.Order.CompleteLattice α] {f : α → α} (hm : monotone f) :
   r ⊑ z ∨ plfp f (hm := hm) r ⊑ z → uplfp (hm := hm) f r ⊑ z := by
@@ -325,8 +318,8 @@ macro "pcofix" cih:ident : tactic => `(tactic|(
   · intro h; intros; rename_i anded; revert anded; intro ⟨_, anded⟩
     repeat (destruct_last_and; rename_i h' _; subst h')
     apply h; try assumption
-  rename_i unpacker converter
-  intro $(mkIdent `φ) dummy $cih -- main goal
+  rename_i unpacker converter -- main goal
+  intro $(mkIdent `φ) dummy $cih
   simp only [
     Lean.Order.instCompleteLatticePi,
     Lean.Order.instOrderPi,
