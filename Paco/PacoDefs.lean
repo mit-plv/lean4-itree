@@ -5,15 +5,15 @@ namespace Lean.Order.CompleteLattice
 
 open PartialOrder
 -- \meet
-instance [CompleteLattice α] : Min α where
+noncomputable instance [CompleteLattice α] : Min α where
   min x y := inf (λ z => z = x ∨ z = y)
 
-def top [CompleteLattice α] : α := sup (λ _ => True)
+noncomputable def top [CompleteLattice α] : α := sup (λ _ => True)
 
 scoped notation "⊤" => top
 scoped infixl:60 " ⊓ " => min
 
-theorem top_spec [CompleteLattice α] (x : α) : x ⊑ ⊤ := le_sup True.intro
+theorem top_spec [CompleteLattice α] (x : α) : x ⊑ ⊤ := le_sup _ True.intro
 
 theorem meet_spec [CompleteLattice α] (x y : α) : z ⊑ x ⊓ y ↔ z ⊑ x ∧ z ⊑ y := by
   constructor <;> simp only [min, inf_spec]
@@ -90,11 +90,11 @@ theorem plfp_arg_mon [Lean.Order.CompleteLattice α] {f : α → α} (hm : monot
 Parameterized least fixed point, we don't "monotonize" f (⌈f⌉) as in paco for now
 version in paco: lfp (λ x => inf (λ z => ∃ y, z = f y ∧ r ⊓ x ⊑ y)
 -/
-def plfp [Lean.Order.CompleteLattice α] (f : α → α) {hm : monotone f} (r : α) :=
+noncomputable def plfp [Lean.Order.CompleteLattice α] (f : α → α) {hm : monotone f} (r : α) :=
   lfp_monotone (λ x => f (r ⊓ x)) (plfp_arg_mon hm r)
 
 -- "unfolded" plfp, r ⊓ plfp f r
-def uplfp [Lean.Order.CompleteLattice α] (f : α → α) {hm : monotone f} (r : α) :=
+noncomputable def uplfp [Lean.Order.CompleteLattice α] (f : α → α) {hm : monotone f} (r : α) :=
   r ⊓ (plfp f (hm := hm) r)
 
 theorem plfp_mon [Lean.Order.CompleteLattice α] {f : α → α} (hm : monotone f) :
