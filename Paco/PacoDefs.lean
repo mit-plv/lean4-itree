@@ -322,6 +322,8 @@ macro "pcofix" cih:ident : tactic => `(tactic|(
   intro $(mkIdent `φ) dummy _h
   have $cih := (converter _).mp _h
   refine ((converter ?_).mpr ?_)
+  rw [unpacker] at *
+  simp only at *
   clear unpacker converter dummy _h
 ))
 
