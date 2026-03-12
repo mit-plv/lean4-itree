@@ -183,7 +183,7 @@ private inductive paco_mark : Prop
 def Lean.MVarId.intro_fact (mvarId : MVarId) (fact : Expr) : MetaM MVarId :=
   mvarId.withContext do
     let t ← Meta.inferType fact
-    let (_, mvarIdNew) ← MVarId.intro1P $ ← mvarId.assert `_h t fact
+    let (_, mvarIdNew) ← MVarId.intro1P $ ← mvarId.assert Name.anonymous t fact
     return mvarIdNew
 
 /--
@@ -192,8 +192,8 @@ the new goal is the first return value.
 -/
 def Lean.MVarId.intro_fact_with_new_goal (mvarId : MVarId) (factType : Expr) : MetaM (MVarId × MVarId) :=
   mvarId.withContext do
-    let p ← Meta.mkFreshExprMVar factType MetavarKind.syntheticOpaque `_h
-    let (_, mvarIdNew) ← MVarId.intro1P $ ← mvarId.assert `_h factType p
+    let p ← Meta.mkFreshExprSyntheticOpaqueMVar factType
+    let (_, mvarIdNew) ← MVarId.intro1P $ ← mvarId.assert Name.anonymous factType p
     return (p.mvarId!, mvarIdNew)
 
 elab "pinit" : tactic =>
@@ -319,17 +319,10 @@ macro "pcofix" cih:ident : tactic => `(tactic|(
     repeat (destruct_last_and; rename_i h' _; subst h')
     apply h; try assumption
   rename_i unpacker converter -- main goal
-  intro $(mkIdent `φ) dummy $cih
-  simp only [
-    Lean.Order.instCompleteLatticePi,
-    Lean.Order.instOrderPi,
-    Lean.Order.ReverseImplicationOrder,
-    Lean.Order.ReverseImplicationOrder.instCompleteLattice,
-    Lean.Order.ReverseImplicationOrder.instOrder
-  ] at *
-  rw [converter] at *
-  try rw [unpacker] at *
-  clear converter unpacker dummy
+  intro $(mkIdent `φ) dummy _h
+  have $cih := (converter _).mp _h
+  refine ((converter ?_).mpr ?_)
+  clear unpacker converter dummy _h
 ))
 
 macro "pfold" : tactic => `(tactic|(rw [@plfp_unfold]))
@@ -379,29 +372,17 @@ elab "psplit_prepare" : tactic =>
 macro "pleft" : tactic =>`(tactic|(
   psplit_prepare
   rename_i _uplfp_goal
-  simp only [
-    Lean.Order.instCompleteLatticePi,
-    Lean.Order.instOrderPi,
-    Lean.Order.ReverseImplicationOrder,
-    Lean.Order.ReverseImplicationOrder.instCompleteLattice,
-    Lean.Order.ReverseImplicationOrder.instOrder
-  ] at _uplfp_goal
   apply _uplfp_goal
-  left; intros; rename_i h; exact h
+  left; repeat intro
+  rename_i h; exact h
   clear _uplfp_goal))
 
 macro "pright" : tactic =>`(tactic|(
   psplit_prepare
   rename_i _uplfp_goal
-  simp only [
-    Lean.Order.instCompleteLatticePi,
-    Lean.Order.instOrderPi,
-    Lean.Order.ReverseImplicationOrder,
-    Lean.Order.ReverseImplicationOrder.instCompleteLattice,
-    Lean.Order.ReverseImplicationOrder.instOrder
-  ] at _uplfp_goal
   apply _uplfp_goal
-  right; intros; rename_i h; exact h
+  right; repeat intro
+  rename_i h; exact h
   clear _uplfp_goal))
 
 elab "pcases_prepare" " at " h:ident : tactic =>
@@ -429,22 +410,9 @@ elab "pcases_prepare" " at " h:ident : tactic =>
     Tactic.withoutRecover <| Tactic.evalTactic <| ← `(tactic|(
       simp only [uplfp, Lean.Order.CompleteLattice.meet_spec]
       apply And.intro <;>
-      simp only [
-        Lean.Order.instCompleteLatticePi,
-        Lean.Order.instOrderPi,
-        Lean.Order.ReverseImplicationOrder,
-        Lean.Order.ReverseImplicationOrder.instCompleteLattice,
-        Lean.Order.ReverseImplicationOrder.instOrder
-      ] <;> solve
-      | intros; left; assumption
-      | intros; right; assumption
-      rename_i h'; simp only [
-        Lean.Order.instCompleteLatticePi,
-        Lean.Order.instOrderPi,
-        Lean.Order.ReverseImplicationOrder,
-        Lean.Order.ReverseImplicationOrder.instCompleteLattice,
-        Lean.Order.ReverseImplicationOrder.instOrder
-      ] at h'
+      solve
+      | repeat intro; left; assumption
+      | repeat intro; right; assumption
     ))
 
 elab "pcases_do" " at " h:ident : tactic =>

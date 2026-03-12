@@ -118,7 +118,8 @@ macro "itree_eq_map_const" x:ident y:ident : tactic => `(tactic|(
   rw [← ieq_iff_eq]
   revert $x $y
   pcofix cih
-  intro x y
+  intro ⟨x, y⟩
+  simp only at *
   pfold
   apply dMatchOn x <;> (intros; rename_i h; subst h)
   · repeat rw [map_ret]
@@ -133,10 +134,10 @@ macro "itree_eq_map_const" x:ident y:ident : tactic => `(tactic|(
     ptop
   · repeat rw [map_tau]
     repeat rw [bind_tau]
-    constructor; pleft; apply cih
+    constructor; pleft; apply cih ⟨_, _⟩
   · repeat rw [map_vis]
     repeat rw [bind_vis]
-    constructor; intros; pleft; apply cih
+    constructor; intros; pleft; apply cih ⟨_, _⟩
 ))
 
 theorem seqLeft_eq (x : ITree ε α) (y : ITree ε β) : x <* y = Function.const β <$> x <*> y := by
@@ -159,7 +160,8 @@ theorem bind_assoc (x : ITree ε α) (f : α → ITree ε β) (g : β → ITree 
   rw [← ieq_iff_eq]
   revert x f g
   pcofix cih
-  intro x f g
+  intro ⟨x, f, g⟩
+  simp only at *
   pfold
   apply dMatchOn x <;> (intros; rename_i h; subst h)
   · repeat rw [bind_ret]
@@ -170,9 +172,9 @@ theorem bind_assoc (x : ITree ε α) (f : α → ITree ε β) (g : β → ITree 
     pmon <;> try assumption
     ptop
   · repeat rw [bind_tau]
-    constructor; pleft; apply cih
+    constructor; pleft; apply cih ⟨_, _, _⟩
   · repeat rw [bind_vis]
-    constructor; intros; pleft; apply cih
+    constructor; intros; pleft; apply cih ⟨_, _, _⟩
 
 instance : LawfulMonad (ITree ε) where
   seqLeft_eq := seqLeft_eq

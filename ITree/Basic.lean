@@ -128,9 +128,13 @@ def dMatchOn {motive : ITree ε ρ → Sort u} (x : ITree ε ρ)
     )
   | ⟨.tau, c⟩ =>
     tau (c 0) (by
-      simp only [ITree.tau, tau', fin1Const_fin0]
-      rw [←hm]
-      simp only [PFunctor.M.mk_dest]
+      simp only [ITree.tau, tau']
+      trans
+      symm; apply PFunctor.M.mk_dest
+      congr
+      rw [hm]
+      congr
+      symm; apply fin1Const_fin0
     )
   | ⟨.vis α e, k⟩ =>
     vis α e k (by
