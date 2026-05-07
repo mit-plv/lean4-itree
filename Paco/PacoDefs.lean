@@ -291,7 +291,6 @@ elab "pcofix_wrap" : tactic =>
       let (_, mvarId) ← mvarId.intros
       let [mvarMain, mvarPf] ← mvarId.apply (.app (.fvar accId) accArg) {} | throwError "unreachable"
       let mvarMain ← mvarMain.cleanup
-      let mvarMain ← mvarMain.clear accId
       let mvarMain ← mvarMain.intro_fact unpacker
       let (converter, mvarMain) ← mvarMain.intro_fact_with_new_goal converter
       return [mvarPf, converter, mvarMain]
