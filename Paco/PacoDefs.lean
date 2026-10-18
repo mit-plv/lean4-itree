@@ -4,33 +4,25 @@ import Lean.Elab
 namespace Lean.Order.CompleteLattice
 
 open PartialOrder
--- \meet
-noncomputable instance [CompleteLattice α] : Min α where
-  min x y := inf (λ z => z = x ∨ z = y)
-
-noncomputable def top [CompleteLattice α] : α := sup (λ _ => True)
-
-scoped notation "⊤" => top
-scoped infixl:60 " ⊓ " => min
 
 theorem top_spec [CompleteLattice α] (x : α) : x ⊑ ⊤ := le_sup _ True.intro
 
 theorem meet_spec [CompleteLattice α] (x y : α) : z ⊑ x ⊓ y ↔ z ⊑ x ∧ z ⊑ y := by
-  constructor <;> simp only [min, inf_spec]
+  constructor <;> simp only [meet, inf_spec]
   · exact λ h => ⟨h _ <| Or.intro_left _ rfl, h _ <| Or.intro_right _ rfl⟩
   · intro ⟨hx, hy⟩
     intros; rename_i h
     cases h <;> (rename_i h; subst h; assumption)
 
 theorem meet_le_left [CompleteLattice α] (x : α) : x ⊑ z → x ⊓ y ⊑ z := by
-  simp only [min]
+  simp only [meet]
   intros
   apply rel_trans _ (by assumption)
   apply sup_le
   intros; rename_i h; apply h; left; rfl
 
 theorem meet_le_right [CompleteLattice α] (y : α) : y ⊑ z → x ⊓ y ⊑ z := by
-  simp only [min]
+  simp only [meet]
   intros
   apply rel_trans _ (by assumption)
   apply sup_le
@@ -73,8 +65,8 @@ theorem monotonize_mon [Lean.Order.CompleteLattice α] (f : α → α) (r : α) 
   apply rel_trans _ h'
   rw [meet_spec]
   apply And.intro
-  · apply meet_le_left _ rel_refl
-  · apply meet_le_right _ h
+  · apply CompleteLattice.meet_le_left _ rel_refl
+  · apply CompleteLattice.meet_le_right _ h
 
 theorem plfp_arg_mon [Lean.Order.CompleteLattice α] {f : α → α} (hm : monotone f) (r : α) :
   monotone (λ x => f (r ⊓ x)) := by
@@ -83,8 +75,8 @@ theorem plfp_arg_mon [Lean.Order.CompleteLattice α] {f : α → α} (hm : monot
   apply hm
   rw [meet_spec]
   apply And.intro
-  · apply meet_le_left; apply rel_refl
-  · apply meet_le_right; assumption
+  · apply CompleteLattice.meet_le_left; apply rel_refl
+  · apply CompleteLattice.meet_le_right; assumption
 
 /--
 Parameterized least fixed point, we don't "monotonize" f (⌈f⌉) as in paco for now
@@ -106,15 +98,15 @@ theorem plfp_mon [Lean.Order.CompleteLattice α] {f : α → α} (hm : monotone 
   rename_i h' _; apply rel_trans _ h'; simp only; apply hm
   rw [meet_spec]; apply And.intro
   · apply rel_trans _ (by assumption)
-    apply meet_le_left; apply rel_refl
-  · apply meet_le_right; apply rel_refl
+    apply CompleteLattice.meet_le_left; apply rel_refl
+  · apply CompleteLattice.meet_le_right; apply rel_refl
 
 theorem plfp_init [Lean.Order.CompleteLattice α] {f : α → α} (hm : monotone f) :
   lfp_monotone f hm = plfp f (hm := hm) ⊤ := by
   apply rel_antisymm <;>
   (apply le_sup; intros; apply Lean.Order.sup_le; intros; rename_i h; apply h) <;>
   (rename_i h' _; apply rel_trans _ h'; simp only) <;>
-  (rw [meet_comm, meet_top]; apply rel_refl)
+  (rw [CompleteLattice.meet_comm, CompleteLattice.meet_top])
 
 theorem plfp_unfold [Lean.Order.CompleteLattice α] {f : α → α} (hm : monotone f) :
   plfp f (hm := hm) r = f (uplfp f (hm := hm) r) := by
@@ -128,8 +120,8 @@ theorem uplfp_goal [Lean.Order.CompleteLattice α] {f : α → α} (hm : monoton
   r ⊑ z ∨ plfp f (hm := hm) r ⊑ z → uplfp (hm := hm) f r ⊑ z := by
   simp only [uplfp]
   intro h; cases h
-  · apply meet_le_left; assumption
-  · apply meet_le_right; assumption
+  · apply CompleteLattice.meet_le_left; assumption
+  · apply CompleteLattice.meet_le_right; assumption
 
 theorem uplfp_hyp [Lean.Order.CompleteLattice α] {f : α → α} (hm : monotone f) :
   z ⊑ uplfp (hm := hm) f r → z ⊑ r ∧ z ⊑ plfp f (hm := hm) r := by
@@ -156,22 +148,22 @@ theorem fun_sup_equiv {α : Sort u} {β : α → Sort v} [(x : α) → CompleteL
 theorem plfp_acc_aux [Lean.Order.CompleteLattice α] {f : α → α} (hm : monotone f) (r x : α) :
   plfp f (hm := hm) r ⊑ x ↔ plfp f (hm := hm) (r ⊓ x) ⊑ x := by
   constructor <;> (intro h; apply rel_trans _ h)
-  · apply plfp_mon hm; exact meet_le_left _ rel_refl
+  · apply plfp_mon hm; exact CompleteLattice.meet_le_left _ rel_refl
   · apply lfp_le_of_le
-    apply rel_trans _ (by rw [plfp_unfold]; apply rel_refl)
+    apply rel_trans _ (by rw [plfp_unfold])
     apply hm
     rw [uplfp, meet_spec]
     apply And.intro
     · rw [meet_spec]
-      exact And.intro (meet_le_left _ rel_refl) (meet_le_right _ h)
-    · exact meet_le_right _ rel_refl
+      exact And.intro (CompleteLattice.meet_le_left _ rel_refl) (CompleteLattice.meet_le_right _ h)
+    · exact CompleteLattice.meet_le_right _ rel_refl
 
 theorem plfp_acc [Lean.Order.CompleteLattice α] {f : α → α} (hm : monotone f) l r
   (obg : ∀ φ, φ ⊑ r → φ ⊑ l → plfp f (hm := hm) φ ⊑ l) : plfp f (hm := hm) r ⊑ l := by
   rw [plfp_acc_aux hm]
   apply obg
-  · apply meet_le_left _ rel_refl
-  · apply meet_le_right _ rel_refl
+  · apply CompleteLattice.meet_le_left _ rel_refl
+  · apply CompleteLattice.meet_le_right _ rel_refl
 
 -- tactics
 open Lean Lean.Elab
@@ -310,7 +302,7 @@ elab "destruct_last_and" : tactic =>
     return [mvarId]
 
 macro "pcofix" cih:ident : tactic => `(tactic|(
-  pinit; rw [@plfp_init] at *; pcofix_intro_acc; pcofix_wrap
+  pinit; (set_option backward.isDefEq.respectTransparency.types false in rw [@plfp_init] at *); pcofix_intro_acc; pcofix_wrap
   rename_i x; exists x -- proof for plfp_acc
   intros; constructor -- proof for converter
   · intro h x; apply h; exists x
@@ -326,11 +318,11 @@ macro "pcofix" cih:ident : tactic => `(tactic|(
   clear unpacker converter dummy _h
 ))
 
-macro "pfold" : tactic => `(tactic|(rw [@plfp_unfold]))
+macro "pfold" : tactic => `(tactic|(set_option backward.isDefEq.respectTransparency.types false in rw [@plfp_unfold]))
 syntax "punfold" " at " ident : tactic
 macro_rules
 | `(tactic| punfold at $h:ident) =>
-  `(tactic| rw [@plfp_unfold] at $h:ident)
+  `(tactic| (set_option backward.isDefEq.respectTransparency.types false in rw [@plfp_unfold] at $h:ident))
 
 elab "pinit" " at " h:ident : tactic =>
   Tactic.withMainContext do
@@ -347,7 +339,7 @@ elab "pinit" " at " h:ident : tactic =>
     Tactic.liftMetaTactic λ mvarId => do
       let mvarId ← mvarId.deltaLocalDecl hyp (c == ·)
       return [mvarId]
-    Tactic.evalTactic <| ← `(tactic|rw [@plfp_init] at $h:ident)
+    Tactic.evalTactic <| ← `(tactic|(set_option backward.isDefEq.respectTransparency.types false in rw [@plfp_init] at $h:ident))
 
 syntax "pclearbot" " at " ident : tactic
 macro_rules
@@ -460,7 +452,7 @@ elab "ptop" : tactic =>
     unless goalType.isAppOf ``Lean.Order.PartialOrder.rel do
       throwError "{goalType} is not partial order"
     let topArg := goalType.getAppArgs[3]!.cleanupAnnotations
-    unless topArg.isAppOf ``Lean.Order.CompleteLattice.top do
+    unless topArg.isAppOf ``Lean.Order.top do
       throwError "{goalType} is not CompleteLattice.top_spec"
     let cola := topArg.getAppArgs[1]!
     let le_top ← Meta.mkAppOptM ``Lean.Order.CompleteLattice.top_spec <| #[none, cola]

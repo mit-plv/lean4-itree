@@ -51,9 +51,8 @@ theorem PFunctor.M.unfold_corec'_left.{uA, uB, u} {P : PFunctor.{uA, uB}} {α : 
   intros
   apply PFunctor.M.bisim (λ t1 t2 => t1 = PFunctor.M.corec _ (Sum.inl t2)) _ _ _ rfl
   intros t1 t2 h; subst h
-  simp only [PFunctor.M.dest_corec, PFunctor.map, h_eq]
-  have ⟨a, g⟩ := t2.dest
-  exact ⟨_, _, _, rfl, rfl, fun _ => rfl⟩
+  refine ⟨t2.dest.fst, _, t2.dest.snd, ?_, (PFunctor.Obj.eta _).symm, fun _ => rfl⟩
+  rw [PFunctor.M.dest_corec, h_eq]; rfl
 
 theorem PFunctor.M.unfold_corec'.{uA, uB, u} {P : PFunctor.{uA, uB}} {α : Type u}
   (F : ∀ {X : Type (max u uA uB)}, (α → X) → α → P.M ⊕ P X) (x : α) :
@@ -66,14 +65,14 @@ theorem PFunctor.M.unfold_corec'.{uA, uB, u} {P : PFunctor.{uA, uB}} {α : Type 
     | .inr r => .corec' F r⟩ := by
   conv =>
     lhs
-    simp only [PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def, PFunctor.map, Sum.bind, Function.id_comp]
+    simp only [PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.M.corec_def, PFunctor.map, Sum.bind, Function.id_comp,
+      PFunctor.Obj.mk, PFunctor.Obj.fst, PFunctor.Obj.snd]
   match F (@Sum.inr P.M α) x with
   | .inl v =>
     simp only
     conv => rhs; rw [← (PFunctor.M.mk_dest v)]
-    congr
-    have ⟨a, g⟩ := v.dest
-    simp only; congr; funext i
+    change _ = PFunctor.M.mk ⟨v.dest.1, v.dest.2⟩
+    congr; funext i
     apply unfold_corec'_left _ (fun _ => rfl)
   | .inr ⟨a, g⟩ =>
     simp only; congr; funext i
@@ -83,7 +82,8 @@ theorem PFunctor.M.unfold_corec'.{uA, uB, u} {P : PFunctor.{uA, uB}} {α : Type 
       simp only
       apply unfold_corec'_left _ (fun _ => rfl)
     | .inr r =>
-      simp only [PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.map, Sum.bind, Function.id_comp]
+      simp only [PFunctor.M.corec', PFunctor.M.corec₁, PFunctor.map, Sum.bind, Function.id_comp,
+        PFunctor.Obj.mk, PFunctor.Obj.fst, PFunctor.Obj.snd]
 
 /-! # ----------------------------------------------------------------------- -/
 /-! # --------------------End PFunctor Utilities--------------------------- -/
