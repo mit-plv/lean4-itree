@@ -252,7 +252,6 @@ def IEq (t1 t2 : ITree ε ρ) : Prop :=
   coinductive_fixpoint monotonicity fun sim' sim hsim =>
     IEqF_monotone sim sim' hsim
 
-set_option backward.isDefEq.respectTransparency.types false in
 theorem ieq_iff_eq (t1 t2 : ITree ε ρ) : IEq t1 t2 ↔ t1 = t2 := by
   constructor
   · intro h
@@ -260,11 +259,11 @@ theorem ieq_iff_eq (t1 t2 : ITree ε ρ) : IEq t1 t2 ↔ t1 = t2 := by
     intro t1; apply ITree.dMatchOn (x := t1)
     <;> (
       intros; rename_i h1 t2 heq
-      simp only [IEq] at heq
+      replace heq := cast (IEq.eq_1 t1 t2) heq
       cases heq <;> itree_elim h1
       subst_itree_inj h1
       simp_itree_basic
-      try grind [fin1Const]
+      try exact ⟨_, _, _, rfl, rfl, by grind [fin1Const]⟩
     )
     rename_i v
     exists .ret v, elim0, elim0
