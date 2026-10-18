@@ -301,8 +301,36 @@ elab "destruct_last_and" : tactic =>
     let mvarId ← mvarId.clear lastId
     return [mvarId]
 
+/-- `prw thm at loc` is `rw [thm] at loc` with `thm`'s arguments found by unifying its
+left-hand side with the first application of the same head at default transparency.
+The `lfp_monotone` terms built by `coinductive_fixpoint` carry the `ReverseImplicationOrder`
+lattice on a `… → Prop` carrier, which is only well typed after unfolding
+`ReverseImplicationOrder`, so plain `rw [@thm]` cannot assign the instance. -/
+elab "prw " thm:ident loc:(Parser.Tactic.location)? : tactic => do
+  let thm ← realizeGlobalConstNoOverload thm
+  let eqOf (e : Expr) : Tactic.TacticM Syntax := do
+    let c ← Meta.mkConstWithFreshMVarLevels thm
+    let (args, _, ty) ← Meta.forallMetaTelescope (← Meta.inferType c)
+    let some (_, lhs, _) := ty.eq? | throwError "`{thm}` is not an equation"
+    let n := lhs.getAppNumArgs
+    let some t := (← instantiateMVars e).find?
+        (fun t => t.isAppOf lhs.getAppFn.constName && t.getAppNumArgs ≥ n)
+      | throwError "no `{lhs.getAppFn}` application found"
+    let t := mkAppN t.getAppFn (t.getAppArgs.extract 0 n)
+    unless ← Meta.withTransparency .default (Meta.isDefEq lhs t) do
+      throwError "`{thm}` does not apply to {t}"
+    Term.exprToSyntax (← instantiateMVars (mkAppN c args))
+  Tactic.withLocation (Tactic.expandOptLocation (mkOptionalNode loc))
+    (atLocal := fun h => do
+      Tactic.rewriteLocalDecl (← eqOf (← h.getType)) false h)
+    (atTarget := do
+      Tactic.rewriteTarget (← eqOf (← Tactic.getMainTarget)) false)
+    (failed := fun _ => throwError "prw: `{thm}` did not rewrite anything")
+  -- like `rw`, close the goal by `rfl` when it can
+  Tactic.evalTactic (← `(tactic| try (with_reducible rfl)))
+
 macro "pcofix" cih:ident : tactic => `(tactic|(
-  pinit; (set_option backward.isDefEq.respectTransparency.types false in rw [@plfp_init] at *); pcofix_intro_acc; pcofix_wrap
+  pinit; prw plfp_init at *; pcofix_intro_acc; pcofix_wrap
   rename_i x; exists x -- proof for plfp_acc
   intros; constructor -- proof for converter
   · intro h x; apply h; exists x
@@ -318,11 +346,11 @@ macro "pcofix" cih:ident : tactic => `(tactic|(
   clear unpacker converter dummy _h
 ))
 
-macro "pfold" : tactic => `(tactic|(set_option backward.isDefEq.respectTransparency.types false in rw [@plfp_unfold]))
+macro "pfold" : tactic => `(tactic|prw plfp_unfold)
 syntax "punfold" " at " ident : tactic
 macro_rules
 | `(tactic| punfold at $h:ident) =>
-  `(tactic| (set_option backward.isDefEq.respectTransparency.types false in rw [@plfp_unfold] at $h:ident))
+  `(tactic| prw plfp_unfold at $h:ident)
 
 elab "pinit" " at " h:ident : tactic =>
   Tactic.withMainContext do
@@ -339,7 +367,7 @@ elab "pinit" " at " h:ident : tactic =>
     Tactic.liftMetaTactic λ mvarId => do
       let mvarId ← mvarId.deltaLocalDecl hyp (c == ·)
       return [mvarId]
-    Tactic.evalTactic <| ← `(tactic|(set_option backward.isDefEq.respectTransparency.types false in rw [@plfp_init] at $h:ident))
+    Tactic.evalTactic <| ← `(tactic| prw plfp_init at $h:ident)
 
 syntax "pclearbot" " at " ident : tactic
 macro_rules
