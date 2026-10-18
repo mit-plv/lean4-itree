@@ -104,7 +104,6 @@ theorem vis_inj {ε α ρ}
   · have := eq_of_heq this.right
     funext x
     have := congr (a₁ := x) this rfl
-    simp only at this
     exact this
 
 theorem tau_inj {ε ρ} {t1 t2 : ITree ε ρ} (h : tau t1 = tau t2) : t1 = t2 := by
@@ -123,8 +122,7 @@ def dMatchOn {motive : ITree ε ρ → Sort u} (x : ITree ε ρ)
     ret v (by
       rw [elim0_eq_all snd] at hm
       simp only [ITree.ret, ret']
-      rw [←hm]
-      simp only [PFunctor.M.mk_dest]
+      exact (PFunctor.M.mk_dest x).symm.trans (congrArg PFunctor.M.mk hm)
     )
   | ⟨.tau, c⟩ =>
     tau (c 0) (by
@@ -139,8 +137,7 @@ def dMatchOn {motive : ITree ε ρ → Sort u} (x : ITree ε ρ)
   | ⟨.vis α e, k⟩ =>
     vis α e k (by
       simp only [ITree.vis, vis']
-      rw [←hm]
-      simp only [PFunctor.M.mk_dest]
+      exact (PFunctor.M.mk_dest x).symm.trans (congrArg PFunctor.M.mk hm)
     )
 
 /- Destructor utilities -/
@@ -255,6 +252,7 @@ def IEq (t1 t2 : ITree ε ρ) : Prop :=
   coinductive_fixpoint monotonicity fun sim' sim hsim =>
     IEqF_monotone sim sim' hsim
 
+set_option backward.isDefEq.respectTransparency.types false in
 theorem ieq_iff_eq (t1 t2 : ITree ε ρ) : IEq t1 t2 ↔ t1 = t2 := by
   constructor
   · intro h

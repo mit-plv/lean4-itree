@@ -32,6 +32,7 @@ inductive IterState (ι : Type u) (ρ : Type v)
 class MonadIter (m : Type u -> Type v) where
   iter : {ρ ι : Type u} → (ι -> m (IterState ι ρ)) -> ι -> m ρ
 
+set_option linter.checkUnivs false in
 instance instMonadIterStateT {σ m} [Monad m] [MI : MonadIter m] : MonadIter (StateT σ m) where
   iter step i s :=
     MonadIter.iter (fun (i, s) =>
